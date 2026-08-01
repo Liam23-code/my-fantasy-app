@@ -38,7 +38,10 @@ include = ["fantasy*", "api*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-filterwarnings = ["ignore::DeprecationWarning:pulp.*"]
+filterwarnings = [
+    "ignore::DeprecationWarning:pulp.*",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 120
