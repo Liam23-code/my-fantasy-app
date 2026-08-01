@@ -1,0 +1,65 @@
+[
+  {
+    "player_id": "nfl:player:00-0034796",
+    "name": "Lamar Jackson",
+    "position": "QB",
+    "nfl_team": "BAL",
+    "slot": "QB"
+  },
+  {
+    "player_id": "nfl:player:00-0034857",
+    "name": "Josh Allen",
+    "position": "QB",
+    "nfl_team": "BUF",
+    "slot": "RB"
+  },
+  {
+    "player_id": "nfl:player:00-0034844",
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "nfl_team": "PHI",
+    "slot": "RB"
+  },
+  {
+    "player_id": "nfl:player:00-0033280",
+    "name": "Christian McCaffrey",
+    "position": "RB",
+    "nfl_team": "SF",
+    "slot": "WR"
+  },
+  {
+    "player_id": "nfl:player:00-0039075",
+    "name": "Puka Nacua",
+    "position": "WR",
+    "nfl_team": "LA",
+    "slot": "WR"
+  },
+  {
+    "player_id": "nfl:player:00-0030506",
+    "name": "Travis Kelce",
+    "position": "TE",
+    "nfl_team": "KC",
+    "slot": "TE"
+  },
+  {
+    "player_id": "synthetic:qb:0",
+    "name": "Synthetic QB 0",
+    "position": "QB",
+    "nfl_team": "ARI",
+    "slot": "FLEX"
+  },
+  {
+    "player_id": "synthetic:qb:1",
+    "name": "Synthetic QB 1",
+    "position": "QB",
+    "nfl_team": "ATL",
+    "slot": "BENCH"
+  },
+  {
+    "player_id": "synthetic:qb:2",
+    "name": "Synthetic QB 2",
+    "position": "QB",
+    "nfl_team": "BAL",
+    "slot": "BENCH"
+  }
+]

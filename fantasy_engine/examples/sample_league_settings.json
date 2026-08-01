@@ -1,0 +1,21 @@
+{
+  "n_teams": 12,
+  "scoring_mode": "ppr",
+  "roster_requirements": {
+    "QB": 1,
+    "RB": 2,
+    "WR": 2,
+    "TE": 1,
+    "FLEX": 1,
+    "DST": 1,
+    "K": 1,
+    "BENCH": 6
+  },
+  "flex_eligible": [
+    "RB",
+    "WR",
+    "TE"
+  ],
+  "max_players_per_nfl_team": 8,
+  "faab_budget": 100
+}
