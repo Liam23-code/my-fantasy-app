@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from fantasy.draft import _replacement_levels, generate_cheatsheet, rank_players_for_draft, suggest_picks
+from fantasy.draft import _replacement_levels, generate_cheatsheet, rank_players_for_draft, simulate_draft, suggest_picks
 from fantasy.models import LeagueSettings
 
 
@@ -184,3 +184,61 @@ def test_suggest_picks_position_priority_boosts_score():
     with_wr_priority = suggest_picks(state, [rb, wr], {"position_priority": ["WR"]})
     assert with_wr_priority["best_pick"]["name"] == "WR Guy"
     assert without_priority["best_pick"]["name"] in {"RB Guy", "WR Guy"}
+
+
+def _draft_pool(n=20):
+    players = []
+    for i in range(n):
+        players.append({"player_id": f"rb{i}", "name": f"RB{i}", "position": "RB", "rushing_yards": 100 - i * 4})
+    return players
+
+
+DRAFT_SETTINGS = {
+    "n_teams": 4,
+    "scoring_mode": "ppr",
+    "roster_requirements": {"RB": 1, "WR": 0, "TE": 0, "QB": 0, "FLEX": 0, "DST": 0, "K": 0, "BENCH": 2},
+    "flex_eligible": [],
+}
+
+
+def test_simulate_draft_same_seed_is_reproducible():
+    first = simulate_draft(_draft_pool(), DRAFT_SETTINGS, rounds=3, seed=7)
+    second = simulate_draft(_draft_pool(), DRAFT_SETTINGS, rounds=3, seed=7)
+    assert first["picks"] == second["picks"]
+
+
+def test_simulate_draft_snake_order_reverses_each_round():
+    result = simulate_draft(_draft_pool(), DRAFT_SETTINGS, rounds=2, seed=1)
+    round1_teams = [p["team"] for p in result["picks"] if p["round"] == 1]
+    round2_teams = [p["team"] for p in result["picks"] if p["round"] == 2]
+    assert round1_teams == ["Team 1", "Team 2", "Team 3", "Team 4"]
+    assert round2_teams == ["Team 4", "Team 3", "Team 2", "Team 1"]
+
+
+def test_simulate_draft_no_player_drafted_twice():
+    result = simulate_draft(_draft_pool(), DRAFT_SETTINGS, rounds=3, seed=3)
+    drafted_ids = [pick["player_id"] for pick in result["picks"]]
+    assert len(drafted_ids) == len(set(drafted_ids))
+    assert len(drafted_ids) == 4 * 3  # n_teams * rounds, pool is large enough
+
+
+def test_simulate_draft_stops_gracefully_when_pool_runs_out():
+    result = simulate_draft(_draft_pool(n=5), DRAFT_SETTINGS, rounds=3, seed=1)
+    assert len(result["picks"]) == 5  # only 5 players existed, draft can't fill 12 slots
+
+
+def test_simulate_draft_default_rounds_uses_total_roster_size():
+    result = simulate_draft(_draft_pool(n=50), DRAFT_SETTINGS, seed=1)
+    expected_rounds = sum(LeagueSettings(**DRAFT_SETTINGS).roster_requirements.model_dump().values())
+    assert result["rounds"] == expected_rounds
+
+
+def test_simulate_draft_rejects_invalid_rounds():
+    with pytest.raises(ValueError):
+        simulate_draft(_draft_pool(), DRAFT_SETTINGS, rounds=0)
+
+
+def test_simulate_draft_rosters_match_picks():
+    result = simulate_draft(_draft_pool(), DRAFT_SETTINGS, rounds=3, seed=5)
+    total_rostered = sum(len(players) for players in result["rosters"].values())
+    assert total_rostered == len(result["picks"])

@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
 from fantasy.adapter import normalize_projection
 from fantasy.models import LeagueSettings, RosterRequirements
 from fantasy.scoring import calculate_fantasy_points
@@ -244,3 +246,58 @@ def suggest_picks(
     best_pick = ranked[0]
     alternatives = ranked[1:5]
     return {"best_pick": best_pick, "alternatives": alternatives}
+
+
+def simulate_draft(
+    projections: list[Any],
+    league_settings: dict[str, Any] | LeagueSettings,
+    rounds: int | None = None,
+    seed: int | None = None,
+) -> dict[str, Any]:
+    """Simulate a snake mock draft (round 1 goes 1..N, round 2 goes N..1, etc.).
+
+    Each pick samples from the top 3 remaining players weighted by VOR
+    (softmax-like, via ``np.random.Generator.choice``) rather than always
+    taking the single best player, so the simulation isn't perfectly
+    deterministic team-to-team -- but ``seed`` makes a given run fully
+    reproducible. ``rounds`` defaults to one team's total roster size
+    (starters + bench + IR + taxi).
+    """
+    settings = _coerce_league_settings(league_settings)
+    if rounds is None:
+        rounds = sum(settings.roster_requirements.model_dump().values())
+    if rounds < 1:
+        raise ValueError("rounds must be >= 1")
+
+    remaining = rank_players_for_draft(projections, settings)
+    rng = np.random.default_rng(seed)
+    rosters: dict[str, list[dict[str, Any]]] = {f"Team {team}": [] for team in range(1, settings.n_teams + 1)}
+    picks: list[dict[str, Any]] = []
+    overall_pick = 0
+
+    for round_number in range(1, rounds + 1):
+        order = range(1, settings.n_teams + 1) if round_number % 2 == 1 else range(settings.n_teams, 0, -1)
+        for team_number in order:
+            if not remaining:
+                break
+            overall_pick += 1
+            pool = remaining[: min(3, len(remaining))]
+            weights = np.array([max(candidate["vor"], 0.01) for candidate in pool])
+            weights = weights / weights.sum()
+            choice_index = int(rng.choice(len(pool), p=weights))
+            player = remaining.pop(choice_index)
+            team_name = f"Team {team_number}"
+            rosters[team_name].append(player)
+            picks.append(
+                {
+                    "overall_pick": overall_pick,
+                    "round": round_number,
+                    "team": team_name,
+                    "player_id": player["player_id"],
+                    "name": player["name"],
+                    "position": player["position"],
+                    "vor": player["vor"],
+                }
+            )
+
+    return {"picks": picks, "rosters": rosters, "n_teams": settings.n_teams, "rounds": rounds, "seed": seed}
