@@ -149,6 +149,31 @@ def test_normalize_projections_batch(named_player_projections):
     assert {r["position"] for r in results} == {"QB", "RB", "WR", "TE"}
 
 
+def test_extra_draft_context_fields_are_carried_through():
+    result = normalize_projection(
+        {
+            "name": "Questionable Guy",
+            "position": "WR",
+            "status": "questionable",
+            "bye_week": "9",
+            "percent_owned": 42.5,
+            "adp": 88,
+        }
+    )
+    assert result["injury_status"] == "QUESTIONABLE"
+    assert result["bye_week"] == 9
+    assert result["ownership_pct"] == pytest.approx(42.5)
+    assert result["adp"] == pytest.approx(88.0)
+
+
+def test_extra_draft_context_fields_default_to_none_when_absent(lamar_jackson_projection):
+    result = normalize_projection(lamar_jackson_projection)
+    assert result["injury_status"] is None
+    assert result["bye_week"] is None
+    assert result["ownership_pct"] is None
+    assert result["adp"] is None
+
+
 def test_numeric_strings_in_source_are_coerced():
     result = normalize_projection({"name": "X", "position": "QB", "passing_yards": "245.0", "season": "2026"})
     assert result["passing_yards"] == pytest.approx(245.0)

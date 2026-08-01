@@ -63,7 +63,18 @@ DISTRIBUTION_ALIASES: dict[str, tuple[str, ...]] = {
     "ceiling": ("ceiling",),
 }
 
-ALL_ALIASES: dict[str, tuple[str, ...]] = {**IDENTITY_ALIASES, **STAT_ALIASES, **DISTRIBUTION_ALIASES}
+# Not part of the strict CanonicalProjection schema (section 4 of the spec),
+# but draft/waiver rationale needs them when a source happens to provide
+# them, so they are carried through on the plain-dict path. Silently dropped
+# by CanonicalProjection's extra="ignore" when as_model=True.
+EXTRA_ALIASES: dict[str, tuple[str, ...]] = {
+    "injury_status": ("injury_status", "status", "injury"),
+    "bye_week": ("bye_week",),
+    "ownership_pct": ("ownership_pct", "percent_owned", "owned_pct"),
+    "adp": ("adp", "average_draft_position"),
+}
+
+ALL_ALIASES: dict[str, tuple[str, ...]] = {**IDENTITY_ALIASES, **STAT_ALIASES, **DISTRIBUTION_ALIASES, **EXTRA_ALIASES}
 
 
 def _to_mapping(source: Any) -> dict[str, Any]:
@@ -120,6 +131,19 @@ def _resolve_distribution(row: dict[str, Any]) -> dict[str, float | None]:
     return resolved
 
 
+def _resolve_extras(row: dict[str, Any]) -> dict[str, Any]:
+    extras: dict[str, Any] = {}
+    for field, aliases in EXTRA_ALIASES.items():
+        raw = _first_present(row, aliases)
+        if field in {"bye_week"}:
+            extras[field] = int(safe_float(raw)) if raw is not None else None
+        elif field in {"ownership_pct", "adp"}:
+            extras[field] = safe_float(raw) if raw is not None else None
+        else:
+            extras[field] = str(raw).strip().upper() if raw is not None else None
+    return extras
+
+
 def normalize_projection(
     source: Any,
     loader: Callable[[Any], Any] | None = None,
@@ -172,6 +196,7 @@ def normalize_projection(
     identity = _resolve_identity(identity_row)
     stats = _resolve_stats(stats_row)
     distribution = _resolve_distribution(stats_row)
+    extras = _resolve_extras(identity_row)
 
     if distribution["floor"] is None and "low" in confidence:
         distribution["floor"] = safe_float(confidence.get("low"))
@@ -184,6 +209,7 @@ def normalize_projection(
         **identity,
         **stats,
         **distribution,
+        **extras,
         "drivers": [str(item) for item in drivers] if isinstance(drivers, (list, tuple)) else [],
     }
 
