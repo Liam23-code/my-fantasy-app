@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    paths:
+      - "fantasy_engine/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "fantasy_engine/**"
+      - ".github/workflows/ci.yml"
+
+defaults:
+  run:
+    working-directory: fantasy_engine
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: fantasy_engine/pyproject.toml
+
+      - name: Install package with dev dependencies
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+
+      # ruff covers lint (flake8-equivalent) + import sorting (isort-equivalent,
+      # the "I" rule set) + formatting (ruff format is black-compatible) in one
+      # tool, so there's no separate black/isort step.
+      - name: Lint (ruff check)
+        run: ruff check .
+
+      - name: Format check (ruff format, black-compatible)
+        run: ruff format --check .
+
+      - name: Type check (mypy)
+        run: mypy fantasy api
+
+      - name: Run tests with coverage
+        run: pytest --cov=fantasy --cov=api --cov-report=term-missing --cov-report=xml
+
+      - name: Run example scripts as a smoke test
+        run: |
+          python examples/generate_sample_data.py
+          python examples/validate_matrix.py
+          python examples/quickstart.py
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: fantasy_engine/coverage.xml
