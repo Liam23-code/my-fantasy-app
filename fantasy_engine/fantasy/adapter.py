@@ -72,6 +72,7 @@ EXTRA_ALIASES: dict[str, tuple[str, ...]] = {
     "bye_week": ("bye_week",),
     "ownership_pct": ("ownership_pct", "percent_owned", "owned_pct"),
     "adp": ("adp", "average_draft_position"),
+    "schedule_difficulty": ("schedule_difficulty", "strength_of_schedule", "sos"),
 }
 
 ALL_ALIASES: dict[str, tuple[str, ...]] = {**IDENTITY_ALIASES, **STAT_ALIASES, **DISTRIBUTION_ALIASES, **EXTRA_ALIASES}
@@ -137,7 +138,7 @@ def _resolve_extras(row: dict[str, Any]) -> dict[str, Any]:
         raw = _first_present(row, aliases)
         if field in {"bye_week"}:
             extras[field] = int(safe_float(raw)) if raw is not None else None
-        elif field in {"ownership_pct", "adp"}:
+        elif field in {"ownership_pct", "adp", "schedule_difficulty"}:
             extras[field] = safe_float(raw) if raw is not None else None
         else:
             extras[field] = str(raw).strip().upper() if raw is not None else None

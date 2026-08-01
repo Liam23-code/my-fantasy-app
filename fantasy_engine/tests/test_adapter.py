@@ -166,6 +166,11 @@ def test_extra_draft_context_fields_are_carried_through():
     assert result["adp"] == pytest.approx(88.0)
 
 
+def test_schedule_difficulty_extra_field_is_carried_through():
+    result = normalize_projection({"name": "X", "position": "RB", "strength_of_schedule": 72})
+    assert result["schedule_difficulty"] == pytest.approx(72.0)
+
+
 def test_extra_draft_context_fields_default_to_none_when_absent(lamar_jackson_projection):
     result = normalize_projection(lamar_jackson_projection)
     assert result["injury_status"] is None
