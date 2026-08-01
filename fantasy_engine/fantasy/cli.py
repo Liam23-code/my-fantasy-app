@@ -9,6 +9,7 @@ Usage::
 Every command reads plain JSON files so it's trivially scriptable and
 mockable in tests -- there's no hidden network call anywhere in this module.
 """
+
 from __future__ import annotations
 
 import json

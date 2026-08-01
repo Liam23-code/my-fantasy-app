@@ -14,6 +14,7 @@ this package's only numeric dependency is numpy (see ``pyproject.toml``).
 Initialization is deterministic (evenly spaced across the value-sorted
 players) rather than random, so tiering is fully reproducible run to run.
 """
+
 from __future__ import annotations
 
 import csv
@@ -53,9 +54,7 @@ def _seed_centroids(points: np.ndarray, k: int) -> np.ndarray:
     """
     chosen = [int(np.argmax(points[:, 0]))]
     while len(chosen) < k:
-        distances_to_nearest_centroid = np.min(
-            np.linalg.norm(points[:, None, :] - points[None, chosen, :], axis=2), axis=1
-        )
+        distances_to_nearest_centroid = np.min(np.linalg.norm(points[:, None, :] - points[None, chosen, :], axis=2), axis=1)
         distances_to_nearest_centroid[chosen] = -1.0  # never re-pick an existing centroid
         chosen.append(int(np.argmax(distances_to_nearest_centroid)))
     return points[chosen].copy()
@@ -102,7 +101,7 @@ def _cluster_position_group(players: list[dict[str, Any]], max_tiers: int) -> No
     ranked_clusters = sorted(cluster_mean_value, key=lambda cluster: cluster_mean_value[cluster], reverse=True)
     tier_by_cluster = {cluster: tier for tier, cluster in enumerate(ranked_clusters, start=1)}
 
-    for player, label in zip(players, labels):
+    for player, label in zip(players, labels, strict=True):
         player["tier"] = tier_by_cluster[label]
 
 
@@ -155,8 +154,19 @@ def generate_printable_cheatsheet(tiered_players: list[dict[str, Any]]) -> str:
 
 
 CSV_COLUMNS = [
-    "tier", "position", "position_rank", "overall_rank", "name", "team",
-    "points", "vor", "median", "floor", "ceiling", "volatility", "rationale",
+    "tier",
+    "position",
+    "position_rank",
+    "overall_rank",
+    "name",
+    "team",
+    "points",
+    "vor",
+    "median",
+    "floor",
+    "ceiling",
+    "volatility",
+    "rationale",
 ]
 
 

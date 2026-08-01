@@ -1,7 +1,6 @@
 """Unit tests for fantasy.waiver."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from fantasy.models import LeagueSettings
 from fantasy.waiver import waiver_recommendations

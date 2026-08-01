@@ -4,6 +4,7 @@ Nothing else in the test suite imports examples/quickstart.py or
 examples/validate_matrix.py, so without this they could silently rot as the
 rest of the package changes underneath them.
 """
+
 from __future__ import annotations
 
 import subprocess

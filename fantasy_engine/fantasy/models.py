@@ -6,6 +6,7 @@ the architecture note in ``README.md``. Pydantic models live here so the API
 layer, config files, and anything a user hand-writes gets real validation and
 helpful error messages.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -76,11 +77,7 @@ class RosterRequirements(BaseModel):
     TAXI: int = 0
 
     def starting_slots(self) -> dict[str, int]:
-        return {
-            slot: count
-            for slot, count in self.model_dump().items()
-            if slot not in {"BENCH", "IR", "TAXI"} and count > 0
-        }
+        return {slot: count for slot, count in self.model_dump().items() if slot not in {"BENCH", "IR", "TAXI"} and count > 0}
 
 
 class LeagueSettings(BaseModel):

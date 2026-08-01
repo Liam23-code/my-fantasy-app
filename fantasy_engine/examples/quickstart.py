@@ -10,6 +10,7 @@ waiver recommendations, trade analysis, and tiering + CSV export. Nothing
 here talks to a network -- it's all local JSON, so it also doubles as a
 smoke test you can read top to bottom.
 """
+
 from __future__ import annotations
 
 import json

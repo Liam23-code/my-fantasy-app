@@ -1,4 +1,5 @@
 """Unit tests for fantasy.pipeline."""
+
 from __future__ import annotations
 
 import json
@@ -8,7 +9,12 @@ import pytest
 from fantasy.models import LeagueSettings
 from fantasy.pipeline import diff_snapshots, load_snapshot, persist_snapshot, update_weekly
 
-SETTINGS = {"n_teams": 4, "scoring_mode": "ppr", "roster_requirements": {"RB": 1, "WR": 1, "FLEX": 0, "QB": 0, "TE": 0, "DST": 0, "K": 0, "BENCH": 0}, "flex_eligible": []}
+SETTINGS = {
+    "n_teams": 4,
+    "scoring_mode": "ppr",
+    "roster_requirements": {"RB": 1, "WR": 1, "FLEX": 0, "QB": 0, "TE": 0, "DST": 0, "K": 0, "BENCH": 0},
+    "flex_eligible": [],
+}
 
 
 def _player(pid, name, position, points_field, value, **extra):

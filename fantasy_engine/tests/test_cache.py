@@ -1,4 +1,5 @@
 """Unit tests for fantasy.cache."""
+
 from __future__ import annotations
 
 import sys
@@ -225,9 +226,7 @@ def test_cached_calculate_fantasy_points_different_custom_rules_do_not_collide()
     cache = LRUCache()
     projection = {"player_id": "p1", "passing_yards": 100}
     default_result = cached_calculate_fantasy_points(projection, cache, mode="ppr")
-    custom_result = cached_calculate_fantasy_points(
-        projection, cache, mode="ppr", custom_rules={"multipliers": {"passing_yards": 1.0}}
-    )
+    custom_result = cached_calculate_fantasy_points(projection, cache, mode="ppr", custom_rules={"multipliers": {"passing_yards": 1.0}})
     assert default_result["total_points"] != custom_result["total_points"]
 
 

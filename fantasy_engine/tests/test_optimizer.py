@@ -1,4 +1,5 @@
 """Unit tests for fantasy.optimizer."""
+
 from __future__ import annotations
 
 import pytest
@@ -178,7 +179,9 @@ def test_solve_ilp_exception_falls_back_to_greedy(sample_roster, sample_projecti
 
 def test_greedy_solver_honors_locked_players_directly(sample_roster, sample_projections):
     lineup = optimize_lineup(
-        sample_roster, sample_projections, SIMPLE_SETTINGS,
+        sample_roster,
+        sample_projections,
+        SIMPLE_SETTINGS,
         constraints={"solver": "greedy", "locked_player_ids": ["rb3"]},
     )
     starter_names = {s["name"] for s in lineup["starters"]}
@@ -189,7 +192,9 @@ def test_greedy_solver_does_not_double_count_a_locked_top_ranked_player(sample_r
     # Locking RB1 (already the #1 RB by points) must not cause the dedicated
     # fill loop to count it twice when it re-encounters RB1 in sorted order.
     lineup = optimize_lineup(
-        sample_roster, sample_projections, SIMPLE_SETTINGS,
+        sample_roster,
+        sample_projections,
+        SIMPLE_SETTINGS,
         constraints={"solver": "greedy", "locked_player_ids": ["rb1"]},
     )
     rb_starters = [s for s in lineup["starters"] if s["position"] == "RB" and s["slot"] == "RB"]

@@ -1,4 +1,5 @@
 """Unit tests for the FastAPI surface (api.main, api.data, api.schemas)."""
+
 from __future__ import annotations
 
 import time

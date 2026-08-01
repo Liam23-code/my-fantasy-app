@@ -28,9 +28,11 @@ Recognized input shapes:
 Nothing here executes code from the input; every field is looked up by a
 fixed alias list and coerced with :func:`fantasy.utils.safe_float`.
 """
+
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any, Literal, overload
 
 from fantasy.models import CanonicalProjection
 from fantasy.utils import safe_float
@@ -89,8 +91,7 @@ def _to_mapping(source: Any) -> dict[str, Any]:
     if hasattr(source, "__dict__"):
         return dict(vars(source))
     raise TypeError(
-        f"Cannot normalize projection of type {type(source).__name__}; "
-        "expected a dict, a project_nfl_player()-shaped mapping, or an object with attributes."
+        f"Cannot normalize projection of type {type(source).__name__}; expected a dict, a project_nfl_player()-shaped mapping, or an object with attributes."
     )
 
 
@@ -145,6 +146,10 @@ def _resolve_extras(row: dict[str, Any]) -> dict[str, Any]:
     return extras
 
 
+@overload
+def normalize_projection(source: Any, loader: Callable[[Any], Any] | None = None, as_model: Literal[False] = False) -> dict[str, Any]: ...
+@overload
+def normalize_projection(source: Any, loader: Callable[[Any], Any] | None = None, *, as_model: Literal[True]) -> CanonicalProjection: ...
 def normalize_projection(
     source: Any,
     loader: Callable[[Any], Any] | None = None,
@@ -176,8 +181,7 @@ def normalize_projection(
     if isinstance(source, (str, int)) and not isinstance(source, bool):
         if loader is None:
             raise ValueError(
-                f"normalize_projection() received a bare id/name ({source!r}) with no loader; "
-                "pass loader=project_nfl_player (or similar) to resolve it."
+                f"normalize_projection() received a bare id/name ({source!r}) with no loader; pass loader=project_nfl_player (or similar) to resolve it."
             )
         source = loader(source)
 

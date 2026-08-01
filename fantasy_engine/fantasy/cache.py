@@ -13,12 +13,14 @@ Usage::
 falls back to the in-memory LRU otherwise -- callers never need an
 ``if redis_available`` branch of their own.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 from collections import OrderedDict
-from typing import Any, Callable, Protocol
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from fantasy.adapter import IDENTITY_ALIASES, normalize_projection
 from fantasy.scoring import calculate_fantasy_points

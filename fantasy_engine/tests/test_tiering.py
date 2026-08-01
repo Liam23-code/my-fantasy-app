@@ -1,4 +1,5 @@
 """Unit tests for fantasy.tiering."""
+
 from __future__ import annotations
 
 import csv
@@ -19,8 +20,11 @@ def _rb(name, median, volatility=0.0, **extra):
 
 def test_well_separated_players_cluster_into_expected_tiers():
     players = [
-        _wr("WR1", 30), _wr("WR2", 29), _wr("WR3", 28),
-        _wr("WR4", 15), _wr("WR5", 14),
+        _wr("WR1", 30),
+        _wr("WR2", 29),
+        _wr("WR3", 28),
+        _wr("WR4", 15),
+        _wr("WR5", 14),
         _wr("WR6", 5),
     ]
     tiered = tier_players(players, max_tiers=3)
@@ -33,8 +37,10 @@ def test_well_separated_players_cluster_into_expected_tiers():
 
 def test_tiers_are_computed_independently_per_position():
     players = [
-        _wr("WR Great", 100), _wr("WR Bad", 1),
-        _rb("RB Great", 100), _rb("RB Bad", 1),
+        _wr("WR Great", 100),
+        _wr("WR Bad", 1),
+        _rb("RB Great", 100),
+        _rb("RB Bad", 1),
     ]
     tiered = tier_players(players, max_tiers=2)
     by_name = {p["name"]: p for p in tiered}
@@ -128,8 +134,19 @@ def test_csv_export_has_expected_columns_and_row_count():
     rows = list(reader)
     assert len(rows) == 2
     assert set(reader.fieldnames) == {
-        "tier", "position", "position_rank", "overall_rank", "name", "team",
-        "points", "vor", "median", "floor", "ceiling", "volatility", "rationale",
+        "tier",
+        "position",
+        "position_rank",
+        "overall_rank",
+        "name",
+        "team",
+        "points",
+        "vor",
+        "median",
+        "floor",
+        "ceiling",
+        "volatility",
+        "rationale",
     }
 
 

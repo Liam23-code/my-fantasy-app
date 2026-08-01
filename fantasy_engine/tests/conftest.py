@@ -6,6 +6,7 @@ rushing QB, a rushing+passing QB, a receiving-work RB, a dual-threat RB, a
 WR, and a receiving-only TE. Keeping the same names makes it easy to eyeball
 that fantasy scores track the underlying projections sensibly.
 """
+
 from __future__ import annotations
 
 import pytest

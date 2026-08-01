@@ -5,6 +5,7 @@ sane upper bound: these are the API's only real attack surface (arbitrary
 compute cost via an oversized or degenerate payload), since ``custom_rules``
 is pure data and never evaluated as code.
 """
+
 from __future__ import annotations
 
 from typing import Any

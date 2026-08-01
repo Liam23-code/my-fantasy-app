@@ -13,6 +13,7 @@ Run directly::
 Exits 0 and prints "ALL CHECKS PASSED" on success; exits 1 and prints which
 assertion failed otherwise, so it's usable as a CI smoke test too.
 """
+
 from __future__ import annotations
 
 import json
@@ -76,8 +77,12 @@ def main() -> int:
 
     print("ALL CHECKS PASSED")
     for name, result in [
-        ("Lamar Jackson", lamar), ("Josh Allen", allen), ("Saquon Barkley", barkley),
-        ("Christian McCaffrey", cmc), ("Puka Nacua", nacua), ("Travis Kelce", kelce),
+        ("Lamar Jackson", lamar),
+        ("Josh Allen", allen),
+        ("Saquon Barkley", barkley),
+        ("Christian McCaffrey", cmc),
+        ("Puka Nacua", nacua),
+        ("Travis Kelce", kelce),
     ]:
         print(f"  {name:<22} {result['total_points']:>6.2f} pts (ppr)")
     return 0

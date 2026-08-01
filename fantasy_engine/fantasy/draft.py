@@ -15,6 +15,7 @@ starter at their position, once FLEX-eligible depth is accounted for. This is
 what makes a PPR league rank pass-catching backs differently from a standard
 league using the exact same raw projections.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -230,9 +231,10 @@ def suggest_picks(
 
     for player in ranked:
         need_multiplier = _position_need_multiplier(roster_position_counts, settings, player["position"])
-        median = player.get("median") if player.get("median") is not None else player["points"]
-        floor = player.get("floor") if player.get("floor") is not None else player["points"]
-        ceiling = player.get("ceiling") if player.get("ceiling") is not None else player["points"]
+        raw_median, raw_floor, raw_ceiling = player.get("median"), player.get("floor"), player.get("ceiling")
+        median = raw_median if raw_median is not None else player["points"]
+        floor = raw_floor if raw_floor is not None else player["points"]
+        ceiling = raw_ceiling if raw_ceiling is not None else player["points"]
         risk_adjusted_points = weights["floor"] * floor + weights["median"] * median + weights["ceiling"] * ceiling
         priority_boost = 1.1 if player["position"] in priority_positions else 1.0
         base_value = player["vor"] if player["vor"] > 0 else player["points"]

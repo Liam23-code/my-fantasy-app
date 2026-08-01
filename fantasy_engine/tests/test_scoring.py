@@ -1,4 +1,5 @@
 """Unit tests for fantasy.scoring."""
+
 from __future__ import annotations
 
 import pytest

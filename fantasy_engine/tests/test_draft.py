@@ -1,9 +1,16 @@
 """Unit tests for fantasy.draft."""
+
 from __future__ import annotations
 
 import pytest
 
-from fantasy.draft import _replacement_levels, generate_cheatsheet, rank_players_for_draft, simulate_draft, suggest_picks
+from fantasy.draft import (
+    _replacement_levels,
+    generate_cheatsheet,
+    rank_players_for_draft,
+    simulate_draft,
+    suggest_picks,
+)
 from fantasy.models import LeagueSettings
 
 
@@ -137,12 +144,22 @@ def test_suggest_picks_invalid_risk_tolerance_raises():
 
 def test_suggest_picks_boom_bust_favors_high_ceiling_over_safe_floor():
     safe_player = {
-        "player_id": "safe", "name": "Safe Player", "position": "WR",
-        "receiving_yards": 60, "floor": 8.0, "median": 9.0, "ceiling": 10.0,
+        "player_id": "safe",
+        "name": "Safe Player",
+        "position": "WR",
+        "receiving_yards": 60,
+        "floor": 8.0,
+        "median": 9.0,
+        "ceiling": 10.0,
     }
     volatile_player = {
-        "player_id": "volatile", "name": "Volatile Player", "position": "WR",
-        "receiving_yards": 60, "floor": 2.0, "median": 9.0, "ceiling": 25.0,
+        "player_id": "volatile",
+        "name": "Volatile Player",
+        "position": "WR",
+        "receiving_yards": 60,
+        "floor": 2.0,
+        "median": 9.0,
+        "ceiling": 25.0,
     }
     state = {"league_settings": {}, "my_roster": []}
     boom_bust = suggest_picks(state, [safe_player, volatile_player], {"risk_tolerance": "boom_bust"})

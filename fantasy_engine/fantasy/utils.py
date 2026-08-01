@@ -4,6 +4,7 @@ Kept separate from ``modules.data_quality`` in the sibling NFL analytics repo
 on purpose: this package must run standalone (see the migration guide in
 ``README.md``), so it does not import anything from that project.
 """
+
 from __future__ import annotations
 
 import math

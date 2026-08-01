@@ -1,4 +1,5 @@
 """Unit tests for fantasy.adapter."""
+
 from __future__ import annotations
 
 from collections import namedtuple

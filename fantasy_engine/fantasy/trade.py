@@ -19,6 +19,7 @@ remaining season in favor of Team A; ``win_prob_delta`` comes from the Monte
 Carlo simulation and is Team A's probability of ending up net ahead on the
 trade, minus the 0.5 break-even baseline.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -163,8 +164,7 @@ def evaluate_trade(
         f"{', '.join(p['name'] for p in gives_b) or 'nothing'} ({a_receives_mean:.1f} pts).",
         f"Net swing: {fair_value:+.1f} pts over the remaining season in favor of "
         f"{'Team A' if fair_value > 0 else 'Team B' if fair_value < 0 else 'neither side'}.",
-        f"Monte Carlo ({monte_carlo_iterations} simulations): Team A ends up ahead in "
-        f"{a_win_probability * 100:.1f}% of simulated outcomes.",
+        f"Monte Carlo ({monte_carlo_iterations} simulations): Team A ends up ahead in {a_win_probability * 100:.1f}% of simulated outcomes.",
     ]
     a_need_note = _need_context(team_a_roster, settings, gives_b)
     if a_need_note:

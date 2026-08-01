@@ -14,6 +14,7 @@ supplied, a suggested bid is included; when the league is an auction league
 (``league_settings.is_auction``), a suggested auction-style dollar value is
 included instead.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,7 +23,7 @@ from fantasy.adapter import normalize_projection
 from fantasy.draft import _position_need_multiplier, _replacement_levels
 from fantasy.models import LeagueSettings
 from fantasy.scoring import calculate_fantasy_points
-from fantasy.utils import clamp, safe_float
+from fantasy.utils import clamp
 
 INACTIVE_STATUSES = {"OUT", "IR", "DOUBTFUL"}
 

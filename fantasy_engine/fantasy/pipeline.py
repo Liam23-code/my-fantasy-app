@@ -16,11 +16,13 @@ Usage::
 callables rather than data, specifically so tests (and the CLI) can inject a
 fake data source without touching a real provider.
 """
+
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from fantasy.draft import rank_players_for_draft
 from fantasy.models import LeagueSettings
@@ -45,9 +47,7 @@ def persist_snapshot(week: int, players: list[dict[str, Any]], snapshot_dir: str
     path = snapshot_path(week, snapshot_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        p["player_id"]: {"name": p.get("name", ""), "position": p.get("position", ""), "points": p.get("points", 0.0)}
-        for p in players
-        if p.get("player_id")
+        p["player_id"]: {"name": p.get("name", ""), "position": p.get("position", ""), "points": p.get("points", 0.0)} for p in players if p.get("player_id")
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path

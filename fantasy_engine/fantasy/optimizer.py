@@ -15,6 +15,7 @@ find a solution for any reason), a greedy heuristic produces a very close --
 usually identical, for realistic rosters -- answer instead, so the feature
 never hard-depends on a working MILP solver being installed.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -169,9 +170,9 @@ def _solve_greedy(
             team_counts[candidate["nfl_team"]] = team_counts.get(candidate["nfl_team"], 0) + 1
 
     for player_id in locked:
-        candidate = next((c for c in pool if c["player_id"] == player_id), None)
-        if candidate:
-            _take(candidate)
+        locked_candidate: dict[str, Any] | None = next((c for c in pool if c["player_id"] == player_id), None)
+        if locked_candidate:
+            _take(locked_candidate)
 
     used_ids: set[str] = set(started)
     flex_eligible = list(settings.flex_eligible)
@@ -273,9 +274,7 @@ def optimize_lineup(
         starters.append({**candidate, "slot": slot})
 
     unfilled_slots = [
-        position
-        for position, required in dedicated.items()
-        if sum(1 for c in starters if c["position"] == position and c["slot"] == position) < required
+        position for position, required in dedicated.items() if sum(1 for c in starters if c["position"] == position and c["slot"] == position) < required
     ]
 
     return {

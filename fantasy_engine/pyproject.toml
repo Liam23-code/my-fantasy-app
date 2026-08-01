@@ -44,13 +44,13 @@ filterwarnings = [
 ]
 
 [tool.ruff]
-line-length = 120
+line-length = 160
 target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"  # matches the numpy stubs' minimum syntax requirement; the package itself still declares requires-python >=3.11
 ignore_missing_imports = true
 disallow_untyped_defs = false

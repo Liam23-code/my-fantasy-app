@@ -10,6 +10,7 @@ so tests -- and any deployment that wants a different rate limit -- can build
 an independent app with its own middleware state instead of sharing one
 process-wide rate-limit counter.
 """
+
 from __future__ import annotations
 
 import time

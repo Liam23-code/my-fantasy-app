@@ -1,4 +1,5 @@
 """Unit tests for fantasy.cli."""
+
 from __future__ import annotations
 
 import json
@@ -39,10 +40,15 @@ def test_update_week_basic_run(tmp_path):
     result = CliRunner().invoke(
         main,
         [
-            "update-week", "--week", "1",
-            "--projections-file", projections_file,
-            "--settings-file", settings_file,
-            "--snapshot-dir", str(tmp_path / "snapshots"),
+            "update-week",
+            "--week",
+            "1",
+            "--projections-file",
+            projections_file,
+            "--settings-file",
+            settings_file,
+            "--snapshot-dir",
+            str(tmp_path / "snapshots"),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -53,18 +59,28 @@ def test_update_week_basic_run(tmp_path):
 def test_update_week_with_roster_shows_lineup(tmp_path):
     projections_file = _write_json(tmp_path, "projections.json", PROJECTIONS)
     settings_file = _write_json(tmp_path, "settings.json", SETTINGS)
-    roster_file = _write_json(tmp_path, "roster.json", [
-        {"player_id": "rb1", "name": "RB One", "position": "RB", "slot": "RB"},
-        {"player_id": "wr1", "name": "WR One", "position": "WR", "slot": "WR"},
-    ])
+    roster_file = _write_json(
+        tmp_path,
+        "roster.json",
+        [
+            {"player_id": "rb1", "name": "RB One", "position": "RB", "slot": "RB"},
+            {"player_id": "wr1", "name": "WR One", "position": "WR", "slot": "WR"},
+        ],
+    )
     result = CliRunner().invoke(
         main,
         [
-            "update-week", "--week", "1",
-            "--projections-file", projections_file,
-            "--settings-file", settings_file,
-            "--roster-file", roster_file,
-            "--snapshot-dir", str(tmp_path / "snapshots"),
+            "update-week",
+            "--week",
+            "1",
+            "--projections-file",
+            projections_file,
+            "--settings-file",
+            settings_file,
+            "--roster-file",
+            roster_file,
+            "--snapshot-dir",
+            str(tmp_path / "snapshots"),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -74,17 +90,27 @@ def test_update_week_with_roster_shows_lineup(tmp_path):
 def test_update_week_with_available_players_shows_waiver_target(tmp_path):
     projections_file = _write_json(tmp_path, "projections.json", PROJECTIONS)
     settings_file = _write_json(tmp_path, "settings.json", SETTINGS)
-    available_file = _write_json(tmp_path, "available.json", [
-        {"player_id": "fa1", "name": "Free Agent", "position": "WR", "receiving_yards": 40},
-    ])
+    available_file = _write_json(
+        tmp_path,
+        "available.json",
+        [
+            {"player_id": "fa1", "name": "Free Agent", "position": "WR", "receiving_yards": 40},
+        ],
+    )
     result = CliRunner().invoke(
         main,
         [
-            "update-week", "--week", "1",
-            "--projections-file", projections_file,
-            "--settings-file", settings_file,
-            "--available-file", available_file,
-            "--snapshot-dir", str(tmp_path / "snapshots"),
+            "update-week",
+            "--week",
+            "1",
+            "--projections-file",
+            projections_file,
+            "--settings-file",
+            settings_file,
+            "--available-file",
+            available_file,
+            "--snapshot-dir",
+            str(tmp_path / "snapshots"),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -97,10 +123,15 @@ def test_update_week_writes_output_json(tmp_path):
     result = CliRunner().invoke(
         main,
         [
-            "update-week", "--week", "1",
-            "--projections-file", projections_file,
-            "--snapshot-dir", str(tmp_path / "snapshots"),
-            "--output", str(output_file),
+            "update-week",
+            "--week",
+            "1",
+            "--projections-file",
+            projections_file,
+            "--snapshot-dir",
+            str(tmp_path / "snapshots"),
+            "--output",
+            str(output_file),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -112,10 +143,14 @@ def test_update_week_reports_movers_on_second_week(tmp_path):
     projections_file = _write_json(tmp_path, "projections.json", PROJECTIONS)
     snapshot_dir = str(tmp_path / "snapshots")
     CliRunner().invoke(main, ["update-week", "--week", "1", "--projections-file", projections_file, "--snapshot-dir", snapshot_dir])
-    week2_projections = _write_json(tmp_path, "week2.json", [
-        {"player_id": "rb1", "name": "RB One", "position": "RB", "rushing_yards": 150},
-        {"player_id": "wr1", "name": "WR One", "position": "WR", "receiving_yards": 60},
-    ])
+    week2_projections = _write_json(
+        tmp_path,
+        "week2.json",
+        [
+            {"player_id": "rb1", "name": "RB One", "position": "RB", "rushing_yards": 150},
+            {"player_id": "wr1", "name": "WR One", "position": "WR", "receiving_yards": 60},
+        ],
+    )
     result = CliRunner().invoke(main, ["update-week", "--week", "2", "--projections-file", week2_projections, "--snapshot-dir", snapshot_dir])
     assert result.exit_code == 0, result.output
     assert "Biggest mover vs last week: RB One" in result.output

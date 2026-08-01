@@ -5,6 +5,7 @@ pin down exact numeric behavior), these exercise the real example data end
 to end and check for internal consistency and the absence of exceptions --
 closer to what actually happens when someone runs ``examples/quickstart.py``.
 """
+
 from __future__ import annotations
 
 import json
@@ -98,8 +99,12 @@ def test_simulate_draft_full_run_on_real_pool(sample_projections, league_setting
 
 def test_evaluate_trade_between_two_named_players(sample_projections, league_settings):
     result = evaluate_trade(
-        ["Saquon Barkley"], ["Puka Nacua"], league_settings, sample_projections,
-        monte_carlo_iterations=1000, seed=1,
+        ["Saquon Barkley"],
+        ["Puka Nacua"],
+        league_settings,
+        sample_projections,
+        monte_carlo_iterations=1000,
+        seed=1,
     )
     assert {"fair_value", "recommendation", "win_prob_delta", "rationale"}.issubset(result)
     assert -1.0 <= result["win_prob_delta"] <= 1.0

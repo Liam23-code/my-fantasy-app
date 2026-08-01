@@ -11,6 +11,7 @@ Usage::
 to accept from an API request body: it can only rescale existing stat
 categories and swap the bonus list, never execute anything.
 """
+
 from __future__ import annotations
 
 from typing import Any

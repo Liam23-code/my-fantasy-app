@@ -1,4 +1,5 @@
 """Unit tests for fantasy.trade."""
+
 from __future__ import annotations
 
 import pytest
@@ -114,9 +115,12 @@ def test_roster_context_notes_need_when_provided():
     team_b_gives = [_player("b", "Receive RB", "RB", "rushing_yards", 90)]
     settings = {"n_teams": 1, "roster_requirements": {"RB": 1, "WR": 0, "FLEX": 0}, "flex_eligible": []}
     result = evaluate_trade(
-        team_a_gives, team_b_gives, settings,
+        team_a_gives,
+        team_b_gives,
+        settings,
         team_a_roster=[],  # Team A has zero RBs -> receiving one fills a need
-        monte_carlo_iterations=200, seed=1,
+        monte_carlo_iterations=200,
+        seed=1,
     )
     combined_rationale = " ".join(result["rationale"])
     assert "Addresses a roster need" in combined_rationale
@@ -128,9 +132,12 @@ def test_roster_context_notes_no_need_when_position_already_full():
     team_b_gives = [_player("b", "Receive RB", "RB", "rushing_yards", 90)]
     settings = {"n_teams": 1, "roster_requirements": {"RB": 1, "WR": 0, "FLEX": 0}, "flex_eligible": []}
     result = evaluate_trade(
-        team_a_gives, team_b_gives, settings,
+        team_a_gives,
+        team_b_gives,
+        settings,
         team_a_roster=[{"position": "RB"}, {"position": "RB"}],  # already well-stocked at RB
-        monte_carlo_iterations=200, seed=1,
+        monte_carlo_iterations=200,
+        seed=1,
     )
     combined_rationale = " ".join(result["rationale"])
     assert "Does not address a starting roster need" in combined_rationale
@@ -141,9 +148,12 @@ def test_team_b_roster_context_also_reported():
     team_b_gives = [_player("b", "Give WR", "WR", "receiving_yards", 50)]
     settings = {"n_teams": 1, "roster_requirements": {"RB": 1, "WR": 0, "FLEX": 0}, "flex_eligible": []}
     result = evaluate_trade(
-        team_a_gives, team_b_gives, settings,
+        team_a_gives,
+        team_b_gives,
+        settings,
         team_b_roster=[],  # Team B has zero RBs -> receiving one fills a need
-        monte_carlo_iterations=200, seed=1,
+        monte_carlo_iterations=200,
+        seed=1,
     )
     combined_rationale = " ".join(result["rationale"])
     assert "Team B: Addresses a roster need" in combined_rationale

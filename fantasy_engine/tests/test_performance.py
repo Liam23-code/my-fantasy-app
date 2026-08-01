@@ -11,6 +11,7 @@ This is honest, measured timing from whatever machine runs the suite, not a
 claim about a specific reference machine (see the perf note in README.md for
 the actual number observed during development).
 """
+
 from __future__ import annotations
 
 import time
