@@ -38,6 +38,7 @@ include = ["fantasy*", "api*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning:pulp.*"]
 
 [tool.ruff]
 line-length = 120
