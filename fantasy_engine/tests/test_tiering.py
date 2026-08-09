@@ -7,7 +7,15 @@ import io
 
 import pytest
 
-from fantasy.tiering import export_cheatsheet_csv, generate_printable_cheatsheet, tier_players
+from fantasy.tiering import (
+    ESPN_STYLE_TIER_LABELS,
+    combined_tier,
+    export_cheatsheet_csv,
+    generate_printable_cheatsheet,
+    tier_players,
+    tier_players_by_adp,
+    tier_players_by_scarcity,
+)
 
 
 def _wr(name, median, volatility=0.0, **extra):
@@ -161,3 +169,109 @@ def test_csv_export_writes_to_file(tmp_path):
     written = destination.read_text(encoding="utf-8")
     assert written.replace("\r\n", "\n") == csv_text.replace("\r\n", "\n")
     assert "WR1" in written
+
+
+# --- tier_players_by_adp ------------------------------------------------------
+
+
+def test_tier_players_by_adp_orders_tier_1_by_lowest_adp():
+    players = [
+        {"name": f"RB{i}", "position": "RB", "adp": float(i + 1)} for i in range(30)
+    ]
+    settings = {"n_teams": 12, "roster_requirements": {"RB": 1, "FLEX": 0, "BENCH": 0}, "flex_eligible": []}
+    tiered = tier_players_by_adp(players, settings, n_teams=12)
+    tier1 = [p for p in tiered if p["adp_tier"] == 1]
+    # Starters-at-position (RB=1) * n_teams=12 -> tier size 12.
+    assert len(tier1) == 12
+    assert {p["name"] for p in tier1} == {f"RB{i}" for i in range(12)}
+    assert all(p["adp_tier_label"] == "Elite" for p in tier1)
+
+
+def test_tier_players_by_adp_sorts_missing_adp_last():
+    players = [
+        {"name": "HasADP", "position": "WR", "adp": 5.0},
+        {"name": "NoADP", "position": "WR"},
+    ]
+    tiered = tier_players_by_adp(players, n_teams=1)
+    by_name = {p["name"]: p for p in tiered}
+    assert by_name["HasADP"]["adp_tier"] <= by_name["NoADP"]["adp_tier"]
+
+
+def test_tier_players_by_adp_caps_at_the_label_count():
+    players = [{"name": f"P{i}", "position": "K", "adp": float(i)} for i in range(200)]
+    tiered = tier_players_by_adp(players, n_teams=1)
+    assert max(p["adp_tier"] for p in tiered) == len(ESPN_STYLE_TIER_LABELS)
+
+
+def test_tier_players_by_adp_without_league_settings_still_works():
+    players = [{"name": "X", "position": "RB", "adp": 1.0}]
+    tiered = tier_players_by_adp(players)
+    assert tiered[0]["adp_tier"] == 1
+
+
+# --- tier_players_by_scarcity --------------------------------------------------
+
+
+def test_tier_players_by_scarcity_top_slice_is_tier_one():
+    players = [{"name": f"P{i}", "position": "WR", "vor": float(100 - i)} for i in range(20)]
+    tiered = tier_players_by_scarcity(players)
+    tier1 = sorted((p for p in tiered if p["scarcity_tier"] == 1), key=lambda p: p["name"])
+    # Boundary is the first 10% -> 2 players out of 20.
+    assert len(tier1) == 2
+    assert {p["name"] for p in tier1} == {"P0", "P1"}
+
+
+def test_tier_players_by_scarcity_falls_back_to_points():
+    players = [{"name": "A", "position": "RB", "points": 50.0}, {"name": "B", "position": "RB", "points": 10.0}]
+    tiered = tier_players_by_scarcity(players)
+    by_name = {p["name"]: p for p in tiered}
+    assert by_name["A"]["scarcity_tier"] <= by_name["B"]["scarcity_tier"]
+
+
+def test_tier_players_by_scarcity_is_independent_per_position():
+    players = [{"name": "EliteRB", "position": "RB", "vor": 100.0}, {"name": "WorstWR", "position": "WR", "vor": -50.0}]
+    tiered = tier_players_by_scarcity(players)
+    # Each position's own single player is necessarily its own top slice.
+    assert all(p["scarcity_tier"] == 1 for p in tiered)
+
+
+# --- combined_tier -------------------------------------------------------------
+
+
+def test_combined_tier_averages_the_three_component_tiers():
+    players = [
+        {"name": "A", "player_id": "a", "position": "RB", "adp": 1.0, "vor": 100.0, "median": 50.0},
+        {"name": "B", "player_id": "b", "position": "RB", "adp": 50.0, "vor": -10.0, "median": 5.0},
+    ]
+    settings = {"n_teams": 1, "roster_requirements": {"RB": 1, "FLEX": 0, "BENCH": 0}, "flex_eligible": []}
+    combined = combined_tier(players, settings, n_teams=1)
+    for player in combined:
+        assert player["combined_tier"] == round(
+            (player["adp_tier"] + player["scarcity_tier"] + player["value_tier"]) / 3
+        )
+
+
+def test_combined_tier_keeps_the_original_tier_players_untouched():
+    """tier_players itself must not be affected by adding the new combined view."""
+    players = [{"name": "A", "position": "RB", "median": 10.0}]
+    before = tier_players(players)
+    combined_tier(players)
+    after = tier_players(players)
+    assert before == after
+
+
+def test_combined_tier_matches_players_by_id_not_position_in_list():
+    players = [
+        {"name": "Same", "player_id": "x1", "position": "RB", "adp": 1.0, "vor": 10.0, "median": 10.0},
+        {"name": "Same", "player_id": "x2", "position": "RB", "adp": 90.0, "vor": -10.0, "median": 1.0},
+    ]
+    combined = combined_tier(players, n_teams=1)
+    by_id = {p["player_id"]: p for p in combined}
+    assert by_id["x1"]["combined_tier"] != by_id["x2"]["combined_tier"]
+
+
+def test_combined_tier_propagates_the_adp_tier_label_string():
+    """Regression: combined_tier once dropped adp_tier_label, leaving it blank for every player."""
+    players = [{"name": "A", "player_id": "a", "position": "RB", "adp": 1.0, "vor": 10.0, "median": 10.0}]
+    combined = combined_tier(players, n_teams=1)
+    assert combined[0]["adp_tier_label"] == "Elite"

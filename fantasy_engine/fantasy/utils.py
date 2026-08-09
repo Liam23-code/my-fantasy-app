@@ -8,6 +8,8 @@ on purpose: this package must run standalone (see the migration guide in
 from __future__ import annotations
 
 import math
+import re
+import unicodedata
 from typing import Any
 
 
@@ -41,3 +43,18 @@ def safe_int(value: Any, default: int = 0) -> int:
 
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
+
+
+def normalize_player_name(name: Any) -> str:
+    """Fold a display name to a cross-source join key: ascii, lowercase, no punctuation/suffix.
+
+    Shared by every module that joins two sources on player name rather than
+    a common ID (e.g. FantasyPros ADP to nflverse stats, or Fantasy Football
+    Calculator's own player_id numbering to ours) -- a single implementation
+    here means a fix to the matching logic can't silently drift between
+    copies while some callers still use the old behavior.
+    """
+    text = unicodedata.normalize("NFKD", str(name or ""))
+    text = text.encode("ascii", "ignore").decode("ascii").lower()
+    text = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b", "", text)
+    return re.sub(r"[^a-z]", "", text)

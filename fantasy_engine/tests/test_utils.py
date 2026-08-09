@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from fantasy.utils import clamp, safe_float, safe_int
+from fantasy.utils import clamp, normalize_player_name, safe_float, safe_int
 
 
 def test_safe_float_none_returns_default():
@@ -88,3 +88,14 @@ def test_safe_float_is_never_nan_or_inf_in_output():
     for value in [None, "abc", float("nan"), float("inf"), [], {}, "1e400"]:
         result = safe_float(value)
         assert math.isfinite(result)
+
+
+def test_normalize_player_name_folds_case_accents_punctuation_and_suffixes():
+    assert normalize_player_name("Marvin Harrison Jr.") == normalize_player_name("marvin harrison")
+    assert normalize_player_name("Ja'Marr Chase") == "jamarrchase"
+    assert normalize_player_name("Amon-Ra St. Brown") == "amonrastbrown"
+
+
+def test_normalize_player_name_handles_empty_input():
+    assert normalize_player_name(None) == ""
+    assert normalize_player_name("") == ""

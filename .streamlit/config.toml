@@ -1,0 +1,11 @@
+# Production settings for Render. Streamlit reads .streamlit/config.toml from
+# the current working directory at launch -- Render's start command runs from
+# the repo root, so this file lives at the repo root for that reason.
+
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false

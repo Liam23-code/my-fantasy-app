@@ -90,11 +90,24 @@ def test_waiver_recommendations_on_real_free_agent_pool(league_settings, roster,
     assert scores == sorted(scores, reverse=True)
 
 
-def test_simulate_draft_full_run_on_real_pool(sample_projections, league_settings):
+def test_simulate_draft_drafts_only_real_players(sample_projections, league_settings):
+    """The bundled sample pool is mostly synthetic; none of it may be drafted.
+
+    The fixture carries a handful of real players alongside a large block of
+    engine-generated ``synthetic:*`` filler, so this doubles as the regression
+    test for synthetic players leaking onto a draft board.
+    """
     result = simulate_draft(sample_projections, league_settings, rounds=5, seed=99)
-    assert len(result["picks"]) == 5 * league_settings["n_teams"]
+
+    real_ids = {p["player_id"] for p in sample_projections if not str(p["player_id"]).startswith("synthetic")}
     drafted_ids = [pick["player_id"] for pick in result["picks"]]
+
+    assert drafted_ids, "expected the real players in the pool to be drafted"
+    assert set(drafted_ids) <= real_ids
     assert len(drafted_ids) == len(set(drafted_ids))
+    # Pool is smaller than 5 rounds x 12 teams, so the draft ends early and says so.
+    assert len(drafted_ids) == len(real_ids)
+    assert any("synthetic" in warning for warning in result["warnings"])
 
 
 def test_evaluate_trade_between_two_named_players(sample_projections, league_settings):

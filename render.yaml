@@ -1,0 +1,16 @@
+# Render Blueprint. In the Render dashboard: New + -> Blueprint -> select this
+# repo -> Render reads this file and configures the service automatically.
+# (Manual "New + Web Service" setup works too -- see DEPLOYMENT.md for the
+# equivalent dashboard field values if you'd rather not use a Blueprint.)
+
+services:
+  - type: web
+    name: universal-quant-agent
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
+    startCommand: "streamlit run UniversalQuantAgent/app/app.py --server.port $PORT --server.address 0.0.0.0"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7

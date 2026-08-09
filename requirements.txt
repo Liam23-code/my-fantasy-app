@@ -1,0 +1,19 @@
+# Root deployment requirements for Render.
+#
+# This repo has two sibling projects that the app needs together:
+#   - UniversalQuantAgent/  the Streamlit app itself
+#   - fantasy_engine/       the `fantasy` package the Fantasy page imports
+#     (locally, this only works today because it's `pip install -e`'d into
+#     UniversalQuantAgent/.venv -- a fresh Render build has no such thing,
+#     so it must be installed explicitly here or the Fantasy page will fail
+#     with ModuleNotFoundError: No module named 'fantasy')
+#
+# Installed in order: this file's own deps first, then the two projects.
+
+-r UniversalQuantAgent/requirements.txt
+
+# Local package install (reads fantasy_engine/pyproject.toml: pydantic, numpy,
+# pulp, fastapi, uvicorn, PyYAML, click). Non-editable on purpose -- Render
+# builds a fresh image per deploy, so there's no benefit to an editable link,
+# and a plain install is the more standard choice for a deployed container.
+./fantasy_engine

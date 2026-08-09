@@ -10,3 +10,4 @@ htmlcov/
 data/snapshots/*
 !data/snapshots/.gitkeep
 examples/cheatsheet_output.csv
+build/

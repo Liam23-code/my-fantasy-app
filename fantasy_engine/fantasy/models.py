@@ -16,6 +16,42 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 KNOWN_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DST"}
 FLEX_DEFAULT_ELIGIBLE = ["RB", "WR", "TE"]
 
+#: (min, max) real players a roster should carry at each position, independent
+#: of ``RosterRequirements`` -- ``RosterRequirements`` is *starting-lineup*
+#: slots (how many you start each week); this is *roster construction* (how
+#: many you're allowed to own at all, bench included). FLEX has no entry here
+#: because it is not a player position: a team's FLEX starter is just one more
+#: RB/WR/TE, already covered by those positions' upper bound. Anything not
+#: listed (there is nothing draftable outside ``KNOWN_POSITIONS``) is
+#: uncapped.
+ROSTER_POSITION_LIMITS: dict[str, tuple[int, int]] = {
+    "QB": (1, 2),
+    "RB": (2, 4),
+    "WR": (3, 5),
+    "TE": (1, 2),
+    "K": (1, 1),
+    "DST": (1, 1),
+}
+
+
+def roster_position_limits(position: str) -> tuple[int, int] | None:
+    """(min, max) for ``position``, or ``None`` when it isn't capped."""
+    return ROSTER_POSITION_LIMITS.get(str(position).strip().upper())
+
+
+def roster_cap_reached(position_counts: dict[str, int], position: str) -> bool:
+    """True once ``position_counts`` already holds the max allowed at ``position``."""
+    limits = roster_position_limits(position)
+    if limits is None:
+        return False
+    return position_counts.get(str(position).strip().upper(), 0) >= limits[1]
+
+
+def roster_min_required(position: str) -> int:
+    """Minimum a roster should carry at ``position`` (0 when uncapped)."""
+    limits = roster_position_limits(position)
+    return limits[0] if limits else 0
+
 
 class CanonicalProjection(BaseModel):
     """The one projection shape every fantasy engine module consumes.

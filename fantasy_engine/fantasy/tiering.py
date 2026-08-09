@@ -23,7 +23,14 @@ from typing import Any
 
 import numpy as np
 
+from fantasy.models import LeagueSettings
+from fantasy.utils import safe_float
+
 DEFAULT_MAX_TIERS = 5
+
+#: The familiar "ESPN cheat sheet" cadence -- each is one replacement-level
+#: band wide (see :func:`tier_players_by_adp`), not an arbitrary point cutoff.
+ESPN_STYLE_TIER_LABELS = ["Elite", "Starter", "Flex", "Streamer", "Deep Bench"]
 
 
 def _value_and_volatility(player: dict[str, Any]) -> tuple[float, float]:
@@ -127,6 +134,132 @@ def tier_players(players: list[dict[str, Any]], max_tiers: int = DEFAULT_MAX_TIE
 
     for player in working_copies:
         player["tier_label"] = f"Tier {player['tier']}"
+    return working_copies
+
+
+def _starters_per_position(league_settings: dict[str, Any] | LeagueSettings | None) -> dict[str, float]:
+    """Starting slots per position, FLEX split proportionally across eligible positions.
+
+    Deliberately mirrors :mod:`fantasy.assistant`'s simpler proportional-share
+    approach (rather than :mod:`fantasy.draft`'s pooled-flex-fill approach --
+    the two already coexist for their own historical reasons) since a tier
+    boundary just needs a reasonable per-position starter count, not the
+    exact flex-pool allocation a VORP replacement level needs.
+    """
+    settings = league_settings if isinstance(league_settings, LeagueSettings) else LeagueSettings(**(league_settings or {}))
+    slots = settings.roster_requirements.starting_slots()
+    flex = float(slots.pop("FLEX", 0))
+    per_position = {position: float(count) for position, count in slots.items()}
+    eligible = [p for p in settings.flex_eligible if p in per_position] or list(settings.flex_eligible)
+    if flex and eligible:
+        share = flex / len(eligible)
+        for position in eligible:
+            per_position[position] = per_position.get(position, 0.0) + share
+    return per_position
+
+
+def tier_players_by_adp(
+    players: list[dict[str, Any]],
+    league_settings: dict[str, Any] | LeagueSettings | None = None,
+    n_teams: int = 12,
+) -> list[dict[str, Any]]:
+    """Tier by real ADP rank within position, at replacement-level boundaries.
+
+    Tier 1 ("Elite") is the first ``n_teams * starters-at-position`` players
+    by ADP -- roughly "a startable player on every team." Each later tier is
+    the same size again, giving the familiar Elite/Starter/Flex/Streamer/Deep
+    Bench cheat-sheet cadence instead of an arbitrary point cutoff. Players
+    missing ADP sort last within their position (never dropped) and still get
+    a tier once the real-ADP players ahead of them fill their bands.
+    """
+    working_copies = [dict(player) for player in players]
+    starters = _starters_per_position(league_settings) if league_settings is not None else {}
+    by_position: dict[str, list[dict[str, Any]]] = {}
+    for player in working_copies:
+        position = str(player.get("position", "")).strip().upper()
+        by_position.setdefault(position, []).append(player)
+
+    for position, group in by_position.items():
+        group.sort(key=lambda p: safe_float(p.get("adp")) if p.get("adp") is not None else float("inf"))
+        tier_size = max(1, round(n_teams * starters.get(position, 1.0)))
+        for index, player in enumerate(group):
+            tier = min(len(ESPN_STYLE_TIER_LABELS), index // tier_size + 1)
+            player["adp_tier"] = tier
+            player["adp_tier_label"] = ESPN_STYLE_TIER_LABELS[tier - 1]
+    return working_copies
+
+
+#: Cumulative fraction of a position's VOR-sorted pool that closes each tier.
+SCARCITY_TIER_BOUNDARIES = (0.10, 0.25, 0.45, 0.70, 1.0)
+
+
+def tier_players_by_scarcity(players: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Tier by VORP (or points) percentile within position -- the "value" tier.
+
+    Unlike :func:`tier_players` (k-means clustering on median/volatility),
+    this sorts purely by value and cuts at fixed percentile boundaries, so a
+    tier number always means the same *relative* value band regardless of how
+    tightly or loosely a position's real numbers happen to cluster this
+    season.
+    """
+    working_copies = [dict(player) for player in players]
+    by_position: dict[str, list[dict[str, Any]]] = {}
+    for player in working_copies:
+        position = str(player.get("position", "")).strip().upper()
+        by_position.setdefault(position, []).append(player)
+
+    for group in by_position.values():
+        group.sort(key=lambda p: safe_float(p.get("vor", p.get("points", 0.0))), reverse=True)
+        total = len(group)
+        for index, player in enumerate(group):
+            fraction = (index + 1) / total
+            tier = next(
+                (i + 1 for i, boundary in enumerate(SCARCITY_TIER_BOUNDARIES) if fraction <= boundary),
+                len(SCARCITY_TIER_BOUNDARIES),
+            )
+            # A player at rank R can never be worse than tier R -- without this,
+            # a small group pushes its members straight to the last tier by
+            # percentile math alone (e.g. a lone player is 100% of the way
+            # through their own 1-player group, landing in the last tier).
+            player["scarcity_tier"] = min(tier, index + 1)
+    return working_copies
+
+
+def _tier_key(player: dict[str, Any]) -> str:
+    player_id = player.get("player_id")
+    return str(player_id) if player_id else f"{player.get('name')}|{player.get('position')}"
+
+
+def combined_tier(
+    players: list[dict[str, Any]],
+    league_settings: dict[str, Any] | LeagueSettings | None = None,
+    n_teams: int = 12,
+    max_tiers: int = DEFAULT_MAX_TIERS,
+) -> list[dict[str, Any]]:
+    """Blend ADP timing, VOR scarcity, and the volatility-cluster tier into one number.
+
+    Runs all three tiering strategies and averages each player's tier numbers
+    (rounded), so a player who's Tier 1 by ADP but Tier 3 by real production
+    lands in between rather than at either extreme -- surfacing exactly the
+    "trust the market or the numbers here?" case a cheat sheet should show,
+    not hide. Each component tier (``adp_tier``, ``scarcity_tier``,
+    ``value_tier``) is kept on the result alongside ``combined_tier``.
+    """
+    adp_tiered = {_tier_key(player): player for player in tier_players_by_adp(players, league_settings, n_teams)}
+    scarcity_tiers = {_tier_key(player): player["scarcity_tier"] for player in tier_players_by_scarcity(players)}
+    value_tiers = {_tier_key(player): player["tier"] for player in tier_players(players, max_tiers=max_tiers)}
+
+    working_copies = [dict(player) for player in players]
+    for player in working_copies:
+        key = _tier_key(player)
+        adp_source = adp_tiered.get(key, {})
+        adp_tier, adp_tier_label = adp_source.get("adp_tier"), adp_source.get("adp_tier_label")
+        components = [t for t in (adp_tier, scarcity_tiers.get(key), value_tiers.get(key)) if t is not None]
+        player["adp_tier"] = adp_tier
+        player["adp_tier_label"] = adp_tier_label
+        player["scarcity_tier"] = scarcity_tiers.get(key)
+        player["value_tier"] = value_tiers.get(key)
+        player["combined_tier"] = round(sum(components) / len(components)) if components else None
     return working_copies
 
 

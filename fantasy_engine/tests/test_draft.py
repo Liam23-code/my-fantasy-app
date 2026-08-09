@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 import pytest
 
 from fantasy.draft import (
+    _active_run_position,
     _replacement_levels,
+    build_draft_order,
     generate_cheatsheet,
+    identify_adp_clusters,
     rank_players_for_draft,
     simulate_draft,
     suggest_picks,
 )
-from fantasy.models import LeagueSettings
+from fantasy.models import ROSTER_POSITION_LIMITS, LeagueSettings
 
 
 def _flat_rb(name: str, rushing_yards: float) -> dict:
@@ -259,3 +264,322 @@ def test_simulate_draft_rosters_match_picks():
     result = simulate_draft(_draft_pool(), DRAFT_SETTINGS, rounds=3, seed=5)
     total_rostered = sum(len(players) for players in result["rosters"].values())
     assert total_rostered == len(result["picks"])
+
+
+# --- draft order & round-by-round board -------------------------------------
+
+
+def test_build_draft_order_snakes_on_even_rounds():
+    order = build_draft_order(4, 3, snake=True)
+    rounds = {r: [p["team_number"] for p in order if p["round"] == r] for r in (1, 2, 3)}
+    assert rounds[1] == [1, 2, 3, 4]
+    assert rounds[2] == [4, 3, 2, 1]
+    assert rounds[3] == [1, 2, 3, 4]
+
+
+def test_build_draft_order_linear_repeats_the_same_order():
+    order = build_draft_order(4, 3, snake=False)
+    for round_number in (1, 2, 3):
+        assert [p["team_number"] for p in order if p["round"] == round_number] == [1, 2, 3, 4]
+
+
+def test_build_draft_order_numbers_picks_consecutively():
+    order = build_draft_order(4, 3)
+    assert [p["overall_pick"] for p in order] == list(range(1, 13))
+
+
+@pytest.mark.parametrize(("teams", "rounds"), [(0, 3), (4, 0), (-1, 2)])
+def test_build_draft_order_rejects_invalid_shapes(teams, rounds):
+    with pytest.raises(ValueError):
+        build_draft_order(teams, rounds)
+
+
+def test_simulate_draft_excludes_synthetic_players_and_warns():
+    pool = _draft_pool(n=6) + [
+        {"player_id": f"synthetic:rb:{i}", "name": f"Synthetic RB {i}", "position": "RB", "rushing_yards": 999}
+        for i in range(10)
+    ]
+    result = simulate_draft(pool, DRAFT_SETTINGS, rounds=3, seed=1)
+    assert all(not pick["player_id"].startswith("synthetic") for pick in result["picks"])
+    assert any("synthetic" in warning for warning in result["warnings"])
+
+
+def test_simulate_draft_by_round_matches_the_flat_pick_list():
+    result = simulate_draft(_draft_pool(n=40), DRAFT_SETTINGS, rounds=3, seed=11)
+    flattened = [pick for round_number in sorted(result["by_round"]) for pick in result["by_round"][round_number]]
+    assert len(flattened) == len(result["picks"])
+    assert [entry["pick"] for entry in flattened] == [pick["overall_pick"] for pick in result["picks"]]
+    assert set(result["by_round"]) == {1, 2, 3}
+
+
+def test_simulate_draft_by_round_entries_have_the_documented_shape():
+    result = simulate_draft(_draft_pool(n=40), DRAFT_SETTINGS, rounds=2, seed=2)
+    entry = result["by_round"][1][0]
+    assert set(entry) >= {"pick", "team", "player_name", "position", "projection", "is_user_pick"}
+
+
+def test_simulate_draft_flags_the_users_picks():
+    result = simulate_draft(_draft_pool(n=40), DRAFT_SETTINGS, rounds=3, seed=4, user_draft_slot=2)
+    assert result["user_team"] == "Team 2"
+    assert len(result["user_picks"]) == 3
+    assert all(pick["team"] == "Team 2" for pick in result["user_picks"])
+    assert all(pick["is_user_pick"] for pick in result["user_picks"])
+
+
+def test_simulate_draft_without_a_user_slot_flags_nobody():
+    result = simulate_draft(_draft_pool(n=40), DRAFT_SETTINGS, rounds=2, seed=4)
+    assert result["user_team"] is None
+    assert result["user_picks"] == []
+
+
+def test_simulate_draft_rejects_a_user_slot_outside_the_league():
+    with pytest.raises(ValueError):
+        simulate_draft(_draft_pool(), DRAFT_SETTINGS, rounds=2, user_draft_slot=99)
+
+
+def test_simulate_draft_linear_keeps_team_order_every_round():
+    result = simulate_draft(_draft_pool(n=40), DRAFT_SETTINGS, rounds=2, seed=6, snake=False)
+    for round_number in (1, 2):
+        teams = [pick["team"] for pick in result["by_round"][round_number]]
+        assert teams == ["Team 1", "Team 2", "Team 3", "Team 4"]
+
+
+def test_simulate_draft_num_teams_and_num_rounds_override_settings():
+    result = simulate_draft(_draft_pool(n=60), DRAFT_SETTINGS, num_teams=6, num_rounds=4, seed=8)
+    assert result["n_teams"] == 6
+    assert result["rounds"] == 4
+    assert len(result["picks"]) == 24
+
+
+def test_simulate_draft_warns_when_the_pool_cannot_fill_the_draft():
+    result = simulate_draft(_draft_pool(n=5), DRAFT_SETTINGS, rounds=3, seed=1)
+    assert len(result["picks"]) == 5
+    assert any("real players" in warning for warning in result["warnings"])
+
+
+# --- Hybrid Draft Intelligence Model: ADP clusters & roster caps ------------
+
+
+def _adp_pool():
+    players = []
+    for i in range(5):
+        players.append({"player_id": f"rb{i}", "name": f"RB{i}", "position": "RB", "rushing_yards": 200 - i * 5, "adp": 1.0 + i})
+    for i in range(5):
+        players.append({"player_id": f"wr{i}", "name": f"WR{i}", "position": "WR", "receiving_yards": 180 - i * 5, "adp": 50.0 + i * 20})
+    return players
+
+
+def test_identify_adp_clusters_finds_a_tight_bunch():
+    clusters = identify_adp_clusters(_adp_pool(), max_gap=6.0, min_size=3)
+    positions = {c["position"] for c in clusters}
+    assert "RB" in positions  # ADPs 1..5, all within max_gap of each other
+    assert "WR" not in positions  # ADPs spaced 20 apart, no cluster
+
+
+def test_identify_adp_clusters_ignores_players_without_adp():
+    pool = [{"player_id": "x", "name": "NoADP", "position": "RB", "rushing_yards": 100}]
+    assert identify_adp_clusters(pool) == []
+
+
+def test_identify_adp_clusters_ignores_kicker_and_dst():
+    pool = [
+        {"player_id": f"k{i}", "name": f"K{i}", "position": "K", "adp": 100.0 + i}
+        for i in range(5)
+    ]
+    assert identify_adp_clusters(pool) == []
+
+
+def test_identify_adp_clusters_respects_min_size():
+    pool = [{"player_id": f"rb{i}", "name": f"RB{i}", "position": "RB", "adp": 1.0 + i} for i in range(2)]
+    assert identify_adp_clusters(pool, min_size=3) == []
+
+
+def test_active_run_position_covers_the_lookahead_and_trailing_window():
+    clusters = identify_adp_clusters(_adp_pool(), max_gap=6.0, min_size=3)
+    rb_cluster = next(c for c in clusters if c["position"] == "RB")
+    just_before = int(rb_cluster["start_adp"]) - 1  # inside the 3-pick lookahead
+    assert _active_run_position(just_before, clusters) == "RB"
+    far_before = int(rb_cluster["start_adp"]) - 10
+    assert _active_run_position(far_before, clusters) is None
+
+
+def test_simulate_draft_never_exceeds_a_positions_roster_cap():
+    """QB cap is (1, 2): no simulated team should ever roster a 3rd QB.
+
+    6 rounds so each team's cap budget (QB max 2 + RB max 5 = 7) comfortably
+    covers the roster -- the point is to prove the cap holds when the draft
+    *can* respect it, not to exercise the pool-exhausted fallback (see
+    ``test_simulate_draft_relaxes_caps_rather_than_stalling`` for that).
+    """
+    pool = []
+    for i in range(30):
+        pool.append({"player_id": f"qb{i}", "name": f"QB{i}", "position": "QB", "passing_yards": 4000 - i * 50, "adp": 1.0 + i})
+    for i in range(30):
+        pool.append({"player_id": f"rb{i}", "name": f"RB{i}", "position": "RB", "rushing_yards": 1200 - i * 20, "adp": 40.0 + i})
+
+    settings = {
+        "n_teams": 2,
+        "scoring_mode": "ppr",
+        "roster_requirements": {"QB": 1, "RB": 1, "WR": 0, "TE": 0, "FLEX": 0, "DST": 0, "K": 0, "BENCH": 10},
+        "flex_eligible": [],
+    }
+    result = simulate_draft(pool, settings, rounds=6, seed=3)
+    for roster in result["rosters"].values():
+        qb_count = sum(1 for p in roster if p["position"] == "QB")
+        assert qb_count <= 2
+
+
+def test_simulate_draft_relaxes_caps_rather_than_stalling():
+    """When a team's only remaining options are all roster-capped, draft anyway.
+
+    2 teams x 12 rounds = 12 picks/team, but QB(max 2) + RB(max 5) = 7 < 12
+    and this pool has no other position -- caps cannot be satisfied for the
+    full draft. The engine should keep drafting (fail open) instead of
+    stalling once every candidate is capped out.
+    """
+    pool = []
+    for i in range(30):
+        pool.append({"player_id": f"qb{i}", "name": f"QB{i}", "position": "QB", "passing_yards": 4000 - i * 50, "adp": 1.0 + i})
+    for i in range(30):
+        pool.append({"player_id": f"rb{i}", "name": f"RB{i}", "position": "RB", "rushing_yards": 1200 - i * 20, "adp": 40.0 + i})
+
+    settings = {
+        "n_teams": 2,
+        "scoring_mode": "ppr",
+        "roster_requirements": {"QB": 1, "RB": 1, "WR": 0, "TE": 0, "FLEX": 0, "DST": 0, "K": 0, "BENCH": 10},
+        "flex_eligible": [],
+    }
+    result = simulate_draft(pool, settings, rounds=12, seed=3)
+    assert len(result["picks"]) == 24  # every slot still got filled
+    total_qbs = sum(1 for roster in result["rosters"].values() for p in roster if p["position"] == "QB")
+    assert total_qbs > 2 * 2  # caps had to be exceeded somewhere to fill 24 slots from 2 positions
+
+
+def test_simulate_draft_returns_the_position_runs_it_detected():
+    result = simulate_draft(_adp_pool() * 3, DRAFT_SETTINGS, rounds=2, seed=1)
+    assert isinstance(result["position_runs"], list)
+
+
+def test_simulate_draft_pick_entries_carry_a_position_run_field():
+    result = simulate_draft(_draft_pool(n=40), DRAFT_SETTINGS, rounds=2, seed=2)
+    assert all("position_run" in pick for pick in result["picks"])
+    assert all("position_run" in pick for round_picks in result["by_round"].values() for pick in round_picks)
+
+
+# --- two-stage roster-cap emergency fallback (Section 2/4) ------------------
+
+
+def test_simulate_draft_never_lets_kicker_or_dst_exceed_cap_when_skill_depth_remains():
+    """K cap is (1, 1): stage-1 (skill-position) relaxation must never touch it.
+
+    Plenty of RB depth remains available (never exhausted), so once the team
+    has its 1 kicker, every later pick should keep coming from RB rather than
+    a 2nd K -- this isolates stage-1 relaxation from the true (stage-2)
+    emergency exercised by the pool-exhaustion test above.
+    """
+    pool = [
+        {"player_id": f"rb{i}", "name": f"RB{i}", "position": "RB", "rushing_yards": 200 - i, "adp": 1.0 + i}
+        for i in range(20)
+    ] + [{"player_id": "k1", "name": "K1", "position": "K", "adp": 50.0}]
+    settings = {
+        "n_teams": 1,
+        "scoring_mode": "ppr",
+        "roster_requirements": {"RB": 1, "K": 1, "QB": 0, "WR": 0, "TE": 0, "FLEX": 0, "DST": 0, "BENCH": 3},
+        "flex_eligible": [],
+    }
+    result = simulate_draft(pool, settings, rounds=5, seed=1)
+    k_count = sum(1 for p in result["rosters"]["Team 1"] if p["position"] == "K")
+    assert k_count == 1
+    assert result["cap_emergencies"] == 0
+
+
+def test_simulate_draft_allows_exceeding_kicker_cap_only_as_a_true_last_resort():
+    """When literally nothing but a capped-out K remains anywhere in the pool,
+    stage 2 must still draft *something* rather than stall -- and this really
+    is the rare, tracked "true emergency", not routine cap enforcement.
+    """
+    pool = [
+        {"player_id": "rb1", "name": "RB1", "position": "RB", "rushing_yards": 200, "adp": 1.0},
+        {"player_id": "rb2", "name": "RB2", "position": "RB", "rushing_yards": 150, "adp": 2.0},
+        {"player_id": "k1", "name": "K1", "position": "K", "adp": 50.0},
+        {"player_id": "k2", "name": "K2", "position": "K", "adp": 51.0},
+        {"player_id": "k3", "name": "K3", "position": "K", "adp": 52.0},
+    ]
+    settings = {
+        "n_teams": 1,
+        "scoring_mode": "ppr",
+        "roster_requirements": {"RB": 1, "K": 1, "QB": 0, "WR": 0, "TE": 0, "FLEX": 0, "DST": 0, "BENCH": 3},
+        "flex_eligible": [],
+    }
+    result = simulate_draft(pool, settings, rounds=5, seed=1)
+    assert len(result["picks"]) == 5  # every round still filled, pool had exactly 5 players
+    assert result["cap_emergencies"] > 0
+
+
+def test_simulate_draft_relaxes_skill_position_caps_before_a_true_emergency():
+    """Running out of real positions (not K/DST) should not count as a cap_emergency."""
+    pool = [
+        {"player_id": f"rb{i}", "name": f"RB{i}", "position": "RB", "rushing_yards": 200 - i, "adp": 1.0 + i}
+        for i in range(10)
+    ]
+    settings = {
+        "n_teams": 1,
+        "scoring_mode": "ppr",
+        "roster_requirements": {"RB": 1, "QB": 0, "WR": 0, "TE": 0, "FLEX": 0, "DST": 0, "K": 0, "BENCH": 9},
+        "flex_eligible": [],
+    }
+    # RB cap max is 4, but 10 rounds requested -- every pick past the 4th RB
+    # must come from the stage-1 skill-position relaxation, not a true emergency.
+    result = simulate_draft(pool, settings, rounds=10, seed=1)
+    assert len(result["picks"]) == 10
+    assert result["cap_emergencies"] == 0
+
+
+def test_simulate_draft_reports_cap_emergencies_in_the_result():
+    result = simulate_draft(_draft_pool(n=40), DRAFT_SETTINGS, rounds=2, seed=1)
+    assert "cap_emergencies" in result
+    assert isinstance(result["cap_emergencies"], int)
+
+
+# --- roster-cap capacity warning ---------------------------------------------
+
+
+def test_simulate_draft_warns_when_rounds_exceed_cap_capacity():
+    """RB+WR+TE+QB+K caps sum to 14; a 15-round draft cannot fit inside them.
+
+    DST carries a (1, 1) cap but nflverse has no DST data, so its slot never
+    absorbs a pick -- every team is forced one over a cap on its last pick.
+    """
+    pool = []
+    for position, count in (("RB", 40), ("WR", 40), ("TE", 20), ("QB", 20), ("K", 20)):
+        for i in range(count):
+            pool.append({"player_id": f"{position}{i}", "name": f"{position}{i}", "position": position, "adp": float(i + 1)})
+    settings = {
+        "n_teams": 2,
+        "scoring_mode": "ppr",
+        "roster_requirements": {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "DST": 0, "K": 1, "BENCH": 6},
+        "flex_eligible": ["RB", "WR", "TE"],
+    }
+    result = simulate_draft(pool, settings, rounds=15, seed=1)
+    assert any("exceeds the 14 roster spots" in warning for warning in result["warnings"])
+    assert result["cap_relaxations"] > 0
+
+
+def test_simulate_draft_stays_inside_caps_when_rounds_fit():
+    pool = []
+    for position, count in (("RB", 40), ("WR", 40), ("TE", 20), ("QB", 20), ("K", 20)):
+        for i in range(count):
+            pool.append({"player_id": f"{position}{i}", "name": f"{position}{i}", "position": position, "adp": float(i + 1)})
+    settings = {
+        "n_teams": 2,
+        "scoring_mode": "ppr",
+        "roster_requirements": {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "DST": 0, "K": 1, "BENCH": 5},
+        "flex_eligible": ["RB", "WR", "TE"],
+    }
+    result = simulate_draft(pool, settings, rounds=14, seed=1)
+    assert result["cap_relaxations"] == 0
+    assert result["cap_emergencies"] == 0
+    for roster in result["rosters"].values():
+        counts = Counter(p["position"] for p in roster)
+        for position, (_lo, hi) in ROSTER_POSITION_LIMITS.items():
+            assert counts.get(position, 0) <= hi
