@@ -72,7 +72,7 @@ from typing import Any
 from fantasy.data_loader import drop_synthetic, validate_players
 from fantasy.models import LeagueSettings, roster_cap_reached, roster_min_required
 from fantasy.scoring import calculate_fantasy_points
-from fantasy.utils import safe_float
+from fantasy.utils import normalize_player_name, safe_float
 
 #: How much each signal moves the final score. VORP dominates on purpose:
 #: an ablation against real 2025 data (simulate a user-brain-drafted team
@@ -181,6 +181,22 @@ STACKING_BONUS = 1.08
 #: Score multiplier when a candidate shares a bye week with 2+ already-
 #: rostered players at the same position (bye-week roster risk).
 BYE_WEEK_CLUSTER_PENALTY = 0.95
+
+#: How far from the drafted player's ADP a same-position candidate may sit and
+#: still count as a genuine "ADP neighbor" -- about a round and a half in a
+#: 12-team league. Wide enough to survive the real gaps in an ADP board, tight
+#: enough that a round-2 back is never floated as the replacement for a
+#: round-9 one.
+ADP_NEIGHBOR_WINDOW_PICKS = 18.0
+
+#: A neighborhood thinner than this is backfilled with the best remaining
+#: players at the position, so a sparse ADP band still returns a usable set
+#: instead of one lonely name.
+MIN_REPLACEMENTS = 3
+
+#: Hard ceiling on a replacement list -- past ~5 the choice stops being a
+#: decision and starts being another board to read.
+MAX_REPLACEMENTS = 5
 
 
 def _coerce_settings(league_settings: dict[str, Any] | LeagueSettings | None) -> LeagueSettings:
@@ -619,3 +635,290 @@ def picks_between(num_teams: int, draft_slot: int, round_number: int, snake: boo
     current = next_pick_number(num_teams, draft_slot, round_number, snake)
     following = next_pick_number(num_teams, draft_slot, round_number + 1, snake)
     return following - current - 1
+
+
+# ---------------------------------------------------------------------------
+# Replacements: "he just got taken -- now what?"
+# ---------------------------------------------------------------------------
+def _player_identity(player: dict[str, Any]) -> str:
+    return str(player.get("player_id") or player.get("id") or "")
+
+
+def _draft_state_pool(draft_state: dict[str, Any]) -> list[dict[str, Any]]:
+    """The players still on the board, under any of the accepted key names."""
+    for key in ("available_players", "available", "pool", "projections"):
+        value = draft_state.get(key)
+        if isinstance(value, list) and value:
+            return value
+    return []
+
+
+def _drafted_keys(draft_state: dict[str, Any]) -> tuple[set[str], set[str]]:
+    """Ids and normalized names already off the board, from any accepted key.
+
+    Callers hold "who is gone" in whatever shape their own draft produced --
+    a list of ids, the pick dicts from :func:`fantasy.draft.simulate_draft`, or
+    just display names typed into a UI. All three are accepted rather than
+    forcing one, because a mismatch here silently recommends a drafted player,
+    which is the one outcome this function exists to prevent.
+    """
+    ids: set[str] = set()
+    names: set[str] = set()
+
+    def _add_id(value: Any) -> None:
+        # An empty id must never enter the set: every player missing an id
+        # would then match it and vanish from the board.
+        if value is not None and str(value):
+            ids.add(str(value))
+
+    def _add_name(value: Any) -> None:
+        normalized = normalize_player_name(value)
+        if normalized:
+            names.add(normalized)
+
+    for key in ("drafted_player_ids", "drafted_ids"):
+        for value in draft_state.get(key) or []:
+            _add_id(value)
+    for key in ("drafted_players", "drafted", "picks"):
+        for entry in draft_state.get(key) or []:
+            if isinstance(entry, dict):
+                identifier = entry.get("player_id") or entry.get("id")
+                if identifier is not None and str(identifier):
+                    # An exact id is authoritative; registering the name too
+                    # would let one drafted player knock a *different* one off
+                    # the board, since normalize_player_name folds away
+                    # punctuation and suffixes (two "Josh Allen"s collide).
+                    _add_id(identifier)
+                else:
+                    _add_name(entry.get("name") or entry.get("player_name"))
+            else:
+                _add_name(entry)
+    return ids, names
+
+
+def _adp_round(adp: Any, n_teams: int) -> int:
+    """Which draft round an ADP lands in (1-indexed), for pressure lookups."""
+    if adp is None or n_teams < 1:
+        return 1
+    return max(1, int((safe_float(adp) - 1) // n_teams) + 1)
+
+
+def _replacement_rationale(
+    entry: dict[str, Any],
+    target_name: str,
+    adp_gap: float | None,
+    pressure: float,
+) -> str:
+    parts: list[str] = []
+    if adp_gap is None:
+        parts.append(f"next {entry['position']} up the board after {target_name}")
+    elif adp_gap <= 0:
+        parts.append(f"goes {abs(adp_gap):.0f} picks *before* {target_name} on ADP")
+    else:
+        parts.append(f"{adp_gap:.0f} picks later than {target_name} on ADP")
+    parts.append(f"{entry['vorp']:+.1f} pts over {entry['position']} replacement")
+    if entry.get("position_rank"):
+        parts.append(f"{entry['position']}{entry['position_rank']} left on the board")
+    if pressure > 1.02:
+        parts.append(f"drafted in a {entry['position']} hot zone (x{pressure:.2f}) -- the run is on")
+    elif pressure < 0.98:
+        parts.append(f"lands in a thin {entry['position']} round (x{pressure:.2f})")
+    if entry.get("must_draft_now"):
+        parts.append("won't survive to your next turn either")
+    elif entry.get("steal_bonus"):
+        parts.append(f"already {entry['steal_bonus']:.0f} picks past their own ADP")
+    if entry.get("need_label") == "Fills need":
+        parts.append("still fills the empty slot")
+    return "; ".join(parts)
+
+
+def get_replacements(
+    player_id: Any,
+    draft_state: dict[str, Any] | None = None,
+    limit: int = MAX_REPLACEMENTS,
+) -> list[dict[str, Any]]:
+    """Who to pivot to when ``player_id`` is drafted out from under you.
+
+    ``draft_state`` extends the same dict :func:`fantasy.draft.suggest_picks`
+    already takes, so a caller that has one can pass it straight through::
+
+        {
+            "league_settings": {...},        # as suggest_picks
+            "my_roster": [{"position": "RB", ...}, ...],
+            "available_players": [...],      # the board before the pick landed
+            "drafted_player_ids": [...],     # or "drafted_players" / "picks"
+            "round_number": 3,               # for positional-pressure zones
+            "next_pick_overall": 29,
+            "picks_until_next": 22,
+            "risk_tolerance": "balanced",
+            "historical_adp_season": 2025,   # optional; see below
+        }
+
+    Everything but ``available_players`` is optional. The target player may
+    still be sitting in ``available_players`` (the usual case -- you are
+    reacting to the pick that just happened), and is filtered out regardless.
+
+    The pivot is built in four steps:
+
+    1. **Position.** The drafted player's own position decides the search --
+       a replacement for a TE is another TE, not the best player left.
+    2. **ADP neighbors.** Same-position players whose ADP sits within
+       :data:`ADP_NEIGHBOR_WINDOW_PICKS` of the target's. This is what keeps
+       the suggestion a genuine *replacement*: someone the market values
+       similarly, available at a similar cost. A target with no ADP (or a
+       neighborhood thinner than :data:`MIN_REPLACEMENTS`) backfills with the
+       best remaining players at the position, so the list is never empty
+       just because the ADP board is patchy.
+    3. **Drafted players removed.** Both the target and everyone in the
+       drafted keys are dropped before scoring.
+    4. **Scored by the user brain, adjusted for pressure.** Candidates are
+       ranked by :func:`suggest_draft_picks` -- the identical model behind
+       :mod:`fantasy.user_brain` and the live Draft Assistant, so a
+       replacement is judged on exactly the signals a first-choice pick is.
+       Scoring runs against the *whole* remaining board with a position
+       filter, never the narrowed candidate list, so replacement levels and
+       scarcity stay honest (a narrowed pool would make every position look
+       artificially thin). :mod:`fantasy.positional_pressure` then scales each
+       candidate by how contested the round their own ADP falls in actually
+       is, measured from the board rather than assumed.
+
+    Set ``historical_adp_season`` to time the board by the market as it stood
+    that August (:mod:`fantasy.historical_adp`); it performs a network fetch
+    and silently leaves ADP untouched if that fetch fails, since a pivot list
+    is more useful slightly stale than not at all.
+
+    Returns up to ``limit`` entries (clamped to :data:`MAX_REPLACEMENTS`),
+    each a :func:`suggest_draft_picks` entry plus ``replaces``,
+    ``replaces_name``, ``adp_gap``, ``pressure_multiplier``,
+    ``position_pressure_now``, ``replacement_score``, and
+    ``replacement_rationale``. Returns ``[]`` when the target is unknown,
+    nothing at the position is left, or your roster is already capped at that
+    position -- all normal empty states for a caller to render, not errors.
+    """
+    state = dict(draft_state or {})
+    settings = _coerce_settings(state.get("league_settings"))
+    target_key = str(player_id) if player_id is not None else ""
+
+    pool, _rejected = validate_players(drop_synthetic(list(_draft_state_pool(state))), require_projection=False)
+    if not pool or not target_key:
+        return []
+
+    target = next((p for p in pool if _player_identity(p) == target_key), None)
+    if target is None:
+        target = next((p for p in pool if normalize_player_name(p.get("name")) == normalize_player_name(player_id)), None)
+    if target is None:
+        return []
+
+    position = str(target.get("position", "")).strip().upper()
+    target_name = str(target.get("name") or "that player")
+    target_adp = target.get("adp")
+
+    drafted_ids, drafted_names = _drafted_keys(state)
+    target_identity = _player_identity(target)
+
+    def _is_gone(player: dict[str, Any]) -> bool:
+        identity = _player_identity(player)
+        if identity and identity in drafted_ids:
+            return True
+        name = normalize_player_name(player.get("name"))
+        return bool(name) and name in drafted_names
+
+    # The target is dropped by identity rather than by adding it to the
+    # drafted sets, so a player with no id can never be confused for it.
+    def _is_target(player: dict[str, Any]) -> bool:
+        if target_identity:
+            return _player_identity(player) == target_identity
+        return normalize_player_name(player.get("name")) == normalize_player_name(target_name)
+
+    season = state.get("historical_adp_season")
+    if season:
+        # The overlay has to cover the target too: comparing a historical
+        # candidate ADP against the target's present-day ADP would measure the
+        # gap between two different markets, not two different players.
+        try:
+            from fantasy.historical_adp import apply_historical_adp
+
+            pool = apply_historical_adp(pool, int(season), scoring=settings.scoring_mode, teams=settings.n_teams)
+            target = next((p for p in pool if _is_target(p)), target)
+            target_adp = target.get("adp")
+        except Exception:
+            # A pivot list slightly out of date beats no pivot list at all.
+            pass
+
+    board = [player for player in pool if not _is_target(player) and not _is_gone(player)]
+    if not board:
+        return []
+
+    # Rank the whole remaining board at this position -- see step 4 above on
+    # why the candidate list is filtered after scoring rather than before.
+    scored = suggest_draft_picks(
+        board,
+        settings,
+        my_roster=state.get("my_roster"),
+        next_pick_overall=state.get("next_pick_overall"),
+        picks_until_next=state.get("picks_until_next"),
+        limit=len(board),
+        positions=[position] if position else None,
+        risk_tolerance=str(state.get("risk_tolerance") or "balanced"),
+    )
+    if not scored:
+        return []
+
+    window = safe_float(state.get("adp_window"), ADP_NEIGHBOR_WINDOW_PICKS) or ADP_NEIGHBOR_WINDOW_PICKS
+    if target_adp is not None:
+        neighbors = [
+            entry
+            for entry in scored
+            if entry.get("adp") is not None
+            and abs(safe_float(entry["adp"]) - safe_float(target_adp)) <= window
+        ]
+    else:
+        neighbors = []
+
+    # Backfill so a patchy ADP board still yields a usable set.
+    chosen_ids = {str(entry.get("player_id")) for entry in neighbors}
+    for entry in scored:
+        if len(neighbors) >= max(MIN_REPLACEMENTS, min(int(limit), MAX_REPLACEMENTS)):
+            break
+        if str(entry.get("player_id")) not in chosen_ids:
+            neighbors.append(entry)
+            chosen_ids.add(str(entry.get("player_id")))
+
+    from fantasy.positional_pressure import build_positional_pressure
+
+    current_round = max(1, int(safe_float(state.get("round_number"), 1) or 1))
+    rounds = max(current_round, int(safe_float(state.get("rounds"), 14) or 14))
+    pressure = build_positional_pressure(board, n_teams=settings.n_teams, rounds=rounds)
+    # Shared across candidates (same position, same round), so this is
+    # reported as urgency context rather than folded into the ranking, where
+    # a constant factor could not change the order anyway.
+    pressure_now = round(pressure.combined(position, current_round), 3)
+
+    replacements: list[dict[str, Any]] = []
+    for entry in neighbors:
+        candidate = dict(entry)
+        candidate_adp = candidate.get("adp")
+        multiplier = pressure.combined(position, _adp_round(candidate_adp, settings.n_teams))
+        adp_gap = (
+            round(safe_float(candidate_adp) - safe_float(target_adp), 1)
+            if candidate_adp is not None and target_adp is not None
+            else None
+        )
+        candidate.update(
+            {
+                "replaces": target_key,
+                "replaces_name": target_name,
+                "adp_gap": adp_gap,
+                "pressure_multiplier": round(multiplier, 3),
+                "position_pressure_now": pressure_now,
+                "replacement_score": round(safe_float(candidate.get("score")) * multiplier, 2),
+            }
+        )
+        candidate["replacement_rationale"] = _replacement_rationale(candidate, target_name, adp_gap, multiplier)
+        replacements.append(candidate)
+
+    replacements.sort(key=lambda item: item["replacement_score"], reverse=True)
+    top = replacements[: max(1, min(int(limit), MAX_REPLACEMENTS))]
+    for index, candidate in enumerate(top, start=1):
+        candidate["rank"] = index
+    return top

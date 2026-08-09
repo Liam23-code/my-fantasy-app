@@ -324,9 +324,158 @@ def inject_app_css() -> None:
       [data-testid="stSidebar"] [data-testid="stPageLink"] a:hover {
         background: rgba(255,255,255,.08);
         transform: translateX(2px);
-      }      @media (max-width: 760px) {
-        .block-container {padding-top: 1.2rem;}
+      }
+
+      /* --- page header ---------------------------------------------------- */
+      .page-head {
+        display: flex;
+        flex-direction: column;
+        gap: .18rem;
+        padding: .1rem 0 .9rem;
+        margin-bottom: 1.1rem;
+        border-bottom: 1px solid var(--line);
+      }
+      .page-head .eyebrow {
+        color: var(--accent);
+        font-size: .74rem;
+        font-weight: 800;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+      }
+      .page-head h1 {
+        margin: 0;
+        font-size: 2.05rem;
+        font-weight: 830;
+        letter-spacing: -.032em;
+      }
+      .page-head p {
+        margin: .1rem 0 0;
+        color: var(--muted);
+        font-size: .96rem;
+        line-height: 1.55;
+        max-width: 68ch;
+      }
+
+      /* --- status pills ---------------------------------------------------- */
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        border-radius: 999px;
+        padding: .2rem .58rem;
+        margin: .15rem .25rem .15rem 0;
+        font-size: .74rem;
+        font-weight: 750;
+        line-height: 1.35;
+        border: 1px solid transparent;
+        white-space: nowrap;
+      }
+      .pill-danger  {background:#fdecea; color:#a3271a; border-color:#f5c6bf;}
+      .pill-warning {background:#fdf4dc; color:#8a6100; border-color:#f0dfae;}
+      .pill-success {background:#e6f6ee; color:#0c6b42; border-color:#bfe6d3;}
+      .pill-info    {background:#eef1ff; color:#33409c; border-color:#d6dcff;}
+      .pill-neutral {background:#eef2f7; color:#4a5769; border-color:#dbe3ec;}
+
+      /* --- player card ----------------------------------------------------- */
+      .player-card {
+        display: flex;
+        flex-direction: column;
+        gap: .1rem;
+        min-height: 118px;
+      }
+      .player-card .rank {
+        color: var(--muted);
+        font-size: .74rem;
+        font-weight: 800;
+        letter-spacing: .09em;
+        text-transform: uppercase;
+      }
+      .player-card .name {
+        font-size: 1.06rem;
+        font-weight: 780;
+        color: var(--ink);
+        letter-spacing: -.018em;
+        line-height: 1.25;
+      }
+      .player-card .meta {color: var(--muted); font-size: .82rem; font-weight: 620;}
+      .player-card .stat-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .1rem .85rem;
+        margin: .45rem 0 .3rem;
+      }
+      .player-card .stat {display: flex; flex-direction: column; line-height: 1.2;}
+      .player-card .stat .k {color: var(--muted); font-size: .68rem; font-weight: 750; text-transform: uppercase; letter-spacing: .06em;}
+      .player-card .stat .v {color: var(--ink); font-size: .98rem; font-weight: 780; letter-spacing: -.02em;}
+      .player-card.is-taken .name {text-decoration: line-through; color: #8b97a8;}
+      .player-card.is-taken {opacity: .82;}
+
+      /* --- empty state ------------------------------------------------------ */
+      .empty-state {
+        text-align: center;
+        padding: 2.1rem 1.2rem;
+        border: 1px dashed var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,.6);
+        color: var(--muted);
+      }
+      .empty-state .icon {font-size: 1.9rem; line-height: 1;}
+      .empty-state h4 {margin: .55rem 0 .2rem; color: var(--ink); font-size: 1.02rem;}
+      .empty-state p {margin: 0 auto; max-width: 46ch; font-size: .89rem; line-height: 1.55;}
+
+      /* --- mobile ----------------------------------------------------------- */
+      @media (max-width: 820px) {
+        .block-container {
+          padding-top: 1.1rem;
+          padding-left: .85rem;
+          padding-right: .85rem;
+          padding-bottom: 2.5rem;
+        }
+        .page-head h1 {font-size: 1.62rem;}
+        .page-head p {font-size: .9rem;}
+        h2 {margin-top: 1.25rem;}
         .profile-hero img {width: 62px; height: 62px;}
+
+        /* Streamlit keeps columns side by side on phones; below this width
+           that squeezes metrics and cards into unreadable slivers, so let
+           them wrap to full width instead. */
+        [data-testid="stHorizontalBlock"] {flex-wrap: wrap; gap: .55rem;}
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+          flex: 1 1 100% !important;
+          min-width: 100% !important;
+        }
+        [data-testid="stMetric"] {min-height: 0; padding: .8rem .85rem;}
+        [data-testid="stMetricValue"] {font-size: 1.5rem;}
+
+        /* Tab strips overflow rather than compressing the labels away. */
+        .stTabs [data-baseweb="tab-list"] {
+          overflow-x: auto;
+          flex-wrap: nowrap;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+        }
+        .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {display: none;}
+        .stTabs [data-baseweb="tab"] {white-space: nowrap; padding: .45rem .7rem;}
+
+        /* Comfortable tap targets. */
+        .stButton button, [data-testid="stFormSubmitButton"] button {
+          width: 100%;
+          min-height: 44px;
+        }
+        .gradient-section {padding: .72rem .85rem; margin: 1rem 0 .7rem;}
+        .player-card {min-height: 0;}
+      }
+
+      /* Respect users who ask for less motion. */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: .001ms !important;
+          transition-duration: .001ms !important;
+        }
+        [data-testid="stMetric"]:hover, .feature-card:hover,
+        [data-testid="stDataFrame"]:hover, [data-testid="stExpander"]:hover {
+          transform: none;
+        }
       }
     </style>
     """, unsafe_allow_html=True)
@@ -616,6 +765,50 @@ def section_header(title: str, subtitle: str = "") -> None:
     st.markdown(
         f'<div class="gradient-section"><h3>{escape(title)}</h3>'
         f'<p>{escape(subtitle)}</p></div>',
+        unsafe_allow_html=True,
+    )
+
+
+#: Semantic tones for :func:`pill`. Kept to a named set so that "urgent" looks
+#: identical on every page rather than each caller picking its own red.
+PILL_TONES = ("danger", "warning", "success", "info", "neutral")
+
+
+def pill(label: str, tone: str = "neutral") -> str:
+    """Return one color-coded status pill as HTML.
+
+    Returns markup instead of rendering it so several pills can be composed
+    into a single ``st.markdown`` call -- rendering each one separately would
+    put a Streamlit block boundary between them and stack them vertically.
+    """
+    tone = tone if tone in PILL_TONES else "neutral"
+    return f'<span class="pill pill-{tone}">{escape(str(label))}</span>'
+
+
+def page_header(title: str, subtitle: str = "", eyebrow: str = "") -> None:
+    """Render the standard top-of-page identity block.
+
+    Replaces the ``st.title`` + ``st.write`` pair pages used to open with, so
+    every page starts with the same typography, spacing, and rule.
+    """
+    eyebrow_html = f'<div class="eyebrow">{escape(eyebrow)}</div>' if eyebrow else ""
+    subtitle_html = f"<p>{escape(subtitle)}</p>" if subtitle else ""
+    st.markdown(
+        f'<div class="page-head">{eyebrow_html}<h1>{escape(title)}</h1>{subtitle_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def empty_state(title: str, body: str = "", icon: str = "📭") -> None:
+    """Render a calm, styled placeholder for a genuinely empty result.
+
+    Used where ``st.info`` would read as a problem: an empty board or an
+    unrun analysis is a normal state, not an error.
+    """
+    body_html = f"<p>{escape(body)}</p>" if body else ""
+    st.markdown(
+        f'<div class="empty-state"><div class="icon">{escape(icon)}</div>'
+        f"<h4>{escape(title)}</h4>{body_html}</div>",
         unsafe_allow_html=True,
     )
 

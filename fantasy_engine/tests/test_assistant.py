@@ -5,7 +5,10 @@ from __future__ import annotations
 import pytest
 
 from fantasy.assistant import (
+    ADP_NEIGHBOR_WINDOW_PICKS,
+    MAX_REPLACEMENTS,
     capped_positions,
+    get_replacements,
     next_pick_number,
     picks_between,
     replacement_levels,
@@ -327,3 +330,136 @@ def test_raw_vorp_is_still_reported_unchanged_by_the_blend():
     pool = [_p("A", "RB", 300.0, adp=90.0), _p("B", "RB", 100.0, adp=1.0)]
     by_name = {e["name"]: e for e in suggest_draft_picks(pool, SETTINGS, limit=2)}
     assert by_name["A"]["vorp"] > by_name["B"]["vorp"]  # raw VORP order unchanged
+
+
+# --- replacements ("he just got taken") -------------------------------------
+
+REPLACEMENT_SETTINGS = {
+    "n_teams": 12,
+    "scoring_mode": "ppr",
+    "roster_requirements": {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "DST": 1, "K": 1, "BENCH": 6},
+    "flex_eligible": ["RB", "WR", "TE"],
+}
+
+
+# normalize_player_name() folds a name down to [a-z] only, so "RB1"/"RB2"
+# collapse to the same key. Fixture names must therefore differ alphabetically
+# or the name-matching paths cannot be tested at all.
+_NATO = ("Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo")
+
+
+def _rb(index):
+    return f"Rusher {_NATO[index - 1]}"
+
+
+def _wr(index):
+    return f"Catcher {_NATO[index - 1]}"
+
+
+def _deep_pool():
+    """A board with real ADP spacing at two positions."""
+    return [_p(_rb(i), "RB", 300.0 - i * 12, adp=float(i * 6 + 3)) for i in range(1, 12)] + [
+        _p(_wr(i), "WR", 290.0 - i * 10, adp=float(i * 5 + 2)) for i in range(1, 12)
+    ]
+
+
+def _state(**overrides):
+    state = {
+        "league_settings": REPLACEMENT_SETTINGS,
+        "my_roster": [],
+        "available_players": _deep_pool(),
+        "round_number": 2,
+        "next_pick_overall": 20,
+        "picks_until_next": 22,
+    }
+    state.update(overrides)
+    return state
+
+
+def test_get_replacements_returns_same_position_options():
+    replacements = get_replacements("id-Rusher Delta", _state())
+    assert 3 <= len(replacements) <= 5
+    assert {entry["position"] for entry in replacements} == {"RB"}
+
+
+def test_get_replacements_never_returns_the_drafted_player():
+    replacements = get_replacements("id-Rusher Delta", _state())
+    assert all(entry["name"] != "Rusher Delta" for entry in replacements)
+    assert all(entry["replaces_name"] == "Rusher Delta" for entry in replacements)
+
+
+def test_get_replacements_excludes_already_drafted_players():
+    state = _state(drafted_player_ids=["id-Rusher Charlie", "id-Rusher Echo"])
+    names = {entry["name"] for entry in get_replacements("id-Rusher Delta", state)}
+    assert not names & {"Rusher Charlie", "Rusher Delta", "Rusher Echo"}
+
+
+def test_get_replacements_accepts_pick_dicts_and_bare_names():
+    """The UI holds 'who is gone' as simulate_draft pick dicts or plain names."""
+    state = _state(drafted_players=[{"player_name": "Rusher Charlie"}, "Rusher Echo"])
+    names = {entry["name"] for entry in get_replacements("id-Rusher Delta", state)}
+    assert not names & {"Rusher Charlie", "Rusher Echo"}
+
+
+def test_get_replacements_prefers_adp_neighbors_over_distant_players():
+    """A replacement is someone available at a similar cost, not the best left."""
+    replacements = get_replacements("id-Rusher Hotel", _state())
+    gaps = [abs(entry["adp_gap"]) for entry in replacements if entry["adp_gap"] is not None]
+    assert gaps and max(gaps) <= ADP_NEIGHBOR_WINDOW_PICKS
+
+
+def test_get_replacements_backfills_when_the_adp_board_is_patchy():
+    """No ADP anywhere must still yield a usable list rather than an empty one."""
+    pool = [_p(_rb(i), "RB", 300.0 - i * 10) for i in range(1, 9)]
+    replacements = get_replacements("id-Rusher Bravo", _state(available_players=pool))
+    assert len(replacements) >= 3
+    assert all(entry["adp_gap"] is None for entry in replacements)
+
+
+def test_get_replacements_reports_pressure_and_rationale():
+    entry = get_replacements("id-Rusher Delta", _state())[0]
+    assert entry["rank"] == 1
+    assert entry["pressure_multiplier"] > 0
+    assert entry["position_pressure_now"] > 0
+    # Both factors are rounded before the product is, so allow for that drift.
+    assert entry["replacement_score"] == pytest.approx(
+        entry["score"] * entry["pressure_multiplier"], rel=1e-2, abs=0.02
+    )
+    assert "Rusher Delta" in entry["replacement_rationale"]
+
+
+def test_get_replacements_is_ranked_best_first():
+    replacements = get_replacements("id-Rusher Delta", _state())
+    scores = [entry["replacement_score"] for entry in replacements]
+    assert scores == sorted(scores, reverse=True)
+    assert [entry["rank"] for entry in replacements] == list(range(1, len(replacements) + 1))
+
+
+def test_get_replacements_respects_the_limit_ceiling():
+    assert len(get_replacements("id-Rusher Delta", _state(), limit=99)) <= MAX_REPLACEMENTS
+    assert len(get_replacements("id-Rusher Delta", _state(), limit=3)) == 3
+
+
+@pytest.mark.parametrize(
+    ("player_id", "state"),
+    [
+        ("id-NOBODY", _state()),                    # unknown target
+        ("id-Rusher Delta", {"league_settings": REPLACEMENT_SETTINGS}),  # no pool at all
+        (None, _state()),                           # no target
+    ],
+)
+def test_get_replacements_returns_empty_state_not_an_error(player_id, state):
+    assert get_replacements(player_id, state) == []
+
+
+def test_get_replacements_tolerates_a_missing_draft_state():
+    assert get_replacements("id-Rusher Delta", None) == []
+
+
+def test_get_replacements_drops_synthetic_players():
+    """A fabricated player must never be offered as a pivot."""
+    pool = _deep_pool() + [
+        {"player_id": "synthetic:fake", "name": "Fake Guy", "position": "RB", "team": "SF", "projection": 999.0, "adp": 25.0}
+    ]
+    names = {entry["name"] for entry in get_replacements("id-Rusher Delta", _state(available_players=pool))}
+    assert "Fake Guy" not in names
