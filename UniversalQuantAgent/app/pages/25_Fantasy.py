@@ -9,12 +9,15 @@ _loaded_app = sys.modules.get("app")
 if _loaded_app is not None and not hasattr(_loaded_app, "__path__"):
     del sys.modules["app"]
 
-"""Fantasy: draft room, scoring, lineups, waivers, trades, and tiered cheat sheets.
-
-All calculations are delegated to the ``fantasy`` engine package
-(``fantasy_engine/fantasy``); this page only handles presentation, following
-the same split used by every other page in this app.
-"""
+# Fantasy: draft room, scoring, lineups, waivers, trades, and tiered cheat sheets.
+#
+# All calculations are delegated to the `fantasy` engine package
+# (`fantasy_engine/fantasy`); this page only handles presentation, following the
+# same split used by every other page in this app.
+#
+# Deliberately a comment, not a string. The sys.path preamble above has to run
+# first, so a string here would not be the module docstring -- it would be a
+# bare expression, which Streamlit's magic renders straight onto the page.
 
 import json
 from html import escape
@@ -314,6 +317,45 @@ def _player_card_html(
     )
 
 
+def _pick_card_html(pick: dict[str, Any], source: dict[str, Any] | None = None) -> str:
+    """One of my own drafted players, rendered as a card.
+
+    ``source`` is the player's row from the projection pool. The pick dict's
+    own ``team`` is the *fantasy* team ("Team 5"), so the NFL team has to come
+    from the pool row instead.
+    """
+    source = source or {}
+    nfl_team = str(source.get("team") or "")
+    adp = pick.get("adp")
+    timing = ""
+    if adp is not None:
+        delta = float(pick["overall_pick"]) - float(adp)
+        if delta >= 15:
+            timing = pill(f"📉 Steal +{delta:.0f}", "success")
+        elif delta <= -15:
+            timing = pill(f"⚠️ Reach {delta:+.0f}", "warning")
+        else:
+            timing = pill("On time", "neutral")
+    stats = [
+        ("Proj", _fmt(pick.get("projection"))),
+        ("VORP", _fmt(pick.get("vor"), "+.0f")),
+        ("ADP", _fmt(adp, ".1f")),
+    ]
+    stat_html = "".join(
+        f'<div class="stat"><span class="k">{escape(key)}</span><span class="v">{escape(value)}</span></div>'
+        for key, value in stats
+    )
+    return (
+        '<div class="player-card">'
+        f'<div class="rank">Round {pick["round"]} · Pick #{pick["overall_pick"]}</div>'
+        f'<div class="name">{escape(str(pick.get("name", "—")))}</div>'
+        f'<div class="meta">{escape(str(pick.get("position", "")))} · {escape(nfl_team)}</div>'
+        f'<div class="stat-row">{stat_html}</div>'
+        f"<div>{timing}</div>"
+        "</div>"
+    )
+
+
 tab_labels = [
     "Draft Room",
     "Scoring",
@@ -392,27 +434,6 @@ with tabs[0]:
             if not by_round:
                 empty_state("No picks were made", "The player pool was empty.", icon="🗒️")
             else:
-                # ---------------------------------------------------------------
-                # Round-by-round companion. Recommendations are computed from the
-                # board as it stood at the *start* of the round, so a player the
-                # room takes before your turn shows up as genuinely sniped --
-                # that is the moment `get_replacements` exists to answer.
-                # ---------------------------------------------------------------
-                st.markdown("### Walk the draft")
-                st.caption(
-                    "Pick a round to see what the assistant would have recommended going into it, "
-                    "who survived to your pick, and who got taken first. Tap any player for more."
-                )
-
-                simulated_rounds = sorted(by_round)
-                # A shorter re-run can leave the stored round out of range, and
-                # select_slider raises rather than clamping. Reconcile first.
-                if st.session_state.get("fantasy_walk_round") not in simulated_rounds:
-                    st.session_state["fantasy_walk_round"] = simulated_rounds[0]
-                round_number = int(
-                    st.select_slider("Round", options=simulated_rounds, key="fantasy_walk_round")
-                )
-
                 players_by_id = {p.get("player_id"): p for p in projections if p.get("player_id")}
 
                 # Read the draft's own geometry back off the result rather than
@@ -422,182 +443,154 @@ with tabs[0]:
                 sim_snake = bool(mock_result.get("snake"))
                 sim_rounds = int(mock_result.get("rounds") or num_rounds)
 
-                actual = next((p for p in user_picks if p["round"] == round_number), None)
-                next_actual = next((p for p in user_picks if p["round"] == round_number + 1), None)
-                my_overall = (
-                    int(actual["overall_pick"])
-                    if actual
-                    else next_pick_number(sim_teams, draft_pick, round_number, sim_snake)
-                )
-                gap = (
-                    int(next_actual["overall_pick"]) - my_overall - 1
-                    if next_actual
-                    else picks_between(sim_teams, draft_pick, round_number, sim_snake)
-                )
-                round_start_pick = (round_number - 1) * sim_teams + 1
-
-                gone_at_round_start = {
-                    p["player_id"] for p in all_picks if p["overall_pick"] < round_start_pick
-                }
-                gone_before_my_pick = {p["player_id"] for p in all_picks if p["overall_pick"] < my_overall}
-                sniped_in_round = {
-                    p["player_id"]: p
-                    for p in all_picks
-                    if round_start_pick <= p["overall_pick"] < my_overall
-                }
-
-                board_at_round_start = [
-                    player for player in projections if player.get("player_id") not in gone_at_round_start
-                ]
-                # Look the real player objects back up rather than reusing the
-                # pick dicts: a pick's "team" is the fantasy team ("Team 5"),
-                # and the assistant's stacking and bye-week signals need the
-                # actual NFL team.
-                my_roster_before = [
-                    players_by_id[p["player_id"]]
-                    for p in user_picks
-                    if p["overall_pick"] < my_overall and p["player_id"] in players_by_id
-                ]
-
-                info1, info2, info3 = st.columns(3)
-                info1.metric("Your pick", f"#{my_overall}")
-                info2.metric("Picks until your next", gap)
-                info3.metric("On your roster", len(my_roster_before))
-
-                if actual:
-                    st.markdown(
-                        f"In the simulation you took **{escape(str(actual['name']))}** "
-                        f"({escape(str(actual['position']))}) at pick #{actual['overall_pick']}."
-                    )
-
-                maxed_out = capped_positions(my_roster_before)
-                if maxed_out:
-                    st.caption(f"Roster full at {', '.join(maxed_out)} — hidden from the suggestions below.")
-
-                recommendations = run_analysis(
-                    "draft suggestions",
-                    lambda: suggest_draft_picks(
-                        board_at_round_start,
-                        st.session_state.fantasy_league_settings,
-                        my_roster=my_roster_before,
-                        next_pick_overall=my_overall,
-                        picks_until_next=gap,
-                        limit=6,
-                    ),
+                # ---------------------------------------------------------------
+                # Your team. These -- and only these -- are the clickable cards.
+                # Tapping one asks the engine who else was on the board at that
+                # exact pick, which is what `get_replacements` answers.
+                # ---------------------------------------------------------------
+                st.markdown("### Your team")
+                st.caption(
+                    "Every player the simulation drafted for you. Tap one to see who else was "
+                    "available at that pick and how the alternatives score."
                 )
 
-                if not recommendations:
+                if not user_picks:
                     empty_state(
-                        "Nothing left to recommend",
-                        "Every remaining player is either capped out on your roster or off the board.",
-                        icon="🚫",
+                        "The draft ended before your slot came up",
+                        "Increase the number of rounds, or move your draft pick earlier.",
+                        icon="🪑",
                     )
                 else:
-                    sniped_count = sum(1 for entry in recommendations if entry["player_id"] in sniped_in_round)
-                    if sniped_count:
-                        st.markdown(
-                            f"{pill(f'{sniped_count} of these went before your pick', 'danger')} "
-                            "— tap one to see who to pivot to.",
-                            unsafe_allow_html=True,
-                        )
-
-                    columns = st.columns(3)
-                    for index, entry in enumerate(recommendations):
-                        sniper = sniped_in_round.get(entry["player_id"])
-                        taken_by = None
-                        if sniper:
-                            taken_by = f"{sniper['team']} at #{sniper['overall_pick']}"
-                        with columns[index % 3]:
+                    roster_columns = st.columns(3)
+                    for index, pick in enumerate(user_picks):
+                        source = players_by_id.get(pick["player_id"], {})
+                        with roster_columns[index % 3]:
                             with st.container(border=True):
                                 st.markdown(
-                                    _player_card_html(entry, f"Rec #{entry['rank']}", taken_by),
+                                    _pick_card_html(pick, source),
                                     unsafe_allow_html=True,
                                 )
-                                label = "Find replacements" if sniper else "Why this pick?"
                                 if st.button(
-                                    label,
-                                    key=f"fantasy_rec_{round_number}_{entry['player_id']}",
+                                    "See who else was available",
+                                    key=f"fantasy_mypick_{pick['overall_pick']}_{pick['player_id']}",
                                     width="stretch",
                                 ):
                                     st.session_state["fantasy_draft_focus"] = {
-                                        "player_id": entry["player_id"],
-                                        "name": entry["name"],
-                                        "mode": "replacements" if sniper else "detail",
-                                        "round": round_number,
+                                        "player_id": pick["player_id"],
+                                        "name": pick["name"],
+                                        "overall_pick": int(pick["overall_pick"]),
+                                        "round": int(pick["round"]),
                                     }
 
                     # -----------------------------------------------------------
-                    # Focus panel: replacements for a sniped target, or the full
-                    # reasoning behind an available one.
+                    # Replacement panel for whichever of my picks was tapped.
                     # -----------------------------------------------------------
                     focus = st.session_state.get("fantasy_draft_focus")
-                    if focus and focus.get("round") == round_number:
+                    if focus:
                         st.divider()
-                        focus_entry = next(
-                            (e for e in recommendations if e["player_id"] == focus["player_id"]), None
+                        focus_pick = int(focus["overall_pick"])
+                        section_header(
+                            f"Instead of {focus['name']} — round {focus['round']}, pick #{focus_pick}",
+                            "Same position, similar ADP cost, scored by the same model that drafts your "
+                            "team, adjusted for how contested that round actually was.",
                         )
-                        if focus["mode"] == "detail" and focus_entry:
-                            section_header(
-                                f"Why {focus_entry['name']}",
-                                focus_entry.get("rationale", ""),
+
+                        # Everyone taken strictly *before* this pick is gone; the
+                        # focus player is deliberately still on the board here,
+                        # because get_replacements resolves the target from the
+                        # pool and then filters it out itself.
+                        gone_before = {
+                            p["player_id"] for p in all_picks if p["overall_pick"] < focus_pick
+                        }
+                        board_at_pick = [
+                            player
+                            for player in projections
+                            if player.get("player_id") not in gone_before
+                        ]
+                        # Look the real player objects back up rather than reusing
+                        # the pick dicts: a pick's "team" is the fantasy team
+                        # ("Team 5"), and the assistant's stacking and bye-week
+                        # signals need the actual NFL team.
+                        roster_before = [
+                            players_by_id[p["player_id"]]
+                            for p in user_picks
+                            if p["overall_pick"] < focus_pick and p["player_id"] in players_by_id
+                        ]
+                        later_picks = [p for p in user_picks if p["overall_pick"] > focus_pick]
+                        focus_gap = (
+                            int(later_picks[0]["overall_pick"]) - focus_pick - 1
+                            if later_picks
+                            else picks_between(sim_teams, draft_pick, int(focus["round"]), sim_snake)
+                        )
+
+                        context1, context2, context3 = st.columns(3)
+                        context1.metric("Pick", f"#{focus_pick}")
+                        context2.metric("Picks until your next", focus_gap)
+                        context3.metric("On your roster then", len(roster_before))
+
+                        draft_state = {
+                            "league_settings": st.session_state.fantasy_league_settings,
+                            "my_roster": roster_before,
+                            "available_players": board_at_pick,
+                            "drafted_player_ids": sorted(gone_before),
+                            "round_number": int(focus["round"]),
+                            "rounds": sim_rounds,
+                            "next_pick_overall": focus_pick,
+                            "picks_until_next": focus_gap,
+                        }
+                        replacements = run_analysis(
+                            "replacement options",
+                            lambda: get_replacements(focus["player_id"], draft_state),
+                        )
+                        if not replacements:
+                            empty_state(
+                                "No alternative available",
+                                "Nothing comparable was left at that position, or your roster was "
+                                "already capped there at that point in the draft.",
+                                icon="🔍",
                             )
-                            detail = st.columns(4)
-                            detail[0].metric("Projection", _fmt(focus_entry.get("projection")))
-                            detail[1].metric("VORP", _fmt(focus_entry.get("vorp"), "+.1f"))
-                            detail[2].metric("Scarcity", _fmt(focus_entry.get("scarcity"), ".0f"))
-                            detail[3].metric("Score", _fmt(focus_entry.get("score"), ".1f"))
-                        elif focus["mode"] == "replacements":
-                            section_header(
-                                f"{focus['name']} is gone — pivot options",
-                                "Same position, similar ADP cost, scored by the same model that made the "
-                                "original recommendation and adjusted for how contested the round is.",
-                            )
-                            draft_state = {
-                                "league_settings": st.session_state.fantasy_league_settings,
-                                "my_roster": my_roster_before,
-                                "available_players": board_at_round_start,
-                                "drafted_player_ids": sorted(gone_before_my_pick),
-                                "round_number": round_number,
-                                "rounds": sim_rounds,
-                                "next_pick_overall": my_overall,
-                                "picks_until_next": gap,
-                            }
-                            replacements = run_analysis(
-                                "replacement options",
-                                lambda: get_replacements(focus["player_id"], draft_state),
-                            )
-                            if not replacements:
-                                empty_state(
-                                    "No replacement available",
-                                    "Nothing comparable is left at that position, or your roster is "
-                                    "already capped there.",
-                                    icon="🔍",
-                                )
-                            else:
-                                replacement_columns = st.columns(min(3, len(replacements)))
-                                for index, option in enumerate(replacements):
-                                    with replacement_columns[index % len(replacement_columns)]:
-                                        with st.container(border=True):
-                                            st.markdown(
-                                                _player_card_html(option, f"Option {option['rank']}"),
-                                                unsafe_allow_html=True,
-                                            )
-                                            gap_text = (
-                                                f"{option['adp_gap']:+.0f} picks vs {option['replaces_name']}"
-                                                if option.get("adp_gap") is not None
-                                                else "next up at the position"
-                                            )
-                                            st.caption(gap_text)
-                                with st.expander("Why these replacements?"):
-                                    for option in replacements:
+                        else:
+                            replacement_columns = st.columns(min(3, len(replacements)))
+                            for index, option in enumerate(replacements):
+                                with replacement_columns[index % len(replacement_columns)]:
+                                    with st.container(border=True):
                                         st.markdown(
-                                            f"**{option['rank']}. {option['name']}** "
-                                            f"({option['position']}) — {option['replacement_rationale']}"
+                                            _player_card_html(option, f"Option {option['rank']}"),
+                                            unsafe_allow_html=True,
                                         )
+                                        st.caption(
+                                            f"{option['adp_gap']:+.0f} picks vs {option['replaces_name']} on ADP"
+                                            if option.get("adp_gap") is not None
+                                            else "next up at the position"
+                                        )
+                            with st.expander("Why these alternatives?"):
+                                for option in replacements:
+                                    st.markdown(
+                                        f"**{option['rank']}. {option['name']}** "
+                                        f"({option['position']}) — {option['replacement_rationale']}"
+                                    )
+                            if st.button("Clear selection", key="fantasy_clear_focus"):
+                                st.session_state["fantasy_draft_focus"] = None
 
                 # ---------------------------------------------------------------
-                # The round's actual board.
+                # Read-only round board.
                 # ---------------------------------------------------------------
+                st.divider()
+                st.markdown("### Round-by-round board")
+                simulated_rounds = sorted(by_round)
+                # A shorter re-run can leave the stored round out of range, and
+                # select_slider raises rather than clamping. Reconcile first.
+                if st.session_state.get("fantasy_walk_round") not in simulated_rounds:
+                    st.session_state["fantasy_walk_round"] = simulated_rounds[0]
+                round_number = int(
+                    st.select_slider("Round", options=simulated_rounds, key="fantasy_walk_round")
+                )
+
+                st.caption(
+                    "**Value** = points above positional replacement (VORP). **Scarcity** = same-position "
+                    "players still available at that moment. **Timing** compares the pick to real ADP."
+                )
+
                 def _pick_timing_indicator(pick: dict) -> str:
                     adp, overall_pick = pick.get("adp"), pick["pick"]
                     if adp is None:
@@ -609,65 +602,38 @@ with tabs[0]:
                         return f"⚠️ Reach ({delta:+.0f})"
                     return "On time"
 
-                with st.expander(f"Every pick in round {round_number}"):
-                    st.caption(
-                        "**Value** = points above positional replacement (VORP). **Scarcity** = same-position "
-                        "players still available at that moment. **Timing** compares the pick to real ADP."
-                    )
-                    round_df = pd.DataFrame(
-                        [
-                            {
-                                "Pick": pick["pick"],
-                                "Team": pick["team"],
-                                "Player": pick["player_name"],
-                                "Pos": pick["position"],
-                                "ADP": pick.get("adp"),
-                                "Value": pick.get("vor"),
-                                "Scarcity": pick.get("remaining_at_position"),
-                                "Timing": _pick_timing_indicator(pick),
-                                "Run": f"🔥 {pick['position_run']}" if pick.get("position_run") else "",
-                                "You": "★" if pick["is_user_pick"] else "",
-                            }
-                            for pick in by_round[round_number]
-                        ]
-                    )
-                    st.dataframe(
-                        round_df.style.apply(
-                            lambda row: ["background-color: rgba(255,90,54,.14)" if row["You"] else ""] * len(row),
-                            axis=1,
+                round_df = pd.DataFrame(
+                    [
+                        {
+                            "Pick": pick["pick"],
+                            "Team": pick["team"],
+                            "Player": pick["player_name"],
+                            "Pos": pick["position"],
+                            "ADP": pick.get("adp"),
+                            "Value": pick.get("vor"),
+                            "Scarcity": pick.get("remaining_at_position"),
+                            "Timing": _pick_timing_indicator(pick),
+                            "Run": f"🔥 {pick['position_run']}" if pick.get("position_run") else "",
+                            "You": "★" if pick["is_user_pick"] else "",
+                        }
+                        for pick in by_round[round_number]
+                    ]
+                )
+                st.dataframe(
+                    round_df.style.apply(
+                        lambda row: ["background-color: rgba(255,90,54,.14)" if row["You"] else ""] * len(row),
+                        axis=1,
+                    ),
+                    width="stretch",
+                    hide_index=True,
+                    column_config={
+                        "ADP": st.column_config.NumberColumn(format="%.1f"),
+                        "Value": st.column_config.NumberColumn(format="%.1f", help="VORP at draft time."),
+                        "Scarcity": st.column_config.NumberColumn(
+                            help="Same-position players still available when this pick happened."
                         ),
-                        width="stretch",
-                        hide_index=True,
-                        column_config={
-                            "ADP": st.column_config.NumberColumn(format="%.1f"),
-                            "Value": st.column_config.NumberColumn(format="%.1f", help="VORP at draft time."),
-                            "Scarcity": st.column_config.NumberColumn(
-                                help="Same-position players still available when this pick happened."
-                            ),
-                        },
-                    )
-
-                st.markdown("### Your roster from this draft")
-                if user_picks:
-                    st.dataframe(
-                        pd.DataFrame(
-                            [
-                                {
-                                    "Round": pick["round"],
-                                    "Pick": pick["overall_pick"],
-                                    "Player": pick["name"],
-                                    "Pos": pick["position"],
-                                    "Projection": pick.get("projection"),
-                                }
-                                for pick in user_picks
-                            ]
-                        ),
-                        width="stretch",
-                        hide_index=True,
-                        column_config={"Projection": st.column_config.NumberColumn(format="%.0f")},
-                    )
-                else:
-                    st.caption("The draft ended before your slot came up.")
+                    },
+                )
 
                 position_runs = mock_result.get("position_runs") or []
                 if position_runs:

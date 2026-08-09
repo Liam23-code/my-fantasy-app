@@ -9,3 +9,16 @@ enableXsrfProtection = false
 
 [browser]
 gatherUsageStats = false
+
+# Pinned on purpose. Without a [theme] section Streamlit follows the *viewer's*
+# OS/browser dark-mode preference and renders its text white, while app.py's CSS
+# always paints a light canvas -- which is exactly the white-on-white the app was
+# showing for anyone whose device is in dark mode. Pinning the light base makes
+# every native widget (inputs, dataframes, tabs, selectboxes) agree with the
+# canvas the CSS actually draws.
+[theme]
+base = "light"
+primaryColor = "#ff5a36"
+backgroundColor = "#f8fafc"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#10213a"

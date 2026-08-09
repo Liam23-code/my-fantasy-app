@@ -109,6 +109,11 @@ def inject_app_css() -> None:
         --line: #dbe5f0;
         --accent: #ff5a36;
         --accent-2: #5b6cff;
+        /* --accent is a 3.1:1 fill color -- fine for borders, bars, and
+           button backgrounds, but it fails WCAG AA as small text on white.
+           Anything that renders the accent as *type* uses this darker tone
+           instead (measured 4.9:1 on #ffffff). */
+        --accent-text: #c2410c;
       }
       .stApp {
         background:
@@ -118,6 +123,54 @@ def inject_app_css() -> None:
         color: var(--ink);
       }
       .block-container {padding-top: 2.1rem; padding-bottom: 4rem; max-width: 1480px;}
+
+      /* --- readable contrast -----------------------------------------------
+         Belt-and-braces for the white-on-white case: .streamlit/config.toml
+         pins the light theme, and these rules make the main canvas state its
+         own colors so a stale config or a browser-forced dark mode still
+         renders dark text on our light background.
+         Scoped to the main area only -- the sidebar is intentionally dark and
+         keeps its light text. `span` is deliberately NOT selected here: pills
+         and card stats are spans that set their own color, and a descendant
+         selector would outrank their class and flatten them all to ink. */
+      [data-testid="stMain"], section.main {color: var(--ink);}
+      [data-testid="stMain"] p,
+      [data-testid="stMain"] li,
+      [data-testid="stMain"] label,
+      [data-testid="stMain"] strong,
+      [data-testid="stMain"] em,
+      [data-testid="stMain"] h1,
+      [data-testid="stMain"] h2,
+      [data-testid="stMain"] h3,
+      [data-testid="stMain"] h4,
+      [data-testid="stMain"] h5,
+      [data-testid="stMain"] h6,
+      [data-testid="stMain"] [data-testid="stMarkdownContainer"],
+      [data-testid="stMain"] [data-testid="stExpander"] summary {
+        color: var(--ink);
+      }
+      [data-testid="stMain"] [data-testid="stCaptionContainer"],
+      [data-testid="stMain"] [data-testid="stCaptionContainer"] p,
+      [data-testid="stMain"] small {
+        color: var(--muted);
+      }
+      /* Text the app paints on a dark surface must win against the rules
+         above, which is why these repeat here rather than relying on order. */
+      [data-testid="stMain"] .gradient-section h3 {color: #ffffff;}
+      [data-testid="stMain"] .gradient-section p {color: #dbe7ff;}
+      [data-testid="stMain"] .stButton button,
+      [data-testid="stMain"] [data-testid="stFormSubmitButton"] button {color: #ffffff;}
+      [data-testid="stMain"] .stButton button p,
+      [data-testid="stMain"] [data-testid="stFormSubmitButton"] button p {color: inherit;}
+      /* Streamlit's alerts carry their own semantic colors (info blue, warning
+         amber, error red) on a matching tint. Blanket-inking their text would
+         throw that signal away, so they keep inheriting from the container. */
+      [data-testid="stMain"] [data-testid="stAlertContainer"] p,
+      [data-testid="stMain"] [data-testid="stAlertContainer"] li,
+      [data-testid="stMain"] [data-testid="stAlertContainer"] strong,
+      [data-testid="stMain"] [data-testid="stAlertContainer"] [data-testid="stMarkdownContainer"] {
+        color: inherit;
+      }
       [data-testid="stSidebar"],
       [data-testid="stSidebar"] > div,
       [data-testid="stSidebarContent"] {
@@ -238,7 +291,7 @@ def inject_app_css() -> None:
         font-weight:700;
       }
       .section-kicker {
-        color:#ff5a36;
+        color:var(--accent-text);
         font-size:.76rem;
         text-transform:uppercase;
         letter-spacing:.13em;
@@ -336,7 +389,7 @@ def inject_app_css() -> None:
         border-bottom: 1px solid var(--line);
       }
       .page-head .eyebrow {
-        color: var(--accent);
+        color: var(--accent-text);
         font-size: .74rem;
         font-weight: 800;
         letter-spacing: .14em;
@@ -421,7 +474,13 @@ def inject_app_css() -> None:
       }
       .empty-state .icon {font-size: 1.9rem; line-height: 1;}
       .empty-state h4 {margin: .55rem 0 .2rem; color: var(--ink); font-size: 1.02rem;}
-      .empty-state p {margin: 0 auto; max-width: 46ch; font-size: .89rem; line-height: 1.55;}
+      .empty-state p {
+        margin: 0 auto;
+        max-width: 46ch;
+        font-size: .89rem;
+        line-height: 1.55;
+        color: var(--muted);
+      }
 
       /* --- mobile ----------------------------------------------------------- */
       @media (max-width: 820px) {
@@ -431,9 +490,12 @@ def inject_app_css() -> None:
           padding-right: .85rem;
           padding-bottom: 2.5rem;
         }
-        .page-head h1 {font-size: 1.62rem;}
+        /* st.title() renders a bare h1 at 44px, which eats a phone screen.
+           Covers the pages that still use st.title as well as .page-head. */
+        h1, .page-head h1 {font-size: 1.62rem; line-height: 1.2;}
+        h2 {font-size: 1.28rem; margin-top: 1.25rem;}
+        h3 {font-size: 1.1rem;}
         .page-head p {font-size: .9rem;}
-        h2 {margin-top: 1.25rem;}
         .profile-hero img {width: 62px; height: 62px;}
 
         /* Streamlit keeps columns side by side on phones; below this width
