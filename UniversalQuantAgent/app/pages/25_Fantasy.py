@@ -37,10 +37,9 @@ from app.page_runtime import (
 
 from fantasy.assistant import (
     capped_positions,
-    get_replacements,
+    get_best_pick_for_round,
     next_pick_number,
     picks_between,
-    suggest_draft_picks,
 )
 from fantasy.data_loader import (
     RealDataUnavailable,
@@ -49,7 +48,8 @@ from fantasy.data_loader import (
     load_real_projections,
     validate_players,
 )
-from fantasy.draft import rank_players_for_draft, simulate_draft
+from fantasy.draft import rank_players_for_draft
+from fantasy.live_draft import draft_for_user, start_live_draft, user_turn_context
 from fantasy.optimizer import optimize_lineup, start_sit_advice
 from fantasy.scoring import (
     BASE_MULTIPLIERS,
@@ -69,7 +69,7 @@ from fantasy.waiver import waiver_recommendations
 apply_global_theme()
 page_header(
     "Fantasy",
-    "Simulate a draft, then walk it round by round with the assistant on your shoulder — "
+    "Draft live, one pick at a time, with the assistant recommending your best move every turn — "
     "plus scoring, lineups, waivers, trades, and tiered cheat sheets.",
     eyebrow="Draft intelligence",
 )
@@ -115,7 +115,8 @@ def _init_state() -> None:
         "fantasy_projections": [],
         "fantasy_roster": [],
         "fantasy_available": [],
-        "fantasy_draft_focus": None,
+        "fantasy_live_draft": None,
+        "fantasy_live_draft_narrated": 0,
     }.items():
         st.session_state.setdefault(key, value)
 
@@ -251,17 +252,21 @@ def _fmt(value: Any, spec: str = ",.0f", dash: str = "—") -> str:
         return dash
 
 
-def _timing_pill(entry: dict[str, Any]) -> str:
-    """The one timing signal that matters most for this player, color-coded."""
-    if entry.get("must_draft_now"):
-        return pill("🔥 Won't last", "danger")
-    if entry.get("steal_bonus"):
-        return pill(f"📉 Steal +{entry['steal_bonus']:.0f}", "success")
-    if entry.get("reach_penalty"):
-        return pill(f"⚠️ Reach −{entry['reach_penalty']:.0f}", "warning")
-    if entry.get("adp") is not None:
-        return pill("On time", "neutral")
-    return pill("No ADP", "neutral")
+def _proximity_pill(entry: dict[str, Any]) -> str:
+    """How close this player's ADP sits to the pick being made -- color-coded.
+
+    ``adp_proximity`` is get_best_pick_for_round's primary ranking signal (see
+    its docstring), so this is the one pill that best explains *why* a card is
+    ranked where it is.
+    """
+    proximity = entry.get("adp_proximity")
+    if proximity is None:
+        return pill("No ADP", "neutral")
+    if proximity <= 5:
+        return pill(f"On ADP · {proximity:.0f}", "success")
+    if proximity <= 15:
+        return pill(f"{proximity:.0f} picks off ADP", "neutral")
+    return pill(f"{proximity:.0f} picks off ADP", "warning")
 
 
 def _scarcity_pill(entry: dict[str, Any]) -> str:
@@ -292,7 +297,7 @@ def _player_card_html(
     taken_by: str | None = None,
 ) -> str:
     """One recommendation rendered as a premium card."""
-    pills = "".join([_timing_pill(entry), _scarcity_pill(entry), _need_pill(entry)])
+    pills = "".join([_proximity_pill(entry), _scarcity_pill(entry), _need_pill(entry)])
     if taken_by:
         pills = pill(f"🔒 Taken by {taken_by}", "danger") + pills
     stats = [
@@ -379,17 +384,23 @@ with tabs[0]:
         )
     else:
         section_header(
-            "Mock draft",
-            f"Simulate a {n_teams}-team {draft_type.lower()} draft from pick {draft_pick}, using real NFL players only.",
+            "Live mock draft",
+            f"You're on the clock at pick {draft_pick} of a {n_teams}-team {draft_type.lower()} draft. "
+            "The room drafts automatically between your turns -- take your own pick each round and every "
+            "recommendation after it updates off exactly what you chose, not a pre-planned script.",
         )
-        run_col, seed_col = st.columns([2, 1])
+
+        live = st.session_state.get("fantasy_live_draft")
+
+        start_col, seed_col = st.columns([2, 1])
         seed = int(seed_col.number_input("Random seed", min_value=0, value=42, key="fantasy_draft_seed"))
-        with run_col:
+        with start_col:
             st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
-            if st.button("Run mock draft", type="primary", key="fantasy_run_mock_draft"):
-                mock_result = run_analysis(
-                    "mock draft simulation",
-                    lambda: simulate_draft(
+            start_label = "Restart live draft" if live else "Start live draft"
+            if st.button(start_label, type="primary", key="fantasy_start_live_draft"):
+                new_state = run_analysis(
+                    "live draft setup",
+                    lambda: start_live_draft(
                         projections,
                         st.session_state.fantasy_league_settings,
                         num_teams=n_teams,
@@ -399,193 +410,160 @@ with tabs[0]:
                         seed=seed,
                     ),
                 )
-                if mock_result:
-                    st.session_state["fantasy_mock_draft_result"] = mock_result
-                    st.session_state["fantasy_draft_focus"] = None
+                if new_state:
+                    st.session_state["fantasy_live_draft"] = new_state
+                    st.session_state["fantasy_live_draft_narrated"] = 0
+                    st.rerun()
 
-        mock_result = st.session_state.get("fantasy_mock_draft_result")
-        if not mock_result:
+        live = st.session_state.get("fantasy_live_draft")
+        if not live:
             empty_state(
-                "No draft run yet",
-                "Run a mock draft to walk it round by round with the assistant, see who got sniped, "
-                "and pull replacement options the moment a target comes off the board.",
-                icon="🎯",
+                "No live draft running",
+                "Start a live draft above. You'll pick one player at a time -- the room fills in every "
+                "pick around you automatically, and your recommendations update the moment you pick.",
+                icon="🎙️",
             )
         else:
-            by_round = mock_result.get("by_round") or {}
-            user_picks = mock_result.get("user_picks") or []
-            all_picks = mock_result.get("picks") or []
+            # ---------------------------------------------------------------
+            # What the room did since the user last saw this page.
+            # ---------------------------------------------------------------
+            narrated = st.session_state.get("fantasy_live_draft_narrated", 0)
+            newly_resolved = live["picks"][narrated:]
+            bot_picks = [pick for pick in newly_resolved if not pick["is_user_pick"]]
+            if bot_picks:
+                with st.container(border=True):
+                    st.markdown(f"**Since your last pick** — {len(bot_picks)} pick(s) happened around the league")
+                    st.caption(" · ".join(f"{pick['team']} took {pick['name']} ({pick['position']})" for pick in bot_picks))
+            st.session_state["fantasy_live_draft_narrated"] = len(live["picks"])
 
+            my_picks = [pick for pick in live["picks"] if pick["is_user_pick"]]
             summary1, summary2, summary3 = st.columns(3)
-            summary1.metric("Picks made", len(all_picks))
-            summary2.metric("Your picks", len(user_picks))
+            summary1.metric("Picks made", len(live["picks"]))
+            summary2.metric("Your picks", len(my_picks))
             summary3.metric(
                 "Your projected total",
-                f"{sum(pick.get('projection') or 0 for pick in user_picks):,.0f} pts",
+                f"{sum(pick.get('projection') or 0 for pick in my_picks):,.0f} pts",
             )
             st.caption(
-                f"{mock_result['n_teams']} teams · {mock_result['rounds']} rounds · "
-                f"{'snake' if mock_result.get('snake') else 'linear'} · seed {mock_result['seed']}"
-                + (f" · you are {mock_result['user_team']}" if mock_result.get("user_team") else "")
+                f"{live['n_teams']} teams · {live['rounds']} rounds · "
+                f"{'snake' if live['snake'] else 'linear'} · seed {live['seed']}"
+                + (f" · you are {live['user_team']}" if live.get("user_team") else "")
             )
-            for warning in mock_result.get("warnings", []):
+            for warning in live.get("warnings", []):
                 st.warning(warning)
 
-            if not by_round:
-                empty_state("No picks were made", "The player pool was empty.", icon="🗒️")
+            def _draft_and_advance(player_id: Any) -> None:
+                """Record a pick, fast-forward the room, and redraw immediately.
+
+                Streamlit only reruns the script on the next widget interaction --
+                without the explicit rerun, the rest of this pass would keep
+                rendering the *pre-pick* recommendations computed further down,
+                which is exactly the staleness the live redesign exists to fix.
+                """
+                updated = draft_for_user(live, player_id)
+                st.session_state["fantasy_live_draft"] = updated
+                st.rerun()
+
+            if live["is_complete"]:
+                st.success("Draft complete.")
             else:
-                players_by_id = {p.get("player_id"): p for p in projections if p.get("player_id")}
+                # -----------------------------------------------------------
+                # On the clock: recommendations for this exact pick.
+                # -----------------------------------------------------------
+                context = user_turn_context(live)
+                info1, info2, info3 = st.columns(3)
+                info1.metric("On the clock", f"R{context['round']} · #{context['overall_pick']}")
+                info2.metric(
+                    "Picks until your next turn",
+                    context["picks_until_next"] if context["picks_until_next"] is not None else "—",
+                )
+                info3.metric("On your roster", len(context["my_roster"]))
 
-                # Read the draft's own geometry back off the result rather than
-                # the live widgets: changing a setting after a run must not
-                # silently renumber the picks of a draft already on screen.
-                sim_teams = int(mock_result.get("n_teams") or n_teams)
-                sim_snake = bool(mock_result.get("snake"))
-                sim_rounds = int(mock_result.get("rounds") or num_rounds)
-
-                # ---------------------------------------------------------------
-                # Your team. These -- and only these -- are the clickable cards.
-                # Tapping one asks the engine who else was on the board at that
-                # exact pick, which is what `get_replacements` answers.
-                # ---------------------------------------------------------------
-                st.markdown("### Your team")
-                st.caption(
-                    "Every player the simulation drafted for you. Tap one to see who else was "
-                    "available at that pick and how the alternatives score."
+                recommendations = run_analysis(
+                    "best pick for this round",
+                    lambda: get_best_pick_for_round(
+                        context["round"],
+                        context["my_roster"],
+                        context["board"],
+                        st.session_state.fantasy_league_settings,
+                        current_pick_overall=context["overall_pick"],
+                        picks_until_next=context["picks_until_next"],
+                        limit=9,
+                    ),
                 )
 
-                if not user_picks:
-                    empty_state(
-                        "The draft ended before your slot came up",
-                        "Increase the number of rounds, or move your draft pick earlier.",
-                        icon="🪑",
+                st.markdown("### Best available")
+                if not recommendations:
+                    st.info(
+                        "Every remaining position is already at your roster's cap -- draft anyone still "
+                        "on the board using the search below."
                     )
                 else:
-                    roster_columns = st.columns(3)
-                    for index, pick in enumerate(user_picks):
-                        source = players_by_id.get(pick["player_id"], {})
-                        with roster_columns[index % 3]:
+                    st.caption(
+                        "Ranked by ADP proximity to this pick, then positional scarcity, then your scoring "
+                        "model -- not locked to one position, so a gone target never limits you to a worse "
+                        "player at the same spot."
+                    )
+                    rec_columns = st.columns(3)
+                    for index, entry in enumerate(recommendations):
+                        with rec_columns[index % 3]:
                             with st.container(border=True):
-                                st.markdown(
-                                    _pick_card_html(pick, source),
-                                    unsafe_allow_html=True,
-                                )
+                                st.markdown(_player_card_html(entry, f"#{entry['rank']}"), unsafe_allow_html=True)
                                 if st.button(
-                                    "See who else was available",
-                                    key=f"fantasy_mypick_{pick['overall_pick']}_{pick['player_id']}",
+                                    f"Draft {entry['name']}",
+                                    key=f"fantasy_draft_{context['overall_pick']}_{entry['player_id']}",
+                                    type="primary" if index == 0 else "secondary",
                                     width="stretch",
                                 ):
-                                    st.session_state["fantasy_draft_focus"] = {
-                                        "player_id": pick["player_id"],
-                                        "name": pick["name"],
-                                        "overall_pick": int(pick["overall_pick"]),
-                                        "round": int(pick["round"]),
-                                    }
+                                    _draft_and_advance(entry["player_id"])
+                    with st.expander("Why these, in this order?"):
+                        for entry in recommendations:
+                            st.markdown(f"**{entry['rank']}. {entry['name']}** ({entry['position']}) — {entry['rationale']}")
 
-                    # -----------------------------------------------------------
-                    # Replacement panel for whichever of my picks was tapped.
-                    # -----------------------------------------------------------
-                    focus = st.session_state.get("fantasy_draft_focus")
-                    if focus:
-                        st.divider()
-                        focus_pick = int(focus["overall_pick"])
-                        section_header(
-                            f"Instead of {focus['name']} — round {focus['round']}, pick #{focus_pick}",
-                            "Same position, similar ADP cost, scored by the same model that drafts your "
-                            "team, adjusted for how contested that round actually was.",
+                with st.expander("Draft someone else"):
+                    board_by_id = {player["player_id"]: player for player in context["board"]}
+                    if not board_by_id:
+                        st.caption("Nobody is left on the board.")
+                    else:
+                        chosen_id = st.selectbox(
+                            "Player",
+                            list(board_by_id),
+                            format_func=lambda pid: f"{board_by_id[pid].get('name', pid)} "
+                            f"({board_by_id[pid].get('position', '')}, {board_by_id[pid].get('team', '')})",
+                            key=f"fantasy_manual_pick_{context['overall_pick']}",
                         )
+                        if st.button("Draft this player", key=f"fantasy_manual_draft_{context['overall_pick']}"):
+                            _draft_and_advance(chosen_id)
 
-                        # Everyone taken strictly *before* this pick is gone; the
-                        # focus player is deliberately still on the board here,
-                        # because get_replacements resolves the target from the
-                        # pool and then filters it out itself.
-                        gone_before = {
-                            p["player_id"] for p in all_picks if p["overall_pick"] < focus_pick
-                        }
-                        board_at_pick = [
-                            player
-                            for player in projections
-                            if player.get("player_id") not in gone_before
-                        ]
-                        # Look the real player objects back up rather than reusing
-                        # the pick dicts: a pick's "team" is the fantasy team
-                        # ("Team 5"), and the assistant's stacking and bye-week
-                        # signals need the actual NFL team.
-                        roster_before = [
-                            players_by_id[p["player_id"]]
-                            for p in user_picks
-                            if p["overall_pick"] < focus_pick and p["player_id"] in players_by_id
-                        ]
-                        later_picks = [p for p in user_picks if p["overall_pick"] > focus_pick]
-                        focus_gap = (
-                            int(later_picks[0]["overall_pick"]) - focus_pick - 1
-                            if later_picks
-                            else picks_between(sim_teams, draft_pick, int(focus["round"]), sim_snake)
-                        )
+            # -----------------------------------------------------------------
+            # Your team so far -- always visible, in progress or complete.
+            # -----------------------------------------------------------------
+            st.divider()
+            st.markdown("### Your team")
+            if not my_picks:
+                empty_state("No picks yet", "Your first pick will appear here.", icon="🪑")
+            else:
+                players_by_id = {player.get("player_id"): player for player in projections if player.get("player_id")}
+                roster_columns = st.columns(3)
+                for index, pick in enumerate(my_picks):
+                    source = players_by_id.get(pick["player_id"], {})
+                    with roster_columns[index % 3]:
+                        with st.container(border=True):
+                            st.markdown(_pick_card_html(pick, source), unsafe_allow_html=True)
 
-                        context1, context2, context3 = st.columns(3)
-                        context1.metric("Pick", f"#{focus_pick}")
-                        context2.metric("Picks until your next", focus_gap)
-                        context3.metric("On your roster then", len(roster_before))
-
-                        draft_state = {
-                            "league_settings": st.session_state.fantasy_league_settings,
-                            "my_roster": roster_before,
-                            "available_players": board_at_pick,
-                            "drafted_player_ids": sorted(gone_before),
-                            "round_number": int(focus["round"]),
-                            "rounds": sim_rounds,
-                            "next_pick_overall": focus_pick,
-                            "picks_until_next": focus_gap,
-                        }
-                        replacements = run_analysis(
-                            "replacement options",
-                            lambda: get_replacements(focus["player_id"], draft_state),
-                        )
-                        if not replacements:
-                            empty_state(
-                                "No alternative available",
-                                "Nothing comparable was left at that position, or your roster was "
-                                "already capped there at that point in the draft.",
-                                icon="🔍",
-                            )
-                        else:
-                            replacement_columns = st.columns(min(3, len(replacements)))
-                            for index, option in enumerate(replacements):
-                                with replacement_columns[index % len(replacement_columns)]:
-                                    with st.container(border=True):
-                                        st.markdown(
-                                            _player_card_html(option, f"Option {option['rank']}"),
-                                            unsafe_allow_html=True,
-                                        )
-                                        st.caption(
-                                            f"{option['adp_gap']:+.0f} picks vs {option['replaces_name']} on ADP"
-                                            if option.get("adp_gap") is not None
-                                            else "next up at the position"
-                                        )
-                            with st.expander("Why these alternatives?"):
-                                for option in replacements:
-                                    st.markdown(
-                                        f"**{option['rank']}. {option['name']}** "
-                                        f"({option['position']}) — {option['replacement_rationale']}"
-                                    )
-                            if st.button("Clear selection", key="fantasy_clear_focus"):
-                                st.session_state["fantasy_draft_focus"] = None
-
-                # ---------------------------------------------------------------
-                # Read-only round board.
-                # ---------------------------------------------------------------
+            # -----------------------------------------------------------------
+            # Reference: the board so far, and league-wide rosters.
+            # -----------------------------------------------------------------
+            by_round = live.get("by_round") or {}
+            if by_round:
                 st.divider()
-                st.markdown("### Round-by-round board")
-                simulated_rounds = sorted(by_round)
-                # A shorter re-run can leave the stored round out of range, and
-                # select_slider raises rather than clamping. Reconcile first.
-                if st.session_state.get("fantasy_walk_round") not in simulated_rounds:
-                    st.session_state["fantasy_walk_round"] = simulated_rounds[0]
-                round_number = int(
-                    st.select_slider("Round", options=simulated_rounds, key="fantasy_walk_round")
+                st.markdown("### Draft board so far")
+                played_rounds = sorted(by_round)
+                if st.session_state.get("fantasy_live_walk_round") not in played_rounds:
+                    st.session_state["fantasy_live_walk_round"] = played_rounds[-1]
+                board_round = int(
+                    st.select_slider("Round", options=played_rounds, key="fantasy_live_walk_round")
                 )
-
                 st.caption(
                     "**Value** = points above positional replacement (VORP). **Scarcity** = same-position "
                     "players still available at that moment. **Timing** compares the pick to real ADP."
@@ -616,7 +594,7 @@ with tabs[0]:
                             "Run": f"🔥 {pick['position_run']}" if pick.get("position_run") else "",
                             "You": "★" if pick["is_user_pick"] else "",
                         }
-                        for pick in by_round[round_number]
+                        for pick in by_round[board_round]
                     ]
                 )
                 st.dataframe(
@@ -635,7 +613,7 @@ with tabs[0]:
                     },
                 )
 
-                position_runs = mock_result.get("position_runs") or []
+                position_runs = live.get("clusters") or []
                 if position_runs:
                     with st.expander(f"Positional ADP clusters detected ({len(position_runs)})"):
                         st.caption(
@@ -658,16 +636,16 @@ with tabs[0]:
                         )
 
                 with st.expander("Full rosters by team"):
-                    for team, players in (mock_result.get("rosters") or {}).items():
+                    for team, players in (live.get("rosters") or {}).items():
                         team_df = pd.DataFrame(players)
                         if team_df.empty:
                             continue
-                        st.markdown(f"**{team}**" + (" ← you" if team == mock_result.get("user_team") else ""))
+                        st.markdown(f"**{team}**" + (" ← you" if team == live.get("user_team") else ""))
                         columns_wanted = [c for c in ("name", "position", "team", "points", "vor") if c in team_df]
                         st.dataframe(team_df[columns_wanted], width="stretch", hide_index=True)
 
         # -------------------------------------------------------------------
-        # Manual assistant -- no simulation required.
+        # Manual assistant -- no simulation required (drafting elsewhere).
         # -------------------------------------------------------------------
         st.divider()
         st.markdown("### Manual pick assistant")
@@ -713,39 +691,36 @@ with tabs[0]:
             if manual_capped:
                 st.caption(f"Roster full at {', '.join(manual_capped)} — hidden from suggestions below.")
 
-            suggestions = run_analysis(
-                "draft suggestions",
-                lambda: suggest_draft_picks(
+            def _manual_recommendations() -> list[dict[str, Any]]:
+                # get_best_pick_for_round has no built-in position filter (it's
+                # deliberately cross-position); a wide limit plus a post-filter
+                # gets the same result as suggest_draft_picks' old `positions=`
+                # argument without adding a filter the engine itself never needs.
+                picks = get_best_pick_for_round(
+                    manual_round,
+                    manual_roster,
                     manual_pool,
                     st.session_state.fantasy_league_settings,
-                    my_roster=manual_roster,
-                    next_pick_overall=manual_overall,
+                    current_pick_overall=manual_overall,
                     picks_until_next=manual_gap,
-                    limit=12,
-                    positions=position_filter or None,
-                ),
-            )
+                    limit=len(manual_pool) if position_filter else 12,
+                )
+                if position_filter:
+                    wanted = set(position_filter)
+                    picks = [entry for entry in picks if entry["position"] in wanted][:12]
+                return picks
 
-            if not suggestions:
+            manual_recs = run_analysis("best pick for this round", _manual_recommendations)
+
+            if not manual_recs:
                 st.info("No players match those filters — clear a filter or remove someone from the drafted list.")
             else:
-                best = suggestions[0]
+                best = manual_recs[0]
                 st.success(
                     f"Best available at #{manual_overall}: **{best['name']}** "
                     f"({best['position']}, {best['team']}) — {best['projection']:,.0f} projected pts"
                 )
                 st.caption(best["rationale"])
-
-                def _manual_timing(entry: dict) -> str:
-                    if entry.get("must_draft_now"):
-                        return "🔥 Won't last"
-                    if entry.get("steal_bonus"):
-                        return f"📉 Steal +{entry['steal_bonus']:.0f}"
-                    if entry.get("reach_penalty"):
-                        return f"⚠️ Reach -{entry['reach_penalty']:.0f}"
-                    if entry.get("adp") is not None:
-                        return "On time"
-                    return "—"
 
                 st.dataframe(
                     pd.DataFrame(
@@ -759,12 +734,11 @@ with tabs[0]:
                                 "Value": entry["vorp"],
                                 "Pos rank": entry["position_rank"],
                                 "ADP": entry["adp"],
-                                "Timing": _manual_timing(entry),
+                                "ADP gap": entry["adp_proximity"],
                                 "Scarcity": entry["scarcity"],
                                 "Need": entry["need_label"],
-                                "Score": entry["score"],
                             }
-                            for entry in suggestions
+                            for entry in manual_recs
                         ]
                     ),
                     width="stretch",
@@ -777,9 +751,8 @@ with tabs[0]:
                             format="%.1f", help="VORP: points above a replacement-level starter at this position."
                         ),
                         "ADP": st.column_config.NumberColumn(format="%.1f", help="FantasyPros expert consensus rank."),
-                        "Timing": st.column_config.TextColumn(
-                            help="Steal = fell past ADP (value). Reach = ADP says they'd likely still be there. "
-                            "Won't last = their ADP says they're gone before your next turn — draft now."
+                        "ADP gap": st.column_config.NumberColumn(
+                            format="%.0f", help="Picks between this player's ADP and your current pick number."
                         ),
                         "Scarcity": st.column_config.NumberColumn(
                             format="%.0f",
@@ -788,9 +761,6 @@ with tabs[0]:
                         ),
                         "Need": st.column_config.TextColumn(
                             help="Roster status at this position under your league's construction rules."
-                        ),
-                        "Score": st.column_config.NumberColumn(
-                            format="%.1f", help="Combined value + timing + scarcity + need score."
                         ),
                     },
                 )

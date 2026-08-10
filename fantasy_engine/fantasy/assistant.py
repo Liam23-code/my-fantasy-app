@@ -922,3 +922,163 @@ def get_replacements(
     for index, candidate in enumerate(top, start=1):
         candidate["rank"] = index
     return top
+
+
+# ---------------------------------------------------------------------------
+# Best pick for the round -- a live, cross-position "best available" board.
+# ---------------------------------------------------------------------------
+def _round_pick_rationale(entry: dict[str, Any], current_pick_overall: int | None) -> str:
+    parts: list[str] = []
+    if entry["adp_proximity"] is not None and current_pick_overall is not None:
+        parts.append(
+            f"ADP {entry['adp']:.1f} is {entry['adp_proximity']:.0f} picks from your #{current_pick_overall} slot"
+        )
+    elif entry["adp"] is not None:
+        parts.append(f"ADP {entry['adp']:.1f}")
+    else:
+        parts.append("no market ADP for this player")
+    parts.append(f"{entry['vorp']:+.1f} pts over {entry['position']} replacement")
+    if entry.get("position_rank"):
+        parts.append(f"{entry['position']}{entry['position_rank']} on the board")
+    if entry["scarcity"] > 0:
+        parts.append(f"~{entry['scarcity']:.0f} pts of {entry['position']} value at stake")
+    if entry["need_label"] == "Fills need":
+        parts.append("fills an empty roster need")
+    elif entry["need_label"] == "Depth":
+        parts.append("bench depth, need already covered")
+    return "; ".join(parts)
+
+
+def get_best_pick_for_round(
+    current_round: int,
+    my_roster: list[dict[str, Any]] | None,
+    board: list[dict[str, Any]],
+    league_settings: dict[str, Any] | LeagueSettings | None = None,
+    current_pick_overall: int | None = None,
+    picks_until_next: int | None = None,
+    risk_tolerance: str = "balanced",
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """The best pick right now, across every position -- a live "best available" board.
+
+    This is deliberately not position-locked. If your round-3 target RB is
+    gone, the right answer is not "the next-best RB" -- it's whichever player,
+    at whatever position, is the best pick for *this* pick. That is what
+    :func:`get_replacements` does differently (and still exists for the
+    narrower "who else was like him" question); this function is the
+    general-purpose "what do I take now" board, the same shape a real draft
+    tool's Best Available list has.
+
+    Ranked by three keys, **in order** -- not one blended score, so the
+    ordering stays legible instead of hiding behind a single number:
+
+    1. **ADP proximity** -- ``abs(player.adp - current_pick_overall)``,
+       ascending. A player the market expects to go right around your actual
+       pick is the natural fit for this exact slot; a much earlier ADP is an
+       overpay available players don't require, a much later one will likely
+       still be there next time. Players with no ADP have no market opinion
+       to measure proximity against, so they sort after every player who has
+       one, tie-broken by the two keys below.
+    2. **Positional scarcity** -- points of positional value that disappear
+       before your next pick (:func:`_scarcity_by_position`, biased by
+       :data:`POSITION_SCARCITY_BIAS`). Thinner (higher) sorts first.
+    3. **Your scoring model** -- VORP under *your* league's own scoring rules,
+       adjusted for roster need and risk tolerance. Deliberately not
+       market-blended the way :func:`suggest_draft_picks` blends VORP with
+       market rank: ADP's role here is already fully spent by key 1, and
+       blending it into the tiebreaker too would double-count the same signal.
+
+    ``my_roster``/``max_players_per_nfl_team`` hard-filter capped positions
+    exactly as :func:`suggest_draft_picks` does -- a capped position isn't a
+    worse pick, it is not a legal one. ``board`` is taken as-is: this function
+    does not know or care who else is drafted, so callers should pass only
+    players still actually on the board (this is what
+    :mod:`fantasy.live_draft`'s ``remaining`` list already is).
+
+    When ``current_pick_overall`` is omitted, proximity can't be measured
+    against a real slot, so ranking falls back to raw ADP ascending (best-
+    rated player first) with the same scarcity/scoring tiebreakers.
+
+    Returns ``[]`` when nothing is left to recommend -- a normal empty state,
+    not an error.
+    """
+    settings = _coerce_settings(league_settings)
+    pool, _rejected = validate_players(drop_synthetic(list(board or [])), require_projection=False)
+    if not pool:
+        return []
+
+    roster_counts = _roster_counts(my_roster)
+    capped = {position for position in roster_counts if roster_cap_reached(roster_counts, position)}
+
+    levels = replacement_levels(pool, settings)
+    scarcity = _scarcity_by_position(pool, settings, picks_until_next)
+
+    entries: list[dict[str, Any]] = []
+    position_counter: dict[str, int] = {}
+    for player in sorted(pool, key=lambda p: _projection_of(p, settings), reverse=True):
+        position = str(player.get("position", "")).strip().upper()
+        position_counter[position] = position_counter.get(position, 0) + 1
+        if position in capped:
+            continue
+        if _same_team_cap_reached(player, my_roster, settings):
+            continue
+
+        projection = _projection_of(player, settings)
+        vorp = projection - levels.get(position, 0.0)
+        adp = player.get("adp")
+
+        if adp is not None and current_pick_overall is not None:
+            adp_proximity = abs(float(current_pick_overall) - safe_float(adp))
+        elif adp is not None:
+            # No pick number to compare against -- fall back to best-ADP-first.
+            adp_proximity = safe_float(adp)
+        else:
+            adp_proximity = float("inf")
+
+        raw_scarcity = scarcity.get(position, 0.0)
+        biased_scarcity = round(raw_scarcity * POSITION_SCARCITY_BIAS.get(position, 1.0), 2)
+
+        need_multiplier = _need_multiplier(roster_counts, settings, position)
+        # Local import: fantasy.positional_pressure -> fantasy.models is the
+        # only dependency direction; see the identical import in
+        # suggest_draft_picks for why this can't be a top-level import.
+        from fantasy.positional_pressure import starter_saturation_penalty
+
+        need_multiplier *= starter_saturation_penalty(position, roster_counts, settings)
+        need_label = _need_label(roster_counts, settings, position)
+
+        risk_multiplier = _risk_multiplier(player, projection, risk_tolerance)
+        risk_multiplier *= _bye_week_multiplier(player, my_roster)
+        risk_multiplier *= _stacking_multiplier(player, my_roster)
+
+        scoring_value = vorp * need_multiplier * risk_multiplier
+
+        entry = {
+            "player_id": player.get("player_id") or player.get("id"),
+            "name": player.get("name"),
+            "position": position,
+            "team": player.get("team", ""),
+            "projection": round(projection, 2),
+            "vorp": round(vorp, 2),
+            "adp": round(safe_float(adp), 1) if adp is not None else None,
+            "adp_proximity": None if adp_proximity == float("inf") else round(adp_proximity, 1),
+            "scarcity": biased_scarcity,
+            "scarcity_raw": round(raw_scarcity, 2),
+            "need_multiplier": round(need_multiplier, 3),
+            "need_label": need_label,
+            "risk_multiplier": round(risk_multiplier, 3),
+            "scoring_value": round(scoring_value, 2),
+            "position_rank": position_counter[position],
+        }
+        entry["rationale"] = _round_pick_rationale(entry, current_pick_overall)
+        # Sort key kept out of the returned dict -- it's an internal ordering
+        # detail, not something a caller should read or rely on the shape of.
+        entries.append((adp_proximity, -biased_scarcity, -scoring_value, entry))
+
+    entries.sort(key=lambda item: item[:3])
+    top = entries[: max(1, int(limit))]
+    results = []
+    for index, (_, _, _, entry) in enumerate(top, start=1):
+        entry["rank"] = index
+        results.append(entry)
+    return results

@@ -8,6 +8,7 @@ from fantasy.assistant import (
     ADP_NEIGHBOR_WINDOW_PICKS,
     MAX_REPLACEMENTS,
     capped_positions,
+    get_best_pick_for_round,
     get_replacements,
     next_pick_number,
     picks_between,
@@ -463,3 +464,137 @@ def test_get_replacements_drops_synthetic_players():
     ]
     names = {entry["name"] for entry in get_replacements("id-Rusher Delta", _state(available_players=pool))}
     assert "Fake Guy" not in names
+
+
+# --- best pick for the round (cross-position live-draft board) --------------
+
+BEST_PICK_SETTINGS = {
+    "n_teams": 12,
+    "scoring_mode": "ppr",
+    "roster_requirements": {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "DST": 1, "K": 1, "BENCH": 6},
+    "flex_eligible": ["RB", "WR", "TE"],
+}
+
+
+def _cross_position_pool():
+    return [
+        _p("RB Near", "RB", 250.0, adp=30.0),
+        _p("RB Far", "RB", 260.0, adp=5.0),
+        _p("WR Near", "WR", 240.0, adp=31.0),
+        _p("WR Far", "WR", 245.0, adp=90.0),
+        _p("QB Near", "QB", 300.0, adp=29.0),
+        _p("TE NoAdp", "TE", 150.0, adp=None),
+    ]
+
+
+def test_get_best_pick_for_round_is_not_locked_to_one_position():
+    picks = get_best_pick_for_round(3, [], _cross_position_pool(), BEST_PICK_SETTINGS, current_pick_overall=30)
+    assert len({entry["position"] for entry in picks}) > 1
+
+
+def test_get_best_pick_for_round_primary_key_is_adp_proximity():
+    """Pick #30: QB Near (adp 29, gap 1) must outrank RB Near (adp 30, gap 0)...
+
+    wait -- RB Near's adp IS 30, an exact match (gap 0), which must win over
+    everyone else regardless of position, scarcity, or projection.
+    """
+    picks = get_best_pick_for_round(3, [], _cross_position_pool(), BEST_PICK_SETTINGS, current_pick_overall=30)
+    assert picks[0]["name"] == "RB Near"
+    assert picks[0]["adp_proximity"] == 0.0
+    assert picks[1]["name"] in {"QB Near", "WR Near"}  # both 1 pick away
+
+
+def test_get_best_pick_for_round_ignores_projection_when_adp_proximity_differs():
+    """RB Far projects higher (260) and has better raw ADP (5) than RB Near (250, adp 30),
+    but at pick #30 it is 25 picks off vs RB Near's exact match -- proximity wins."""
+    picks = get_best_pick_for_round(3, [], _cross_position_pool(), BEST_PICK_SETTINGS, current_pick_overall=30)
+    by_name = {entry["name"]: index for index, entry in enumerate(picks)}
+    assert by_name["RB Near"] < by_name["RB Far"]
+
+
+def test_get_best_pick_for_round_missing_adp_sorts_last():
+    picks = get_best_pick_for_round(3, [], _cross_position_pool(), BEST_PICK_SETTINGS, current_pick_overall=30)
+    names = [entry["name"] for entry in picks]
+    assert names[-1] == "TE NoAdp"
+    assert picks[-1]["adp_proximity"] is None
+
+
+def test_get_best_pick_for_round_without_a_pick_number_falls_back_to_raw_adp():
+    picks = get_best_pick_for_round(1, [], _cross_position_pool(), BEST_PICK_SETTINGS)
+    real_adp = [entry for entry in picks if entry["adp"] is not None]
+    assert real_adp[0]["name"] == "RB Far"  # adp 5.0, lowest raw ADP
+    assert [entry["adp"] for entry in real_adp] == sorted(entry["adp"] for entry in real_adp)
+
+
+def test_get_best_pick_for_round_secondary_key_is_scarcity_on_adp_ties():
+    """Two players at the identical ADP distance: the thinner position must win."""
+    pool = [
+        _p("Thin RB", "RB", 200.0, adp=20.0),
+        _p("Deep QB", "QB", 200.0, adp=20.0),
+    ] + [_p(f"RBFiller{i}", "RB", 150.0 - i, adp=float(40 + i)) for i in range(20)]
+    picks = get_best_pick_for_round(2, [], pool, BEST_PICK_SETTINGS, current_pick_overall=20, picks_until_next=10)
+    by_name = {entry["name"]: entry for entry in picks[:2]}
+    assert set(by_name) == {"Thin RB", "Deep QB"}
+    assert by_name["Thin RB"]["scarcity"] >= by_name["Deep QB"]["scarcity"]
+
+
+def test_get_best_pick_for_round_filters_a_capped_position_entirely():
+    pool = _cross_position_pool()
+    heavy_rb_roster = [{"position": "RB"}] * 10  # blow past ROSTER_POSITION_LIMITS for RB
+    picks = get_best_pick_for_round(3, heavy_rb_roster, pool, BEST_PICK_SETTINGS, current_pick_overall=30)
+    assert all(entry["position"] != "RB" for entry in picks)
+
+
+def test_get_best_pick_for_round_downweights_rather_than_filters_a_filled_starting_slot():
+    """A 1-QB league with a QB already rostered: QB is a legal, worse pick -- not an illegal one.
+
+    Needs a second, weaker QB in the pool: with only one QB, replacement level
+    falls back to that QB's own points (see test_single_player_at_a_position_is_its_own_replacement
+    in test_draft.py), which forces VORP -- and therefore scoring_value -- to
+    exactly 0 regardless of need_multiplier, masking the very effect under test.
+    """
+    pool = [
+        _p("QB Near", "QB", 300.0, adp=29.0),
+        _p("QB Backup", "QB", 180.0, adp=140.0),
+    ]
+    no_qb = get_best_pick_for_round(3, [], pool, BEST_PICK_SETTINGS, current_pick_overall=30, limit=20)
+    with_qb = get_best_pick_for_round(3, [{"position": "QB"}], pool, BEST_PICK_SETTINGS, current_pick_overall=30, limit=20)
+    qb_no = next(e for e in no_qb if e["name"] == "QB Near")
+    qb_with = next(e for e in with_qb if e["name"] == "QB Near")
+    assert qb_no["vorp"] > 0  # sanity: the scenario this test is about is actually exercised
+    assert qb_with["need_multiplier"] < qb_no["need_multiplier"]
+    assert qb_with["scoring_value"] < qb_no["scoring_value"]
+
+
+def test_get_best_pick_for_round_respects_same_team_cap():
+    settings = {**BEST_PICK_SETTINGS, "max_players_per_nfl_team": 1}
+    pool = [_p("RB SF", "RB", 250.0, adp=10.0, team="SF"), _p("WR SF", "WR", 240.0, adp=11.0, team="SF")]
+    roster = [{"position": "RB", "team": "SF"}]
+    picks = get_best_pick_for_round(1, roster, pool, settings, current_pick_overall=10)
+    assert all(entry["name"] != "WR SF" for entry in picks)
+
+
+def test_get_best_pick_for_round_empty_board_returns_empty_list():
+    assert get_best_pick_for_round(1, [], [], BEST_PICK_SETTINGS) == []
+    assert get_best_pick_for_round(1, None, [], BEST_PICK_SETTINGS) == []
+
+
+def test_get_best_pick_for_round_drops_synthetic_players():
+    pool = _cross_position_pool() + [
+        {"player_id": "synthetic:x", "name": "Fake", "position": "RB", "team": "SF", "projection": 9999.0, "adp": 1.0}
+    ]
+    picks = get_best_pick_for_round(1, [], pool, BEST_PICK_SETTINGS, current_pick_overall=1, limit=20)
+    assert all(entry["name"] != "Fake" for entry in picks)
+
+
+def test_get_best_pick_for_round_ranks_and_respects_limit():
+    picks = get_best_pick_for_round(3, [], _cross_position_pool(), BEST_PICK_SETTINGS, current_pick_overall=30, limit=3)
+    assert len(picks) == 3
+    assert [entry["rank"] for entry in picks] == [1, 2, 3]
+    assert "_sort_key" not in picks[0]
+
+
+def test_get_best_pick_for_round_rationale_mentions_adp_and_value():
+    entry = get_best_pick_for_round(3, [], _cross_position_pool(), BEST_PICK_SETTINGS, current_pick_overall=30)[0]
+    assert "ADP" in entry["rationale"]
+    assert "replacement" in entry["rationale"]

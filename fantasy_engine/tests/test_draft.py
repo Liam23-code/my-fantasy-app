@@ -7,7 +7,7 @@ from collections import Counter
 import pytest
 
 from fantasy.draft import (
-    _active_run_position,
+    active_run_position,
     _replacement_levels,
     build_draft_order,
     generate_cheatsheet,
@@ -398,9 +398,9 @@ def test_active_run_position_covers_the_lookahead_and_trailing_window():
     clusters = identify_adp_clusters(_adp_pool(), max_gap=6.0, min_size=3)
     rb_cluster = next(c for c in clusters if c["position"] == "RB")
     just_before = int(rb_cluster["start_adp"]) - 1  # inside the 3-pick lookahead
-    assert _active_run_position(just_before, clusters) == "RB"
+    assert active_run_position(just_before, clusters) == "RB"
     far_before = int(rb_cluster["start_adp"]) - 10
-    assert _active_run_position(far_before, clusters) is None
+    assert active_run_position(far_before, clusters) is None
 
 
 def test_simulate_draft_never_exceeds_a_positions_roster_cap():

@@ -325,7 +325,7 @@ def build_draft_order(num_teams: int, num_rounds: int, snake: bool = True) -> li
     return order
 
 
-def _draft_projection(player: dict[str, Any]) -> float:
+def draft_projection(player: dict[str, Any]) -> float:
     """The player's projected points, preferring a real precomputed projection."""
     for key in ("projection", "expected_fantasy_points"):
         value = player.get(key)
@@ -389,7 +389,7 @@ def identify_adp_clusters(
     return clusters
 
 
-def _active_run_position(overall_pick: int, clusters: list[dict[str, Any]]) -> str | None:
+def active_run_position(overall_pick: int, clusters: list[dict[str, Any]]) -> str | None:
     """The position an ADP cluster is actively driving a run on, if any.
 
     When multiple clusters overlap at the same pick (rare), the one with the
@@ -399,6 +399,62 @@ def _active_run_position(overall_pick: int, clusters: list[dict[str, Any]]) -> s
         if cluster["start_adp"] - RUN_LOOKAHEAD_PICKS <= overall_pick <= cluster["end_adp"] + RUN_TRAILING_PICKS:
             return cluster["position"]
     return None
+
+
+def _room_pick(
+    pool: list[dict[str, Any]],
+    team_counts: Counter,
+    overall_pick: int,
+    round_number: int,
+    active_run: str | None,
+    tolerance_scale: dict[str, float],
+    rng: np.random.Generator,
+) -> dict[str, Any]:
+    """Weighted room-brain choice among ``pool`` for a non-round-1 pick.
+
+    Verbatim extraction of what the ``simulate_draft`` loop always did for a
+    non-user team past round 1 -- moved here unchanged so :func:`room_team_pick`
+    (used by the live, pick-by-pick draft) and ``simulate_draft`` (batch mode)
+    share one implementation instead of two copies that could quietly drift.
+    """
+    weights = []
+    for candidate in pool:
+        scale = tolerance_scale.get(candidate["position"], 1.0)
+        weight = room_brain_weight(candidate, overall_pick, round_number, scale)
+        if team_counts.get(candidate["position"], 0) < roster_min_required(candidate["position"]):
+            weight *= NEED_BOOST
+        if active_run and candidate["position"] == active_run:
+            weight *= RUN_BOOST
+        weights.append(weight)
+    weights_array = np.array(weights)
+    weights_array = weights_array / weights_array.sum()
+    choice_index = int(rng.choice(len(pool), p=weights_array))
+    return pool[choice_index]
+
+
+def room_team_pick(
+    eligible: list[dict[str, Any]],
+    team_counts: Counter,
+    overall_pick: int,
+    round_number: int,
+    active_run: str | None,
+    tolerance_scale: dict[str, float],
+    rng: np.random.Generator,
+) -> dict[str, Any]:
+    """One non-user team's pick -- the exact decision :func:`simulate_draft` makes.
+
+    Covers both branches a room team can hit: round-1 chalk
+    (:func:`fantasy.room_brain.is_round_one_chalk`) and the weighted pick past
+    it (:func:`_room_pick`). Public and reusable so a live, pausable,
+    pick-by-pick draft (see :mod:`fantasy.live_draft`) can drive bot teams with
+    the identical, already-validated room model instead of a second
+    implementation -- only the *loop* differs (resumable vs. run-to-completion),
+    never the decision itself.
+    """
+    pool = room_candidate_pool(eligible, CANDIDATE_POOL_SIZE)
+    if is_round_one_chalk(round_number):
+        return round_one_pick(pool[: min(2, len(pool))], rng)
+    return _room_pick(pool, team_counts, overall_pick, round_number, active_run, tolerance_scale, rng)
 
 
 def simulate_draft(
@@ -546,7 +602,7 @@ def simulate_draft(
         # `eligible[:N]` (VORP-sorted) made high-ADP/negative-VOR players
         # effectively undraftable.
         pool = room_candidate_pool(eligible, CANDIDATE_POOL_SIZE)
-        active_run = _active_run_position(slot["overall_pick"], clusters)
+        active_run = active_run_position(slot["overall_pick"], clusters)
 
         if is_round_one_chalk(slot["round"]):
             # Round 1 is market order for every team, room and user alike --
@@ -557,19 +613,7 @@ def simulate_draft(
             picked = user_brain_pick(eligible, settings, rosters[team_name], slot["overall_pick"], gap)
             player = picked if picked is not None else pool[0]
         else:
-            weights = []
-            for candidate in pool:
-                scale = tolerance_scale.get(candidate["position"], 1.0)
-                weight = room_brain_weight(candidate, slot["overall_pick"], slot["round"], scale)
-                if team_counts.get(candidate["position"], 0) < roster_min_required(candidate["position"]):
-                    weight *= NEED_BOOST
-                if active_run and candidate["position"] == active_run:
-                    weight *= RUN_BOOST
-                weights.append(weight)
-            weights_array = np.array(weights)
-            weights_array = weights_array / weights_array.sum()
-            choice_index = int(rng.choice(len(pool), p=weights_array))
-            player = pool[choice_index]
+            player = _room_pick(pool, team_counts, slot["overall_pick"], slot["round"], active_run, tolerance_scale, rng)
         # How many same-position players were still in the pool right before
         # this pick -- a real, honestly-computed "how thin was this position at
         # this moment" scarcity proxy for the round-by-round board.
@@ -578,7 +622,7 @@ def simulate_draft(
 
         rosters[team_name].append(player)
         is_user_pick = team_name == user_team
-        projection = _draft_projection(player)
+        projection = draft_projection(player)
         adp = player.get("adp")
 
         by_round.setdefault(slot["round"], []).append(
