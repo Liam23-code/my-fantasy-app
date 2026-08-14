@@ -2552,8 +2552,13 @@ def main() -> None:
         st.Page("pages/6_Finance.py", title="Finance Dashboard", icon=":material/candlestick_chart:"),
         st.Page("pages/7_Opportunities.py", title="Opportunities", icon=":material/insights:"),
     ]
+    # Three clean sections: draft live, get recommendations for a draft
+    # happening elsewhere, and manage the season. Everything the Fantasy
+    # section used to spread across one page of six tabs lives in one of these.
     fantasy_pages = [
-        st.Page("pages/25_Fantasy.py", title="Fantasy", icon=":material/emoji_events:")
+        st.Page("pages/25_Fantasy_Draft_Room.py", title="Draft Room", icon=":material/emoji_events:"),
+        st.Page("pages/26_Fantasy_Draft_Assistant.py", title="Draft Assistant", icon=":material/lightbulb:"),
+        st.Page("pages/27_Fantasy_Season_Tools.py", title="Season Tools", icon=":material/calendar_month:"),
     ]
     groups = {
         "Workspace": [home_page],

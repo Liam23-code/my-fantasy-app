@@ -33,6 +33,7 @@ from fantasy.models import (
     roster_cap_reached,
     roster_min_required,
 )
+from fantasy.projections import projected_points
 from fantasy.room_brain import is_round_one_chalk, room_brain_weight, room_candidate_pool, round_one_pick
 from fantasy.scoring import calculate_fantasy_points
 from fantasy.user_brain import user_brain_pick
@@ -77,6 +78,24 @@ RUN_TRAILING_PICKS = 2
 #: 5th/6th RB or WR, which real benches carry all the time.
 NEVER_EXCEED_CAP_POSITIONS = frozenset({"K", "DST"})
 
+#: Fields :func:`fantasy.adapter.normalize_projection` drops (they are outside
+#: the strict :class:`fantasy.models.CanonicalProjection` schema) that the
+#: draft board and :mod:`fantasy.grader` both want kept: where the projection
+#: came from, and the sample behind it. Carried through verbatim rather than
+#: recomputed, so a ranked board can always say which season it is projecting.
+CARRIED_SOURCE_FIELDS: tuple[str, ...] = (
+    "projection_season",
+    "projection_basis",
+    "projection_method",
+    "projection_confidence",
+    "prior_season",
+    "prior_season_points",
+    "expected_games",
+    "games_played",
+    "points_per_game",
+    "scoring_mode",
+)
+
 
 def _coerce_league_settings(league_settings: dict[str, Any] | LeagueSettings) -> LeagueSettings:
     if isinstance(league_settings, LeagueSettings):
@@ -84,9 +103,42 @@ def _coerce_league_settings(league_settings: dict[str, Any] | LeagueSettings) ->
     return LeagueSettings(**(league_settings or {}))
 
 
-def _score_player(canonical: dict[str, Any], settings: LeagueSettings) -> float:
+def _score_player(source: Any, canonical: dict[str, Any], settings: LeagueSettings) -> float:
+    """Points to rank on: a real projection when one exists, raw stats otherwise.
+
+    This is the seam that keeps a draft board off raw prior-season box scores.
+    A pool from :func:`fantasy.projections.load_forward_projections` carries a
+    forward projection for the season being drafted, and that is what VOR is
+    computed from. Only a pool with no projection at all -- a bare stat line --
+    falls back to scoring the raw stats, which is a *baseline*, not a forecast.
+
+    Deliberately the same preference order
+    :func:`fantasy.assistant.suggest_draft_picks` already used, so the ranked
+    board and the recommendations on top of it can never disagree about what a
+    player is projected to score. :func:`fantasy.projections.projected_points`
+    also refuses a projection baked under a different scoring mode, so a PPR
+    number can't leak into a standard-league board.
+    """
+    forward = projected_points(source, settings)
+    if forward is None:
+        forward = projected_points(canonical, settings)
+    if forward is not None:
+        return forward
     result = calculate_fantasy_points(canonical, mode=settings.scoring_mode, custom_rules=settings.custom_rules)
     return result["total_points"]
+
+
+def _carried_fields(source: Any) -> dict[str, Any]:
+    """Projection provenance from the source row, for :data:`CARRIED_SOURCE_FIELDS`."""
+    if isinstance(source, dict):
+        row: dict[str, Any] = source
+    elif hasattr(source, "model_dump") and callable(source.model_dump):
+        row = dict(source.model_dump())
+    elif hasattr(source, "__dict__"):
+        row = dict(vars(source))
+    else:
+        return {}
+    return {field: row[field] for field in CARRIED_SOURCE_FIELDS if row.get(field) is not None}
 
 
 def _volatility(canonical: dict[str, Any], points: float) -> float:
@@ -186,8 +238,21 @@ def rank_players_for_draft(
     scored: list[dict[str, Any]] = []
     for source in projections:
         canonical = normalize_projection(source)
-        points = _score_player(canonical, settings)
-        scored.append({**canonical, "points": round(points, 2)})
+        points = _score_player(source, canonical, settings)
+        # `points`, `projection`, and `expected_fantasy_points` are set to the
+        # same number on purpose: every consumer of a ranked board (the
+        # assistant's recommendations, the live draft, the grader) reads one
+        # of the three, and letting them disagree is how a board ends up
+        # ranking on one basis while displaying another.
+        scored.append(
+            {
+                **canonical,
+                **_carried_fields(source),
+                "points": round(points, 2),
+                "projection": round(points, 2),
+                "expected_fantasy_points": round(points, 2),
+            }
+        )
 
     replacement_levels = _replacement_levels(scored, settings, settings.n_teams)
 

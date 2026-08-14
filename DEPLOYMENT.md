@@ -1,16 +1,17 @@
 # Deploying to Render
 
 Your Streamlit app lives at `UniversalQuantAgent/app/app.py` and is a
-25-page multi-app (NBA, Finance, NFL analysis, and the Fantasy draft tool).
-It depends on a second local project, `fantasy_engine/`, for everything the
-Fantasy page does. Both must be deployed together.
+27-page multi-app (NBA, Finance, NFL analysis, and the three Fantasy pages:
+Draft Room, Draft Assistant, and Season Tools). It depends on a second local
+project, `fantasy_engine/`, for everything the Fantasy pages do. Both must be
+deployed together.
 
 ## Before you do anything: one deviation from the ask
 
 You asked for the start command `streamlit run streamlit_app.py ...`. I did
 **not** create a `streamlit_app.py` wrapper file, because it would silently
 break page navigation: Streamlit resolves each page's file (e.g.
-`pages/25_Fantasy.py`) relative to the *entry file's own folder*, and
+`pages/25_Fantasy_Draft_Room.py`) relative to the *entry file's own folder*, and
 `app.py` already owns that relationship with its `pages/` directory next to
 it. A wrapper file living anywhere else would point navigation at the wrong
 folder. The start command below targets the real entry file directly instead
@@ -30,13 +31,16 @@ AI Quant/                          <- repo root, push this whole thing
 │   ├── app/
 │   │   ├── app.py                 <- the real Streamlit entry point
 │   │   ├── page_runtime.py
+│   │   ├── fantasy_shared.py      <- setup/cards shared by the three Fantasy pages
 │   │   └── pages/
-│   │       ├── 25_Fantasy.py
+│   │       ├── 25_Fantasy_Draft_Room.py
+│   │       ├── 26_Fantasy_Draft_Assistant.py
+│   │       ├── 27_Fantasy_Season_Tools.py
 │   │       └── ... (24 more pages)
 │   └── modules/                   <- existing, unchanged
 └── fantasy_engine/
     ├── pyproject.toml             <- defines the `fantasy` package
-    └── fantasy/                   <- what 25_Fantasy.py imports
+    └── fantasy/                   <- what the Fantasy pages import
 ```
 
 Nothing needs to move. The only new files are the five marked `NEW` above,
@@ -50,7 +54,7 @@ all at the repo root — already created.
 ```
 
 The second line is the fix for the real bug this inspection found: without
-it, `fantasy_engine` is never installed on Render and the Fantasy page fails
+it, `fantasy_engine` is never installed on Render and the Fantasy pages fail
 with `ModuleNotFoundError: No module named 'fantasy'`.
 
 ## 3. Build command

@@ -2,7 +2,10 @@
 
 Usage::
 
-    from fantasy.live_draft import start_live_draft, draft_for_user, user_turn_context
+    from fantasy.live_draft import (
+        start_live_draft, draft_for_user, user_turn_context,
+        drafted_players, override_draft_for_user,
+    )
 
     state = start_live_draft(
         projections, league_settings,
@@ -20,6 +23,10 @@ Usage::
     # of it -- diff its length against what it was before this call to show
     # "what just happened" in a UI.
 
+    # A player the simulation gave to a bot, but who is still available in
+    # your real draft:
+    state = override_draft_for_user(state, player_id=fallen["player_id"])
+
 Why this exists rather than reusing :func:`fantasy.draft.simulate_draft`
 --------------------------------------------------------------------------
 ``simulate_draft`` plays an entire mock draft in one call, using
@@ -35,6 +42,27 @@ modes. Only the *human's* pick is different: chosen live, not by
 ``user_brain_pick``, and every recommendation surface (see
 :func:`fantasy.assistant.get_best_pick_for_round`) recomputes from the state
 as it actually stands after your real choices, not a pre-planned script.
+
+Manual override: taking a player the simulation already gave away
+-----------------------------------------------------------------
+The simulation is a *model* of a draft room, not a transcript of yours. It
+will routinely hand a bot someone who, in the draft you are actually sitting
+in, is still on the board. :func:`override_draft_for_user` is the escape
+hatch: it pulls that player back out of the bot's roster and runs them through
+the identical pipeline a normal pick uses.
+
+The bot is not simply left a player short. It is re-picked at its own original
+slot via :func:`fantasy.draft.room_team_pick` -- the same decision function,
+the same eligibility ladder -- so the board stays complete and every roster
+keeps the right number of players.
+
+**Bot parity is preserved exactly**, and specifically: the compensation pick
+draws from a *derived* generator (:func:`_compensation_rng`), never from
+``state["rng"]``. The main stream is therefore left byte-for-byte where it
+was, so every subsequent bot pick is the same draw it would have been had the
+override never happened. Overrides change *who is available*, which is the
+entire point; they do not change how the room decides, and they cannot
+desynchronize it. Every override is recorded in ``state["overrides"]``.
 """
 
 from __future__ import annotations
@@ -157,74 +185,97 @@ def start_live_draft(
         "warnings": warnings,
         "awaiting_user_pick": False,
         "is_complete": False,
+        "overrides": [],
     }
     _advance_bot_picks(state)
     return state
 
 
-def _resolve_eligible(state: dict[str, Any], team_name: str) -> tuple[list[dict[str, Any]], Counter]:
-    """Eligible pool for one team's pick, with the same cap-relaxation ladder ``simulate_draft`` uses."""
+def _resolve_eligible(
+    state: dict[str, Any],
+    team_name: str,
+    pool: list[dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], Counter]:
+    """Eligible pool for one team's pick, with the same cap-relaxation ladder ``simulate_draft`` uses.
+
+    ``pool`` defaults to the live board. :func:`release_player` passes a
+    narrowed one so a compensation pick cannot re-take the very player being
+    overridden out from under the user.
+    """
+    board = state["remaining"] if pool is None else pool
     team_counts = Counter(candidate["position"] for candidate in state["rosters"][team_name])
-    eligible = [
-        candidate for candidate in state["remaining"] if not roster_cap_reached(team_counts, candidate["position"])
-    ]
+    eligible = [candidate for candidate in board if not roster_cap_reached(team_counts, candidate["position"])]
     if not eligible:
         # Emergency stage 1: every skill position is capped for this team --
         # take extra bench depth rather than stall. K/DST never get a 2nd copy
         # even here, see NEVER_EXCEED_CAP_POSITIONS.
         state["cap_relaxations"] += 1
-        eligible = [
-            candidate for candidate in state["remaining"] if candidate["position"] not in NEVER_EXCEED_CAP_POSITIONS
-        ]
+        eligible = [candidate for candidate in board if candidate["position"] not in NEVER_EXCEED_CAP_POSITIONS]
         if not eligible:
             # Emergency stage 2: truly nothing left but a capped-out K/DST.
             state["cap_emergencies"] += 1
-            eligible = state["remaining"]
+            eligible = list(board)
     return eligible, team_counts
 
 
-def _apply_pick(state: dict[str, Any], team_name: str, player: dict[str, Any], slot: dict[str, int], active_run: str | None) -> None:
+def _pick_record(
+    state: dict[str, Any],
+    team_name: str,
+    player: dict[str, Any],
+    slot: dict[str, int],
+    active_run: str | None,
+    remaining_at_position: int,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The (by_round, picks) pair for one resolved pick -- one shape, two views."""
+    is_user_pick = team_name == state["user_team"]
+    projection = draft_projection(player)
+    adp = player.get("adp")
+    board_row = {
+        "pick": slot["overall_pick"],
+        "round": slot["round"],
+        "team": team_name,
+        "player_name": player["name"],
+        "position": player["position"],
+        "projection": projection,
+        "is_user_pick": is_user_pick,
+        "player_id": player["player_id"],
+        "position_run": active_run,
+        "adp": adp,
+        "vor": player["vor"],
+        "remaining_at_position": remaining_at_position,
+    }
+    pick_row = {
+        "overall_pick": slot["overall_pick"],
+        "round": slot["round"],
+        "team": team_name,
+        "player_id": player["player_id"],
+        "name": player["name"],
+        "position": player["position"],
+        "vor": player["vor"],
+        "projection": projection,
+        "adp": adp,
+        "remaining_at_position": remaining_at_position,
+        "is_user_pick": is_user_pick,
+        "position_run": active_run,
+    }
+    return board_row, pick_row
+
+
+def _apply_pick(
+    state: dict[str, Any],
+    team_name: str,
+    player: dict[str, Any],
+    slot: dict[str, int],
+    active_run: str | None,
+) -> None:
     """Record one resolved pick -- identical bookkeeping to ``simulate_draft``'s loop body."""
     remaining_at_position = sum(1 for candidate in state["remaining"] if candidate["position"] == player["position"])
     state["remaining"].pop(next(i for i, candidate in enumerate(state["remaining"]) if candidate is player))
     state["rosters"][team_name].append(player)
 
-    is_user_pick = team_name == state["user_team"]
-    projection = draft_projection(player)
-    adp = player.get("adp")
-
-    state["by_round"].setdefault(slot["round"], []).append(
-        {
-            "pick": slot["overall_pick"],
-            "round": slot["round"],
-            "team": team_name,
-            "player_name": player["name"],
-            "position": player["position"],
-            "projection": projection,
-            "is_user_pick": is_user_pick,
-            "player_id": player["player_id"],
-            "position_run": active_run,
-            "adp": adp,
-            "vor": player["vor"],
-            "remaining_at_position": remaining_at_position,
-        }
-    )
-    state["picks"].append(
-        {
-            "overall_pick": slot["overall_pick"],
-            "round": slot["round"],
-            "team": team_name,
-            "player_id": player["player_id"],
-            "name": player["name"],
-            "position": player["position"],
-            "vor": player["vor"],
-            "projection": projection,
-            "adp": adp,
-            "remaining_at_position": remaining_at_position,
-            "is_user_pick": is_user_pick,
-            "position_run": active_run,
-        }
-    )
+    board_row, pick_row = _pick_record(state, team_name, player, slot, active_run, remaining_at_position)
+    state["by_round"].setdefault(slot["round"], []).append(board_row)
+    state["picks"].append(pick_row)
 
 
 def _advance_bot_picks(state: dict[str, Any]) -> None:
@@ -279,6 +330,7 @@ def user_turn_context(state: dict[str, Any]) -> dict[str, Any] | None:
         "my_roster": list(state["rosters"][state["user_team"]]),
         "board": list(state["remaining"]),
         "picks_until_next": picks_until_next,
+        "overrides": len(state.get("overrides") or []),
     }
 
 
@@ -295,7 +347,8 @@ def draft_for_user(state: dict[str, Any], player_id: Any) -> dict[str, Any]:
     ``player_id`` doesn't match anyone still on the board -- both are
     programming errors in the caller (the UI should only ever offer players
     from :func:`user_turn_context`'s own ``board``), not data conditions to
-    silently paper over.
+    silently paper over. To take someone the simulation has already given to a
+    bot, use :func:`override_draft_for_user` instead.
     """
     if not state.get("awaiting_user_pick"):
         raise ValueError("It is not currently your turn to pick.")
@@ -311,3 +364,213 @@ def draft_for_user(state: dict[str, Any], player_id: Any) -> dict[str, Any]:
     state["awaiting_user_pick"] = False
     _advance_bot_picks(state)
     return state
+
+
+# ---------------------------------------------------------------------------
+# Manual override: reclaiming a player the simulation already drafted.
+# ---------------------------------------------------------------------------
+def drafted_players(state: dict[str, Any], include_user: bool = False) -> list[dict[str, Any]]:
+    """Everyone already off the board, with who took them and when.
+
+    This is the list a UI puts an "Override and Draft" control against. Your
+    own picks are excluded by default: a player already on your roster is not
+    someone you can reclaim, and offering the button there would be a dead
+    control. Ordered by pick number, most recent first, because the player a
+    user wants to override is overwhelmingly one who *just* went.
+    """
+    board_by_id = {str(player.get("player_id")): player for player in state.get("remaining") or []}
+    entries: list[dict[str, Any]] = []
+    for pick in state.get("picks") or []:
+        if pick["is_user_pick"] and not include_user:
+            continue
+        if str(pick["player_id"]) in board_by_id:
+            continue  # defensive: a released player is on the board, not drafted
+        source = _rostered_player(state, pick["team"], pick["player_id"]) or {}
+        entries.append(
+            {
+                "player_id": pick["player_id"],
+                "name": pick["name"],
+                "position": pick["position"],
+                "nfl_team": source.get("team", ""),
+                "drafted_by": pick["team"],
+                "overall_pick": pick["overall_pick"],
+                "round": pick["round"],
+                "adp": pick.get("adp"),
+                "projection": pick.get("projection"),
+                "vor": pick.get("vor"),
+                "is_user_pick": pick["is_user_pick"],
+                "can_override": not pick["is_user_pick"],
+            }
+        )
+    entries.sort(key=lambda entry: entry["overall_pick"], reverse=True)
+    return entries
+
+
+def _rostered_player(state: dict[str, Any], team_name: str, player_id: Any) -> dict[str, Any] | None:
+    for player in state["rosters"].get(team_name) or []:
+        if str(player.get("player_id")) == str(player_id):
+            return player
+    return None
+
+
+def _compensation_rng(state: dict[str, Any], overall_pick: int) -> np.random.Generator:
+    """A generator for a compensation pick that never touches ``state["rng"]``.
+
+    This is the whole parity guarantee in one function. Re-picking a bot from
+    the main stream would consume a draw the un-overridden timeline never
+    consumed, and every bot decision afterwards would diverge from what
+    :func:`fantasy.draft.simulate_draft` would produce from the same seed. A
+    derived, deterministic stream keyed on the draft seed, the slot being
+    re-picked, and how many overrides have already happened keeps the
+    compensation reproducible *and* leaves the main stream untouched.
+    """
+    entropy = [int(overall_pick), len(state.get("overrides") or [])]
+    seed = state.get("seed")
+    return np.random.default_rng(entropy if seed is None else [int(seed), *entropy])
+
+
+def _reinstate_on_board(state: dict[str, Any], player: dict[str, Any]) -> None:
+    """Put a released player back on the board, preserving its VOR ordering."""
+    state["remaining"].append(player)
+    state["remaining"].sort(key=lambda candidate: candidate.get("vor", 0.0), reverse=True)
+
+
+def release_player(
+    state: dict[str, Any],
+    player_id: Any,
+    compensate: bool = True,
+) -> dict[str, Any]:
+    """Take a player back off a bot's roster and return them to the live board.
+
+    The bot that lost the player is immediately re-picked at its own original
+    slot through :func:`fantasy.draft.room_team_pick` -- the same decision
+    function, cap ladder, and run detection it used the first time -- so the
+    draft board stays complete: every slot still holds exactly one player and
+    no roster ends up short. The released player is excluded from that
+    re-pick, since the caller is about to take them.
+
+    The re-pick draws from :func:`_compensation_rng`, never ``state["rng"]``,
+    which is what keeps every *later* bot pick identical to the un-overridden
+    timeline. Set ``compensate=False`` to simply vacate the slot instead --
+    useful when reconciling against a real draft where that pick genuinely
+    never happened.
+
+    Raises :class:`ValueError` when the player was never drafted, or is on
+    your own roster (there is nothing to reclaim). Mutates and returns
+    ``state``; the override is appended to ``state["overrides"]``.
+    """
+    index = next(
+        (i for i, pick in enumerate(state.get("picks") or []) if str(pick["player_id"]) == str(player_id)),
+        None,
+    )
+    if index is None:
+        raise ValueError(f"Player {player_id!r} has not been drafted in this live draft.")
+
+    pick = state["picks"][index]
+    team_name = pick["team"]
+    if pick["is_user_pick"]:
+        raise ValueError(f"{pick['name']} is already on your roster; there is nothing to override.")
+
+    player = _rostered_player(state, team_name, player_id)
+    if player is None:
+        raise ValueError(f"Player {player_id!r} is recorded as drafted but is not on {team_name}'s roster.")
+
+    state["rosters"][team_name] = [
+        rostered for rostered in state["rosters"][team_name] if str(rostered.get("player_id")) != str(player_id)
+    ]
+    _reinstate_on_board(state, player)
+
+    slot = {"overall_pick": pick["overall_pick"], "round": pick["round"]}
+    active_run = active_run_position(pick["overall_pick"], state["clusters"])
+    pool = [candidate for candidate in state["remaining"] if str(candidate.get("player_id")) != str(player_id)]
+
+    replacement: dict[str, Any] | None = None
+    if compensate and pool:
+        eligible, team_counts = _resolve_eligible(state, team_name, pool=pool)
+        replacement = room_team_pick(
+            eligible,
+            team_counts,
+            pick["overall_pick"],
+            pick["round"],
+            active_run,
+            state["tolerance_scale"],
+            _compensation_rng(state, pick["overall_pick"]),
+        )
+        # Counted off `pool`, not the raw board: the released player is about
+        # to go to the user, so they were never part of what this team could
+        # still have taken at this position.
+        remaining_at_position = sum(
+            1 for candidate in pool if candidate["position"] == replacement["position"]
+        )
+        state["remaining"].pop(
+            next(i for i, candidate in enumerate(state["remaining"]) if candidate is replacement)
+        )
+        state["rosters"][team_name].append(replacement)
+        board_row, pick_row = _pick_record(
+            state, team_name, replacement, slot, active_run, remaining_at_position
+        )
+        state["picks"][index] = pick_row
+        _replace_board_row(state, pick["round"], pick["overall_pick"], board_row)
+    else:
+        # Nothing left to compensate with (or the caller asked not to): drop
+        # the slot rather than leave a phantom pick pointing at a player who
+        # is now on the board.
+        state["picks"].pop(index)
+        _replace_board_row(state, pick["round"], pick["overall_pick"], None)
+
+    state.setdefault("overrides", []).append(
+        {
+            "player_id": pick["player_id"],
+            "name": pick["name"],
+            "position": pick["position"],
+            "released_from": team_name,
+            "overall_pick": pick["overall_pick"],
+            "round": pick["round"],
+            "replaced_with": (replacement or {}).get("name"),
+            "replaced_with_id": (replacement or {}).get("player_id"),
+        }
+    )
+    return state
+
+
+def _replace_board_row(
+    state: dict[str, Any],
+    round_number: int,
+    overall_pick: int,
+    board_row: dict[str, Any] | None,
+) -> None:
+    """Swap (or drop) one row of ``by_round`` in place, keeping pick order intact."""
+    rows = state.get("by_round", {}).get(round_number)
+    if not rows:
+        return
+    position = next((i for i, row in enumerate(rows) if row["pick"] == overall_pick), None)
+    if position is None:
+        return
+    if board_row is None:
+        rows.pop(position)
+    else:
+        rows[position] = board_row
+
+
+def override_draft_for_user(state: dict[str, Any], player_id: Any) -> dict[str, Any]:
+    """Draft anyone -- including a player the simulation already gave to a bot.
+
+    This is the "he's still available in my real draft" button. If the player
+    is already on the board it is exactly :func:`draft_for_user`; if a bot has
+    them, :func:`release_player` reclaims them first (compensating that bot at
+    its own slot, without disturbing the main RNG stream) and the pick then
+    runs through the identical pipeline -- same slot, same run detection, same
+    fast-forward through the room to your next turn. Board, roster,
+    recommendations, and round logic all update off the resulting state, so
+    there is no second code path that could drift from the first.
+
+    Raises :class:`ValueError` when it isn't your turn, when the player is
+    unknown to this draft, or when they are already on your own roster.
+    """
+    if not state.get("awaiting_user_pick"):
+        raise ValueError("It is not currently your turn to pick.")
+
+    on_board = any(str(player.get("player_id")) == str(player_id) for player in state["remaining"])
+    if not on_board:
+        release_player(state, player_id)
+    return draft_for_user(state, player_id)

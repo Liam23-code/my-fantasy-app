@@ -5,7 +5,14 @@ from __future__ import annotations
 import pytest
 
 from fantasy.draft import simulate_draft
-from fantasy.live_draft import draft_for_user, start_live_draft, user_turn_context
+from fantasy.live_draft import (
+    draft_for_user,
+    drafted_players,
+    override_draft_for_user,
+    release_player,
+    start_live_draft,
+    user_turn_context,
+)
 
 # A small multi-position pool, ADP-spread within each position, so recommendations
 # and roster-need reasoning have real signal to work with (unlike test_draft.py's
@@ -243,3 +250,177 @@ def test_live_draft_falls_back_gracefully_when_every_remaining_position_is_cappe
     assert state["is_complete"]
     mine = [pick for pick in state["picks"] if pick["is_user_pick"]]
     assert len(mine) == 5  # kept drafting via the board fallback even once recs ran dry
+
+
+# --- manual override: taking a player the simulation already drafted ----------
+
+
+def _state_with_bot_picks(**kwargs):
+    """A 4-team draft on slot 3, so picks 1 and 2 are already bot-owned."""
+    options = {"num_rounds": 4, "user_draft_slot": 3, "seed": 7, **kwargs}
+    return start_live_draft(_live_pool(), LIVE_SETTINGS, **options)
+
+
+def test_drafted_players_lists_bot_picks_newest_first_with_an_override_flag():
+    state = _state_with_bot_picks()
+    listed = drafted_players(state)
+    assert [entry["overall_pick"] for entry in listed] == [2, 1]
+    assert all(entry["can_override"] for entry in listed)
+    assert all(entry["drafted_by"] != state["user_team"] for entry in listed)
+    assert {entry["player_id"] for entry in listed} == {pick["player_id"] for pick in state["picks"]}
+
+
+def test_drafted_players_excludes_your_own_picks_by_default():
+    state = _state_with_bot_picks()
+    context = user_turn_context(state)
+    state = draft_for_user(state, context["board"][0]["player_id"])
+    mine = {pick["player_id"] for pick in state["picks"] if pick["is_user_pick"]}
+
+    assert mine and not (mine & {entry["player_id"] for entry in drafted_players(state)})
+    assert mine <= {entry["player_id"] for entry in drafted_players(state, include_user=True)}
+
+
+def test_override_moves_a_bot_drafted_player_onto_your_roster():
+    state = _state_with_bot_picks()
+    target = state["picks"][0]
+    bot_team = target["team"]
+    bot_roster_size = len(state["rosters"][bot_team])
+
+    state = override_draft_for_user(state, target["player_id"])
+
+    mine = state["rosters"][state["user_team"]]
+    assert target["player_id"] in {player["player_id"] for player in mine}
+    assert target["player_id"] not in {player["player_id"] for player in state["rosters"][bot_team]}
+    assert target["player_id"] not in {player["player_id"] for player in state["remaining"]}
+    # The bot is re-picked at its own slot rather than left a player short.
+    assert len(state["rosters"][bot_team]) == bot_roster_size
+
+
+def test_override_records_what_was_taken_and_what_replaced_it():
+    state = _state_with_bot_picks()
+    target = state["picks"][0]
+    state = override_draft_for_user(state, target["player_id"])
+
+    assert len(state["overrides"]) == 1
+    record = state["overrides"][0]
+    assert record["player_id"] == target["player_id"]
+    assert record["released_from"] == target["team"]
+    assert record["overall_pick"] == target["overall_pick"]
+    assert record["replaced_with_id"] not in {None, target["player_id"]}
+
+
+def test_override_rewrites_the_board_slot_in_place_without_leaving_a_hole():
+    state = _state_with_bot_picks()
+    target = state["picks"][0]
+    rows_before = len(state["by_round"][target["round"]])
+
+    state = override_draft_for_user(state, target["player_id"])
+
+    rows = state["by_round"][target["round"]]
+    row = next(entry for entry in rows if entry["pick"] == target["overall_pick"])
+    assert len(rows) >= rows_before          # the slot still exists
+    assert row["team"] == target["team"]     # still that bot's pick
+    assert row["player_id"] != target["player_id"]  # filled by the compensation player
+
+
+def test_release_player_never_touches_the_main_rng_stream():
+    """The parity guarantee: bots must draw exactly what they would have drawn."""
+    state = _state_with_bot_picks()
+    before = state["rng"].bit_generator.state
+
+    release_player(state, state["picks"][0]["player_id"])
+
+    assert state["rng"].bit_generator.state == before
+
+
+def test_the_room_draws_the_same_next_value_whether_or_not_an_override_happened():
+    """The observable half of parity: a compensation pick costs the room no draw."""
+    baseline = _state_with_bot_picks()
+    overridden = _state_with_bot_picks()
+
+    release_player(overridden, overridden["picks"][0]["player_id"])
+
+    assert overridden["rng"].random() == baseline["rng"].random()
+
+
+def test_compensation_is_deterministic_for_the_same_draft_and_slot():
+    """Same seed, same slot, same replacement -- a rerun must not reshuffle the room."""
+    first = _state_with_bot_picks()
+    second = _state_with_bot_picks()
+    target = first["picks"][0]["player_id"]
+
+    release_player(first, target)
+    release_player(second, target)
+
+    assert first["overrides"][0]["replaced_with_id"] == second["overrides"][0]["replaced_with_id"]
+
+
+def test_override_of_a_player_still_on_the_board_is_just_a_normal_pick():
+    state = _state_with_bot_picks()
+    target = user_turn_context(state)["board"][0]["player_id"]
+    state = override_draft_for_user(state, target)
+
+    assert state["overrides"] == []
+    assert target in {player["player_id"] for player in state["rosters"][state["user_team"]]}
+
+
+def test_override_rejects_a_player_already_on_your_own_roster():
+    state = _state_with_bot_picks()
+    target = user_turn_context(state)["board"][0]["player_id"]
+    state = draft_for_user(state, target)
+    with pytest.raises(ValueError, match="already on your roster"):
+        override_draft_for_user(state, target)
+
+
+def test_override_rejects_a_player_this_draft_has_never_seen():
+    state = _state_with_bot_picks()
+    with pytest.raises(ValueError, match="not been drafted"):
+        override_draft_for_user(state, "does-not-exist")
+
+
+def test_override_rejects_a_pick_made_out_of_turn():
+    state = start_live_draft(_live_pool(), LIVE_SETTINGS, num_rounds=1, user_draft_slot=None, seed=1)
+    assert state["is_complete"]
+    with pytest.raises(ValueError, match="not currently your turn"):
+        override_draft_for_user(state, "rb0")
+
+
+def test_a_draft_stays_intact_after_an_override():
+    state = _state_with_bot_picks()
+    state = override_draft_for_user(state, state["picks"][0]["player_id"])
+    state = _play_out(state)
+
+    ids = [pick["player_id"] for pick in state["picks"]]
+    assert len(ids) == len(set(ids))                       # nobody drafted twice
+    assert len(ids) == LIVE_SETTINGS["n_teams"] * 4        # every slot still filled
+    assert sorted(len(roster) for roster in state["rosters"].values()) == [4, 4, 4, 4]
+
+
+def test_recommendations_see_the_override_immediately():
+    """The overridden player leaves the board, so nothing can re-recommend them."""
+    from fantasy.assistant import get_best_pick_for_round
+
+    state = _state_with_bot_picks()
+    target = state["picks"][0]["player_id"]
+    state = override_draft_for_user(state, target)
+
+    context = user_turn_context(state)
+    recommendations = get_best_pick_for_round(
+        context["round"], context["my_roster"], context["board"], LIVE_SETTINGS,
+        current_pick_overall=context["overall_pick"], picks_until_next=context["picks_until_next"],
+    )
+    assert target not in {entry["player_id"] for entry in recommendations}
+    assert target in {player["player_id"] for player in context["my_roster"]}
+
+
+def test_release_without_compensation_vacates_the_slot_instead():
+    state = _state_with_bot_picks()
+    target = state["picks"][0]
+    picks_before = len(state["picks"])
+
+    release_player(state, target["player_id"], compensate=False)
+
+    assert len(state["picks"]) == picks_before - 1
+    assert target["player_id"] in {player["player_id"] for player in state["remaining"]}
+    assert not [row for row in state["by_round"][target["round"]] if row["pick"] == target["overall_pick"]]
+    assert state["overrides"][0]["replaced_with"] is None

@@ -70,7 +70,7 @@ def test_replacement_levels_helper_matches_hand_computed_values(flex_pool_projec
     scored = []
     for source in flex_pool_projections:
         canonical = normalize_projection(source)
-        scored.append({**canonical, "points": _score_player(canonical, flex_pool_settings)})
+        scored.append({**canonical, "points": _score_player(source, canonical, flex_pool_settings)})
     levels = _replacement_levels(scored, flex_pool_settings, flex_pool_settings.n_teams)
     assert levels["RB"] == pytest.approx(6.0)
     assert levels["WR"] == pytest.approx(6.5)

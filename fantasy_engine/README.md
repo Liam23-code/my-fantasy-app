@@ -79,7 +79,10 @@ fantasy_engine/
 │   ├── models.py              # CanonicalProjection, LeagueSettings, Roster
 │   ├── adapter.py              # normalize_projection() — the one integration seam
 │   ├── scoring.py               # calculate_fantasy_points()
+│   ├── projections.py            # project_forward — prior-season actuals → next-season projections
 │   ├── draft.py                  # rank_players_for_draft, cheat sheets, suggest_picks, simulate_draft
+│   ├── live_draft.py              # turn-by-turn draft state + manual override for fallen players
+│   ├── grader.py                   # grade_team / grade_position_group / grade_overall_team
 │   ├── optimizer.py                # optimize_lineup (ILP + greedy fallback), start_sit_advice
 │   ├── waiver.py                     # waiver_recommendations (FAAB/auction bids)
 │   ├── trade.py                        # evaluate_trade (Monte Carlo simulation)
@@ -341,6 +344,27 @@ from `fantasy/` — the only contact point is the projection dict shape.
   local/dev use; a multi-instance deployment needs a shared store (e.g. the
   same Redis backend `fantasy/cache.py` already knows how to use) instead of
   `api/main.py`'s `RateLimitMiddleware`.
+- **Forward projections cannot see rookies, ages, or role changes directly.**
+  `fantasy/projections.py` turns prior-season actuals into a projection for
+  the season being drafted -- availability and scoring rate are regressed
+  toward each position's own observed baseline, then reconciled against
+  market ADP. But a player with no prior-season production (every rookie) has
+  nothing to project from and does not appear at all; the nflverse feed
+  carries no birth date, so there is no age curve; and a March team change is
+  only priced to the extent ADP has priced it. Every projected player carries
+  `projection_confidence` (0-1, from sample size and whether the market had an
+  opinion) so a caller can see how much evidence sits behind the number.
+- **`optimizer.py`, `waiver.py`, and `trade.py` score the raw stat line, not
+  the forward projection.** `draft.py` and `assistant.py` both prefer a
+  precomputed projection when one is present (see
+  `fantasy.projections.projected_points`); the three in-season modules still
+  call `calculate_fantasy_points` on the stat line directly. Their outputs are
+  therefore consistent *relative* rankings but sit on a different basis from
+  the draft board's point totals. Switching them is a deliberate open
+  question rather than an oversight: `trade.py` treats its per-player score as
+  a *weekly* mean and multiplies by `weeks_remaining`, so feeding it a season
+  total would inflate the result ~17x, and resolving that properly means
+  deciding whether these tools should consume weekly or season projections.
 - **Trade Monte Carlo variance model is a heuristic.** Each player's weekly
   point distribution is treated as normal, parameterized from the
   projection's own `floor`/`ceiling` as a rough 5th–95th-percentile band
