@@ -38,6 +38,7 @@ from fantasy.room_brain import is_round_one_chalk, room_brain_weight, room_candi
 from fantasy.scoring import calculate_fantasy_points
 from fantasy.user_brain import user_brain_pick
 from fantasy.utils import safe_float
+from fantasy.weekly_projections import build_weekly_projection
 
 RISK_WEIGHTS = {
     "safe": {"floor": 0.6, "median": 0.4, "ceiling": 0.0},
@@ -251,6 +252,7 @@ def rank_players_for_draft(
                 "points": round(points, 2),
                 "projection": round(points, 2),
                 "expected_fantasy_points": round(points, 2),
+                "weekly_projection": build_weekly_projection(source, settings.scoring_mode),
             }
         )
 
@@ -522,6 +524,25 @@ def room_team_pick(
     return _room_pick(pool, team_counts, overall_pick, round_number, active_run, tolerance_scale, rng)
 
 
+def finalize_user_team(user_roster: list[dict[str, Any]]) -> dict[str, Any]:
+    """Persist a completed user roster and describe the UI handoff.
+
+    Core engine code cannot navigate a Streamlit session directly, so the
+    return value is an explicit redirect contract for UI callers.  The saved
+    roster is immediately available to both the Season Tools ``My Team`` tab
+    and the standalone My Team page.
+    """
+    from fantasy.my_team_manager import save_user_team
+
+    saved_roster = save_user_team(user_roster)
+    return {
+        "saved": True,
+        "player_count": len(saved_roster),
+        "redirect_page": "pages/28_Fantasy_My_Team.py",
+        "season_tools_tab": "My Team",
+    }
+
+
 def simulate_draft(
     projections: list[Any],
     league_settings: dict[str, Any] | LeagueSettings,
@@ -734,6 +755,13 @@ def simulate_draft(
             "already capped out for that team -- a rare, late-draft emergency, not routine cap enforcement."
         )
 
+    my_team_handoff = None
+    if user_team and rosters.get(user_team):
+        try:
+            my_team_handoff = finalize_user_team(rosters[user_team])
+        except (OSError, TypeError, ValueError) as error:
+            warnings.append(f"Draft completed, but the user roster could not be saved: {error}")
+
     return {
         "by_round": by_round,
         "picks": picks,
@@ -748,4 +776,7 @@ def simulate_draft(
         "cap_relaxations": cap_relaxations,
         "warnings": warnings,
         "position_runs": clusters,
+        "my_team_handoff": my_team_handoff,
+        "redirect_page": my_team_handoff["redirect_page"] if my_team_handoff else None,
+        "redirect_tab": my_team_handoff["season_tools_tab"] if my_team_handoff else None,
     }

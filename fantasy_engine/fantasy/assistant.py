@@ -73,6 +73,7 @@ from fantasy.data_loader import drop_synthetic, validate_players
 from fantasy.models import LeagueSettings, roster_cap_reached, roster_min_required
 from fantasy.scoring import calculate_fantasy_points
 from fantasy.utils import normalize_player_name, safe_float
+from fantasy.weekly_projections import build_weekly_projection, weekly_matchups
 
 #: How much each signal moves the final score. VORP dominates on purpose:
 #: an ablation against real 2025 data (simulate a user-brain-drafted team
@@ -313,6 +314,125 @@ def capped_positions(
     """
     counts = _roster_counts(my_roster)
     return sorted(position for position in counts if roster_cap_reached(counts, position))
+
+
+def _projection_week_value(player: dict[str, Any], week: int, scoring_mode: str) -> dict[str, float]:
+    """Read a cached weekly curve when valid, otherwise build it."""
+    curve = player.get("weekly_projection")
+    value = None
+    if isinstance(curve, dict):
+        value = curve.get(week, curve.get(str(week)))
+    if not isinstance(value, dict) or not isinstance(value.get("points"), (int, float)):
+        value = build_weekly_projection(player, scoring_mode)[week]
+    confidence = value.get("confidence", 0.0)
+    return {
+        "points": round(max(0.0, safe_float(value.get("points"))), 2),
+        "confidence": round(max(0.0, min(1.0, safe_float(confidence))), 3),
+    }
+
+
+def weekly_start_sit_advice(
+    roster: Any,
+    season_projections: list[dict[str, Any]],
+    week: int,
+    league_settings: dict[str, Any] | LeagueSettings | None = None,
+) -> list[dict[str, Any]]:
+    """Return start/sit calls ranked on matchup-adjusted weekly projections.
+
+    The existing optimizer consumes stat-line projections.  The season pool,
+    however, now carries authoritative point curves.  This adapter expresses
+    each selected week's point estimate as an equivalent passing-yard total
+    (passing yards are worth 0.04 in every built-in format), runs the same
+    legal-lineup optimizer, and then restores the weekly context to its output.
+    Custom scoring is deliberately removed only for this point-preserving
+    proxy; roster requirements, FLEX eligibility, and team caps are retained.
+
+    Each returned row contains the optimizer's normal verdict/delta/reason plus
+    ``week``, ``projected_points``, ``confidence``, ``opponent``,
+    ``matchup_adjustment``, and ``on_bye``.
+    """
+    try:
+        week_number = int(week)
+    except (TypeError, ValueError) as error:
+        raise ValueError("week must be an integer from 1 through 18") from error
+    if not 1 <= week_number <= 18:
+        raise ValueError("week must be an integer from 1 through 18")
+
+    settings = _coerce_settings(league_settings)
+    proxy_projections: list[dict[str, Any]] = []
+    context_by_name: dict[str, dict[str, Any]] = {}
+
+    for source in season_projections or []:
+        if not isinstance(source, dict):
+            continue
+        weekly = _projection_week_value(source, week_number, settings.scoring_mode)
+        matchups = weekly_matchups(source)
+        matchup = matchups[week_number]
+        name = str(source.get("name") or source.get("player_name") or "").strip()
+        player_id = str(source.get("player_id") or source.get("id") or name)
+        if not player_id and not name:
+            continue
+
+        # The optimizer scores canonical stat fields rather than reading a
+        # generic `projection` number.  25 passing yards == one fantasy point
+        # under standard, half-PPR, and PPR, making this an exact, reversible
+        # point carrier with no position-specific side effects.
+        proxy_projections.append(
+            {
+                "player_id": player_id,
+                "name": name,
+                "position": source.get("position", ""),
+                "team": source.get("team") or source.get("nfl_team") or "",
+                "passing_yards": weekly["points"] * 25.0,
+            }
+        )
+        context_by_name[normalize_player_name(name)] = {
+            "week": week_number,
+            "projected_points": weekly["points"],
+            "confidence": weekly["confidence"],
+            "opponent": matchup["opponent"],
+            "matchup_adjustment": matchup["defensive_adjustment"],
+            "on_bye": matchup["opponent"] == "BYE",
+        }
+
+    if not proxy_projections:
+        return []
+
+    # Local import keeps draft-assistant import time light and preserves the
+    # existing dependency direction (optimizer does not import assistant).
+    from fantasy.optimizer import start_sit_advice
+
+    proxy_settings = settings.model_copy(update={"scoring_mode": "ppr", "custom_rules": None})
+    advice = start_sit_advice(roster, proxy_projections, proxy_settings)
+    enriched: list[dict[str, Any]] = []
+    for item in advice:
+        context = context_by_name.get(normalize_player_name(item.get("player")), {})
+        result = {**item, **context}
+        if context.get("on_bye"):
+            result["start_or_bench"] = "bench"
+            result["delta_points"] = 0.0
+            result["reason"] = f"Week {week_number} bye; projected for 0.0 points and must sit."
+        elif context:
+            adjustment = safe_float(context.get("matchup_adjustment"), 1.0)
+            if adjustment < 0.98:
+                matchup_note = f"tough {context['opponent']} matchup ({adjustment:.2f}x)"
+            elif adjustment > 1.02:
+                matchup_note = f"favorable {context['opponent']} matchup ({adjustment:.2f}x)"
+            else:
+                matchup_note = f"neutral {context['opponent']} matchup"
+            result["reason"] = f"{item['reason']} Weekly model: {matchup_note}; {context['confidence']:.0%} confidence."
+        enriched.append(result)
+    return enriched
+
+
+def weekly_start_sit(
+    roster: Any,
+    season_projections: list[dict[str, Any]],
+    week: int,
+    league_settings: dict[str, Any] | LeagueSettings | None = None,
+) -> list[dict[str, Any]]:
+    """Compatibility wrapper for :func:`weekly_start_sit_advice`."""
+    return weekly_start_sit_advice(roster, season_projections, week, league_settings)
 
 
 def _need_multiplier(roster_counts: dict[str, int], settings: LeagueSettings, position: str) -> float:

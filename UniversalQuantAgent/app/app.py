@@ -7,11 +7,13 @@ domain modules so a future API, mobile app, or ML pipeline can reuse them.
 
 from __future__ import annotations
 
-from pathlib import Path
-from html import escape
 import re
 import sys
-from typing import Any, Callable
+from collections.abc import Callable
+from html import escape
+from pathlib import Path
+from types import ModuleType
+from typing import Any
 
 # Streamlit executes this file from app/. Add the project root for domain imports.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -22,27 +24,18 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from nba_api.stats.static import players as nba_players, teams as nba_teams
-
 from modules.analyzer import rank_opportunities
 from modules.badge_graph import (
     render_badge_graph,
     render_spider_badge_graph,
-)
-from modules.radar_chart import RADAR_WINDOWS, render_efficiency_radar
-from modules.shot_chart import SHOT_MODES, render_shot_chart
-from modules.trend_graphs import (
-    render_momentum_line,
-    render_performance_timeline,
-    render_usage_efficiency_scatter,
 )
 from modules.correlation_engine import (
     compute_player_correlations,
     compute_slate_correlations,
     compute_team_correlations,
 )
-from modules.edge_heatmap import EDGE_CATEGORIES, prepare_edge_heatmap
 from modules.data_quality import as_dict, safe_number
+from modules.edge_heatmap import EDGE_CATEGORIES, prepare_edge_heatmap
 from modules.finance import analyze_stock
 from modules.insights_engine import (
     generate_badge_insights,
@@ -51,12 +44,12 @@ from modules.insights_engine import (
     generate_player_insights,
     generate_similarity_insights,
 )
-from modules.nfl import compare_nfl_teams, latest_completed_nfl_season
 from modules.nba_advanced import compare_players, latest_season
 from modules.nba_cache import (
     ENHANCED_FALLBACK_WARNING,
     FALLBACK_WARNING,
 )
+from modules.nfl import compare_nfl_teams, latest_completed_nfl_season
 from modules.player_finder import (
     high_efficiency_players,
     high_usage_players,
@@ -64,10 +57,20 @@ from modules.player_finder import (
     top_rebounders,
     top_scorers,
 )
+from modules.radar_chart import RADAR_WINDOWS, render_efficiency_radar
 from modules.reliability import get_reliability_score
+from modules.shot_chart import SHOT_MODES, render_shot_chart
 from modules.similarity_engine import compute_player_similarity
 from modules.sports import compare_teams, fetch_nba_player_stats
+from modules.trend_graphs import (
+    render_momentum_line,
+    render_performance_timeline,
+    render_usage_efficiency_scatter,
+)
+from nba_api.stats.static import players as nba_players
+from nba_api.stats.static import teams as nba_teams
 
+from app.style import apply_gold_glow_theme, inject_style, stacked_card_html
 
 st.set_page_config(
     page_title="Universal Quant Agent",
@@ -681,6 +684,7 @@ def nfl_profile_header(name: str, abbreviation: str, subtitle: str = "") -> None
 def apply_global_theme() -> None:
     """Emit the shared theme on every Streamlit page rerun."""
     inject_app_css()
+    inject_style()
 
 
 def friendly_label(name: str) -> str:
@@ -695,7 +699,7 @@ def run_analysis(label: str, operation: Callable[[], dict[str, Any]]) -> dict[st
     try:
         with st.spinner(f"Loading {label} data..."):
             return operation()
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - the UI boundary must report provider failures cleanly.
         st.error(f"{label} analysis could not be completed: {error}")
         st.info("Check the team/ticker, internet connection, and data-provider availability.")
         return None
@@ -721,18 +725,7 @@ def records_table(records: list[dict[str, Any]], index: str | None = None) -> pd
 
 def style_figure(figure: go.Figure, height: int = 430) -> go.Figure:
     """Apply the shared Plotly style used throughout the dashboard."""
-    figure.update_layout(
-        template="plotly_white",
-        height=height,
-        margin=dict(l=18, r=18, t=52, b=20),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(255,255,255,.65)",
-        font=dict(family="Inter, Segoe UI, sans-serif", color="#24344d"),
-        title_font=dict(size=18, color="#10213a"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        hoverlabel=dict(bgcolor="white", font_color="#10213a"),
-    )
-    return figure
+    return apply_gold_glow_theme(figure, height=height)
 
 
 def _confidence_value(value: Any) -> float:
@@ -765,21 +758,21 @@ def confidence_ring(
             sort=False,
             direction="clockwise",
             rotation=0,
-            marker=dict(colors=[color, "#e7edf5"], line=dict(width=0)),
+            marker={"colors": [color, "#e7edf5"], "line": {"width": 0}},
             textinfo="none",
             hovertemplate=f"{escape(title)}: %{{value:.1f}}<extra></extra>",
         )
     )
     figure.update_layout(
         height=225,
-        margin=dict(l=10, r=10, t=38, b=8),
+        margin={"l": 10, "r": 10, "t": 38, "b": 8},
         paper_bgcolor="rgba(0,0,0,0)",
         showlegend=False,
-        title=dict(text=title, x=.5, xanchor="center", font=dict(size=15)),
-        annotations=[dict(
-            text=f"<b>{score:.0f}</b><br><span style='font-size:11px'>out of 100</span>",
-            x=.5, y=.5, showarrow=False, font=dict(color=color, size=24),
-        )],
+        title={"text": title, "x": .5, "xanchor": "center", "font": {"size": 15}},
+        annotations=[{
+            "text": f"<b>{score:.0f}</b><br><span style='font-size:11px'>out of 100</span>",
+            "x": .5, "y": .5, "showarrow": False, "font": {"color": color, "size": 24},
+        }],
     )
     st.plotly_chart(
         figure,
@@ -932,7 +925,7 @@ def render_correlation_heatmap(
                     [0.75, "#87d3bc"],
                     [1.0, "#087f5b"],
                 ],
-                colorbar=dict(title="Correlation"),
+                colorbar={"title": "Correlation"},
                 text=matrix.round(2).to_numpy(),
                 texttemplate="%{text:.2f}",
                 hovertemplate="%{y} × %{x}<br>r=%{z:.3f}<extra></extra>",
@@ -999,7 +992,7 @@ def render_edge_heatmap_view(
                     [0.58, "#b8dfc4"],
                     [1.0, "#138a55"],
                 ],
-                colorbar=dict(title="Edge"),
+                colorbar={"title": "Edge"},
                 text=matrix.round(2).to_numpy(),
                 texttemplate="%{text:.2f}",
                 hovertemplate="%{y}<br>%{x}<br>Edge %{z:+.2f}<extra></extra>",
@@ -1153,28 +1146,38 @@ def render_similarity_view(
 
 
 def render_home() -> None:
-    """Display project purpose and a quick dashboard guide."""
-    st.title("Universal Quant Agent")
-    st.subheader("Explainable analysis across markets and sports")
-    st.write(
-        "Explore finance, NBA, and NFL signals through one modular interface. "
-        "Every score uses transparent rules today and is structured for future "
-        "prediction models, sentiment data, APIs, and portfolio tools."
+    """Render the compact Sports Hub landing surface."""
+    st.markdown('<p class="quant-eyebrow">Universal Quant Agent</p>', unsafe_allow_html=True)
+    st.title("Sports Hub")
+    st.caption("Explainable signals, projections, and matchup intelligence.")
+    cards = (
+        stacked_card_html(
+            "NFL",
+            "Team efficiency, player projections, weekly slates, and matchup edges.",
+            kicker="Football intelligence",
+            extra_class="sports-hub-card cyan-accent",
+        ),
+        stacked_card_html(
+            "NBA",
+            "Player form, fused projections, daily slates, and visual shot analysis.",
+            kicker="Basketball intelligence",
+            extra_class="sports-hub-card gold-accent",
+        ),
+        stacked_card_html(
+            "Fantasy",
+            "Draft, manage, and optimize a roster with matchup-aware weekly forecasts.",
+            kicker="Season command center",
+            extra_class="sports-hub-card cyan-accent",
+        ),
+        stacked_card_html(
+            "Betting",
+            "Transparent prop, parlay, and edge research with visible model context.",
+            kicker="Market intelligence",
+            extra_class="sports-hub-card gold-accent",
+        ),
     )
-    st.info("Educational research only — not financial, wagering, or investment advice.")
-
-    first, second, third, fourth = st.columns(4)
-    first.markdown('<div class="feature-card"><div class="section-kicker">Markets</div><h3>Finance</h3><p>Trends, volatility, moving averages, and transparent correlations.</p></div>',unsafe_allow_html=True)
-    second.markdown('<div class="feature-card"><div class="section-kicker">Basketball</div><h3>NBA</h3><p>League ranks, player form, fused projections, and matchup context.</p></div>',unsafe_allow_html=True)
-    third.markdown('<div class="feature-card"><div class="section-kicker">Football</div><h3>NFL</h3><p>EPA, success rate, efficiency, schedule strength, and mismatches.</p></div>',unsafe_allow_html=True)
-    fourth.markdown('<div class="feature-card"><div class="section-kicker">Graph Lab</div><h3>Visualize</h3><p>Shot heatmaps, radar profiles, badge wheels, trends, difficulty, and pace curves.</p></div>',unsafe_allow_html=True)
-
-    st.markdown("### How to use the dashboard")
-    st.markdown(
-        "1. Choose an analysis page from the sidebar.\n"
-        "2. Enter teams or a ticker and run the analysis.\n"
-        "3. Visit **Opportunities** to rank every completed result together."
-    )
+    st.markdown(f'<div class="quant-stack">{"".join(cards)}</div>', unsafe_allow_html=True)
+    st.caption("Research and educational analysis only — not financial or wagering advice.")
 
 
 def render_nba_basic(result: dict[str, Any]) -> None:
@@ -2506,16 +2509,49 @@ def _custom_sidebar(page_groups: dict[str, list[st.Page]]) -> None:
     st.sidebar.markdown("## Universal Quant")
     st.sidebar.caption("Explainable sports, market, and model research.")
     for section, pages in page_groups.items():
-        with st.sidebar.expander(section, expanded=section in {"NBA Tools", "Graph Lab"}):
+        with st.sidebar.expander(section, expanded=section in {"Fantasy", "Graph Lab"}):
             for page in pages:
                 st.page_link(page)
 
 
+def _top_navigation(
+    nfl_page: st.Page,
+    nba_page: st.Page,
+    fantasy_page: st.Page,
+    betting_page: st.Page,
+    fantasy_hub_page: st.Page,
+    graph_lab_page: st.Page,
+) -> None:
+    """Render the six primary destinations as an always-visible top rail."""
+    st.markdown('<div class="quant-top-nav-label">UNIVERSAL QUANT</div>', unsafe_allow_html=True)
+    links = (
+        (nfl_page, "NFL"),
+        (nba_page, "NBA"),
+        (fantasy_page, "Fantasy"),
+        (betting_page, "Betting"),
+        (fantasy_hub_page, "Fantasy Hub"),
+        (graph_lab_page, "Graph Lab"),
+    )
+    for column, (page, label) in zip(st.columns(len(links)), links):
+        with column:
+            st.page_link(page, label=label, use_container_width=True)
+
+
 def main() -> None:
     """Run the app with a compact, grouped, collapsible sidebar."""
-    # Navigation pages run as transient `__main__` modules. Keep a stable reference.
-    sys.modules["_uqa_app_runtime"] = sys.modules[__name__]
-    home_page = st.Page(_home_route, title="Home", icon=":material/home:", url_path="home", default=True)
+    # Navigation pages replace the transient ``__main__`` module in-place.
+    # Snapshot the render helpers into a stable module before the selected
+    # page runs so ``app.page_runtime`` never points at that replaced object.
+    stable_runtime = ModuleType("_uqa_app_runtime")
+    stable_runtime.__dict__.update(globals())
+    sys.modules["_uqa_app_runtime"] = stable_runtime
+    home_page = st.Page(
+        "pages/Home.py",
+        title="Home",
+        icon=":material/home:",
+        url_path="home",
+        default=True,
+    )
     nba_pages = [
         st.Page("pages/1_NBA_Analysis.py", title="NBA Analysis", icon=":material/sports_basketball:"),
         st.Page("pages/2_Player_Analysis.py", title="Player Analysis", icon=":material/person_search:"),
@@ -2524,6 +2560,7 @@ def main() -> None:
         st.Page("pages/11_Daily_Slate.py", title="Daily Slate", icon=":material/calendar_today:"),
     ]
     graph_pages = [
+        st.Page("pages/29_Graph_Lab.py", title="Graph Lab", icon=":material/monitoring:"),
         st.Page("pages/14_Shot_Chart_Heatmap.py", title="Shot-Chart Heatmap", icon=":material/blur_on:"),
         st.Page("pages/15_Efficiency_Radar.py", title="Efficiency Radar", icon=":material/radar:"),
         st.Page("pages/16_Badge_Graph.py", title="Badge Graph", icon=":material/bubble_chart:"),
@@ -2552,27 +2589,35 @@ def main() -> None:
         st.Page("pages/6_Finance.py", title="Finance Dashboard", icon=":material/candlestick_chart:"),
         st.Page("pages/7_Opportunities.py", title="Opportunities", icon=":material/insights:"),
     ]
-    # Three clean sections: draft live, get recommendations for a draft
-    # happening elsewhere, and manage the season. Everything the Fantasy
-    # section used to spread across one page of six tabs lives in one of these.
     fantasy_pages = [
+        st.Page("pages/25_Fantasy_Hub.py", title="Fantasy Hub", icon=":material/dashboard:"),
         st.Page("pages/25_Fantasy_Draft_Room.py", title="Draft Room", icon=":material/emoji_events:"),
         st.Page("pages/26_Fantasy_Draft_Assistant.py", title="Draft Assistant", icon=":material/lightbulb:"),
-        st.Page("pages/27_Fantasy_Season_Tools.py", title="Season Tools", icon=":material/calendar_month:"),
+        st.Page("pages/28_Fantasy_My_Team.py", title="My Team", icon=":material/groups:"),
+        st.Page("pages/27_Fantasy_Season_Tools.py", title="Weekly Tools", icon=":material/calendar_month:"),
     ]
     groups = {
         "Workspace": [home_page],
-        "NBA Tools": nba_pages,
-        "Graph Lab": graph_pages,
-        "Betting Tools": betting_pages,
-        "Advanced Models": advanced_pages,
-        "NFL Tools": football_pages,
-        "Finance": finance_pages,
+        "NFL": football_pages,
+        "NBA": nba_pages,
         "Fantasy": fantasy_pages,
+        "Betting": betting_pages,
+        "Graph Lab": graph_pages,
+        "Models": advanced_pages,
+        "Markets": finance_pages,
     }
     navigator = st.navigation(groups, position="hidden")
     st.session_state["_uqa_custom_navigation"] = True
     inject_app_css()
+    inject_style()
+    _top_navigation(
+        football_pages[0],
+        nba_pages[0],
+        fantasy_pages[1],
+        betting_pages[0],
+        fantasy_pages[0],
+        graph_pages[0],
+    )
     _custom_sidebar(groups)
     navigator.run()
 
