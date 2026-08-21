@@ -1,4 +1,4 @@
-"""Offline rendering contracts for the three consolidated Fantasy pages.
+"""Offline rendering contracts for the focused Fantasy workflow pages.
 
 These run the real Streamlit scripts through ``AppTest`` with the player pool
 stubbed out, so they catch the failure modes a unit test on the engine cannot:
@@ -15,10 +15,9 @@ _PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from streamlit.testing.v1 import AppTest
-
 from app import fantasy_shared
 from fantasy.projections import projection_season_label, upcoming_season
+from streamlit.testing.v1 import AppTest
 
 PAGES = Path(_PROJECT_ROOT) / "app" / "pages"
 TARGET_SEASON = upcoming_season()
@@ -95,7 +94,7 @@ class FantasyPageContracts(unittest.TestCase):
     def test_draft_room_renders_and_offers_a_draft(self):
         app = self._run("25_Fantasy_Draft_Room.py")
         self.assertTrue(any(button.key == "fantasy_start_live_draft" for button in app.button))
-        self.assertIn("Draft Room", self._text(app) + " ".join(h.value for h in app.header))
+        self.assertIn("Mock Draft", self._text(app) + " ".join(h.value for h in app.header))
 
     def test_draft_assistant_renders(self):
         app = self._run("26_Fantasy_Draft_Assistant.py")
@@ -138,7 +137,11 @@ class FantasyPageContracts(unittest.TestCase):
 
     def test_a_finished_draft_renders_the_full_report(self):
         """The post-draft view: positional chart, best/worst pick, ADP value."""
-        from fantasy.live_draft import draft_for_user, start_live_draft, user_turn_context
+        from fantasy.live_draft import (
+            draft_for_user,
+            start_live_draft,
+            user_turn_context,
+        )
 
         settings = dict(fantasy_shared.DEFAULT_LEAGUE_SETTINGS)
         state = start_live_draft(

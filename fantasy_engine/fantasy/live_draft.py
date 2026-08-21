@@ -78,9 +78,12 @@ from fantasy.draft import (
     active_run_position,
     build_draft_order,
     draft_projection,
+    ensure_unique_board_state,
     identify_adp_clusters,
     rank_players_for_draft,
+    remove_player_from_board,
     room_team_pick,
+    validate_board_integrity,
 )
 from fantasy.models import ROSTER_POSITION_LIMITS, LeagueSettings, roster_cap_reached
 
@@ -137,6 +140,10 @@ def start_live_draft(
         warnings.append("No real players were available to draft.")
 
     remaining = rank_players_for_draft(real_projections, settings) if real_projections else []
+    ensure_unique_board_state(remaining)
+    duplicate_count = len(real_projections) - len(remaining)
+    if duplicate_count:
+        warnings.append(f"Excluded {duplicate_count} duplicate player row(s) from the draft board.")
     requested_picks = settings.n_teams * rounds
     if len(remaining) < requested_picks:
         warnings.append(
@@ -186,7 +193,9 @@ def start_live_draft(
         "awaiting_user_pick": False,
         "is_complete": False,
         "overrides": [],
+        "removed_player_ids": [],
     }
+    ensure_unique_board_state(state)
     _advance_bot_picks(state)
     return state
 
@@ -270,16 +279,19 @@ def _apply_pick(
 ) -> None:
     """Record one resolved pick -- identical bookkeeping to ``simulate_draft``'s loop body."""
     remaining_at_position = sum(1 for candidate in state["remaining"] if candidate["position"] == player["position"])
-    state["remaining"].pop(next(i for i, candidate in enumerate(state["remaining"]) if candidate is player))
+    remove_player_from_board(state, player, mark_removed=False, sort_by_adp=False)
     state["rosters"][team_name].append(player)
 
     board_row, pick_row = _pick_record(state, team_name, player, slot, active_run, remaining_at_position)
     state["by_round"].setdefault(slot["round"], []).append(board_row)
     state["picks"].append(pick_row)
+    ensure_unique_board_state(state)
+    validate_board_integrity(state, raise_on_error=True)
 
 
 def _advance_bot_picks(state: dict[str, Any]) -> None:
     """Resolve every consecutive bot pick from ``order_index`` on, stopping at your turn or the end."""
+    ensure_unique_board_state(state)
     while state["order_index"] < len(state["order"]):
         if not state["remaining"]:
             break
@@ -306,9 +318,15 @@ def _advance_bot_picks(state: dict[str, Any]) -> None:
         state["warnings"].append(_CAP_RELAXATION_WARNING.format(count=state["cap_relaxations"]))
     if state["cap_emergencies"] and not any("late-draft emergency" in warning for warning in state["warnings"]):
         state["warnings"].append(_CAP_EMERGENCY_WARNING.format(count=state["cap_emergencies"]))
+    validate_board_integrity(state, raise_on_error=True)
 
 
-def user_turn_context(state: dict[str, Any]) -> dict[str, Any] | None:
+def user_turn_context(
+    state: dict[str, Any],
+    position: str | list[str] | tuple[str, ...] | None = None,
+    *,
+    position_filter: str | list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any] | None:
     """Everything a UI needs to recommend and render your pending pick.
 
     Returns ``None`` when it isn't currently your turn (including when the
@@ -318,6 +336,9 @@ def user_turn_context(state: dict[str, Any]) -> dict[str, Any] | None:
     """
     if not state.get("awaiting_user_pick"):
         return None
+    ensure_unique_board_state(state)
+    board = list(state["remaining"])
+    ensure_unique_board_state(board, position=position, position_filter=position_filter)
     slot = state["order"][state["order_index"]]
     next_user_slot = next(
         (s for s in state["order"][state["order_index"] + 1 :] if f"Team {s['team_number']}" == state["user_team"]),
@@ -328,7 +349,7 @@ def user_turn_context(state: dict[str, Any]) -> dict[str, Any] | None:
         "overall_pick": slot["overall_pick"],
         "round": slot["round"],
         "my_roster": list(state["rosters"][state["user_team"]]),
-        "board": list(state["remaining"]),
+        "board": board,
         "picks_until_next": picks_until_next,
         "overrides": len(state.get("overrides") or []),
     }
@@ -352,6 +373,7 @@ def draft_for_user(state: dict[str, Any], player_id: Any) -> dict[str, Any]:
     """
     if not state.get("awaiting_user_pick"):
         raise ValueError("It is not currently your turn to pick.")
+    ensure_unique_board_state(state)
     slot = state["order"][state["order_index"]]
     team_name = state["user_team"]
     player = next((p for p in state["remaining"] if str(p.get("player_id")) == str(player_id)), None)
@@ -378,6 +400,7 @@ def drafted_players(state: dict[str, Any], include_user: bool = False) -> list[d
     control. Ordered by pick number, most recent first, because the player a
     user wants to override is overwhelmingly one who *just* went.
     """
+    ensure_unique_board_state(state)
     board_by_id = {str(player.get("player_id")): player for player in state.get("remaining") or []}
     entries: list[dict[str, Any]] = []
     for pick in state.get("picks") or []:
@@ -430,9 +453,16 @@ def _compensation_rng(state: dict[str, Any], overall_pick: int) -> np.random.Gen
 
 
 def _reinstate_on_board(state: dict[str, Any], player: dict[str, Any]) -> None:
-    """Put a released player back on the board, preserving its VOR ordering."""
+    """Put a legitimately released player back in consensus ADP order."""
+    player_id = str(player.get("player_id") or "").strip().casefold()
+    if player_id:
+        state["removed_player_ids"] = [
+            removed
+            for removed in state.get("removed_player_ids") or []
+            if str(removed.get("player_id") if isinstance(removed, dict) else removed).strip().casefold() != player_id
+        ]
     state["remaining"].append(player)
-    state["remaining"].sort(key=lambda candidate: candidate.get("vor", 0.0), reverse=True)
+    ensure_unique_board_state(state)
 
 
 def release_player(
@@ -478,11 +508,10 @@ def release_player(
     state["rosters"][team_name] = [
         rostered for rostered in state["rosters"][team_name] if str(rostered.get("player_id")) != str(player_id)
     ]
-    _reinstate_on_board(state, player)
 
     slot = {"overall_pick": pick["overall_pick"], "round": pick["round"]}
     active_run = active_run_position(pick["overall_pick"], state["clusters"])
-    pool = [candidate for candidate in state["remaining"] if str(candidate.get("player_id")) != str(player_id)]
+    pool = list(state["remaining"])
 
     replacement: dict[str, Any] | None = None
     if compensate and pool:
@@ -502,9 +531,7 @@ def release_player(
         remaining_at_position = sum(
             1 for candidate in pool if candidate["position"] == replacement["position"]
         )
-        state["remaining"].pop(
-            next(i for i, candidate in enumerate(state["remaining"]) if candidate is replacement)
-        )
+        remove_player_from_board(state, replacement, mark_removed=False, sort_by_adp=False)
         state["rosters"][team_name].append(replacement)
         board_row, pick_row = _pick_record(
             state, team_name, replacement, slot, active_run, remaining_at_position
@@ -518,6 +545,11 @@ def release_player(
         state["picks"].pop(index)
         _replace_board_row(state, pick["round"], pick["overall_pick"], None)
 
+    # Reinsert only after the old pick has been replaced/removed.  Doing this
+    # earlier creates a transient state where the same id is both drafted and
+    # available, which stale UI callbacks could capture and later reinsert.
+    _reinstate_on_board(state, player)
+
     state.setdefault("overrides", []).append(
         {
             "player_id": pick["player_id"],
@@ -530,6 +562,7 @@ def release_player(
             "replaced_with_id": (replacement or {}).get("player_id"),
         }
     )
+    validate_board_integrity(state, raise_on_error=True)
     return state
 
 
@@ -570,6 +603,7 @@ def override_draft_for_user(state: dict[str, Any], player_id: Any) -> dict[str, 
     if not state.get("awaiting_user_pick"):
         raise ValueError("It is not currently your turn to pick.")
 
+    ensure_unique_board_state(state)
     on_board = any(str(player.get("player_id")) == str(player_id) for player in state["remaining"])
     if not on_board:
         release_player(state, player_id)

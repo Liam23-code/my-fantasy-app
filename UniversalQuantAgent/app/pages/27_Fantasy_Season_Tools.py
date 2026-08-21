@@ -11,9 +11,8 @@ if _loaded_app is not None and not hasattr(_loaded_app, "__path__"):
 
 # Fantasy Season Tools: everything after the draft.
 #
-# One of three Fantasy pages. Waivers, lineups, trades, and the scoring
-# sandbox -- the in-season half of the engine, kept off the two draft pages so
-# neither of them has to carry it.
+# Waivers, lineups, trades, and the scoring sandbox -- the in-season half of
+# the engine, kept separate from Mock Draft, Saved Teams, and My Team.
 #
 # All calculations are delegated to the `fantasy` engine package
 # (`fantasy_engine/fantasy`); this page only handles presentation.
@@ -32,19 +31,8 @@ from app.page_runtime import (
     run_analysis,
     section_header,
 )
-from app.style import gold_glow_line_chart, safe_number, stacked_card_html
+from app.style import gold_glow_chart, safe_number, stacked_card_html
 from fantasy.assistant import weekly_start_sit_advice
-from fantasy.my_team_manager import (
-    find_weak_positions,
-    load_user_team,
-    recommend_add_drop,
-    recommend_lineup_swaps,
-    recommend_trades,
-    save_user_team,
-    team_confidence_curve,
-    team_health_status,
-    weekly_team_projection,
-)
 from fantasy.optimizer import optimize_lineup
 from fantasy.projections import projection_season_label
 from fantasy.scoring import (
@@ -96,8 +84,8 @@ for card_index, (title, body, kicker) in enumerate(tool_cards):
         unsafe_allow_html=True,
     )
 
-weekly_tab, my_team_tab, waivers_tab, lineup_tab, trades_tab, scoring_tab = st.tabs(
-    ["Weekly Projections", "My Team", "Waivers", "Lineup", "Trades", "Scoring"]
+weekly_tab, waivers_tab, lineup_tab, trades_tab, scoring_tab = st.tabs(
+    ["Weekly Projections", "Waivers", "Lineup", "Trades", "Scoring"]
 )
 
 # ---------------------------------------------------------------------------
@@ -159,9 +147,9 @@ with weekly_tab:
 
         st.markdown("#### Weekly scoring curve")
         st.plotly_chart(
-            gold_glow_line_chart(
+            gold_glow_chart(
                 weekly_frame["Projected points"].tolist(),
-                weekly_frame.index.tolist(),
+                x=weekly_frame.index.tolist(),
                 title="Weekly scoring curve",
                 name="Projected points",
                 height=370,
@@ -197,9 +185,9 @@ with weekly_tab:
 
         st.markdown("#### Confidence curve")
         st.plotly_chart(
-            gold_glow_line_chart(
+            gold_glow_chart(
                 (weekly_frame["Confidence"] * 100.0).tolist(),
-                weekly_frame.index.tolist(),
+                x=weekly_frame.index.tolist(),
                 title="Weekly confidence curve",
                 name="Confidence",
                 height=330,
@@ -222,167 +210,7 @@ with weekly_tab:
         )
 
 # ---------------------------------------------------------------------------
-# 2. My Team
-# ---------------------------------------------------------------------------
-with my_team_tab:
-    section_header(
-        "My Team Weekly Manager",
-        "Manage your saved roster with matchup-aware lineup, waiver, trade, health, and confidence guidance.",
-    )
-
-    try:
-        saved_team = load_user_team()
-    except ValueError as error:
-        saved_team = []
-        st.error(str(error))
-
-    save_col, week_col = st.columns([2, 1])
-    with save_col:
-        if roster and st.button("Save current roster to My Team", type="primary", key="fantasy_save_my_team"):
-            saved_team = save_user_team(roster)
-            st.success(f"Saved {len(roster)} players to My Team.")
-    manager_week = int(
-        week_col.number_input(
-            "Manager week", min_value=1, max_value=18, value=1, key="fantasy_my_team_week"
-        )
-    )
-
-    if isinstance(saved_team, dict):
-        saved_players = next(
-            (
-                value
-                for key in ("players", "roster", "team")
-                if isinstance((value := saved_team.get(key)), list)
-            ),
-            [],
-        )
-    else:
-        saved_players = saved_team if isinstance(saved_team, list) else []
-
-    if saved_players:
-        health = team_health_status(saved_team)
-        current = weekly_team_projection(saved_team, manager_week)
-        confidence_curve = team_confidence_curve(saved_team)
-        confidence_frame = pd.DataFrame(
-            [
-                {
-                    "Week": week,
-                    "Projected points": values["points"],
-                    "Confidence": values["confidence"],
-                }
-                for week, values in confidence_curve.items()
-            ]
-        ).set_index("Week")
-
-        health_col, points_col, confidence_col = st.columns(3)
-        health_col.metric("Team health", f"{health['health_score']:.0f}/100", health["status"].title())
-        points_col.metric(f"Week {manager_week} projected points", f"{current['total_points']:.2f}")
-        confidence_col.metric("Lineup confidence", f"{current['confidence']:.0%}")
-
-        st.markdown("#### Saved roster")
-        roster_frame = pd.DataFrame(saved_players)
-        roster_columns = [
-            column
-            for column in ("name", "position", "team", "slot", "injury_status", "projection", "bye_week")
-            if column in roster_frame.columns
-        ]
-        st.dataframe(roster_frame[roster_columns], width="stretch", hide_index=True, height=310)
-        if health["issues"]:
-            with st.expander(f"Health issues ({len(health['issues'])})"):
-                st.dataframe(pd.DataFrame(health["issues"]), width="stretch", hide_index=True)
-
-        st.markdown("#### Weekly team projection")
-        st.plotly_chart(
-            gold_glow_line_chart(
-                confidence_frame["Projected points"].tolist(),
-                confidence_frame.index.tolist(),
-                title="Weekly team projection",
-                name="Projected points",
-                height=350,
-            ),
-            use_container_width=True,
-            config={"displayModeBar": False},
-            key="fantasy-manager-projection-curve",
-        )
-
-        st.markdown("#### Start / sit recommendations")
-        lineup_rows = [
-            {**player, "recommendation": "START"} for player in current["starters"]
-        ] + [{**player, "recommendation": "BENCH"} for player in current["bench"]]
-        if lineup_rows:
-            st.dataframe(
-                pd.DataFrame(lineup_rows)[
-                    ["recommendation", "name", "position", "opponent", "points", "confidence", "reason"]
-                ],
-                width="stretch",
-                hide_index=True,
-                height=350,
-            )
-
-        weak_positions = find_weak_positions(saved_team, manager_week)
-        if weak_positions:
-            with st.expander("Weak positions to address"):
-                st.dataframe(pd.DataFrame(weak_positions), width="stretch", hide_index=True)
-
-        st.markdown("#### Bench swap suggestions")
-        swaps = recommend_lineup_swaps(saved_team, manager_week)
-        if swaps:
-            st.dataframe(pd.DataFrame(swaps), width="stretch", hide_index=True)
-        else:
-            st.success("Your saved starters already match the highest-projected legal lineup.")
-
-        action_col, trade_action_col = st.columns(2)
-        with action_col:
-            st.markdown("#### Waiver recommendations")
-            if st.button("Analyze waiver pool", key="fantasy_my_team_waivers"):
-                st.session_state["fantasy_my_team_waiver_result"] = recommend_add_drop(
-                    saved_team,
-                    manager_week,
-                    st.session_state.fantasy_available,
-                )
-            waiver_result = st.session_state.get("fantasy_my_team_waiver_result", [])
-            if waiver_result:
-                st.dataframe(pd.DataFrame(waiver_result), width="stretch", hide_index=True, height=330)
-            elif not st.session_state.fantasy_available:
-                st.caption("Load an available-player pool to generate add/drop recommendations.")
-
-        with trade_action_col:
-            st.markdown("#### Trade recommendations")
-            if st.button("Analyze trade pool", key="fantasy_my_team_trades"):
-                st.session_state["fantasy_my_team_trade_result"] = recommend_trades(
-                    saved_team,
-                    manager_week,
-                    projections,
-                )
-            trade_result = st.session_state.get("fantasy_my_team_trade_result", [])
-            if trade_result:
-                st.dataframe(pd.DataFrame(trade_result), width="stretch", hide_index=True, height=330)
-            elif not projections:
-                st.caption("Load the season projection pool to generate trade targets.")
-
-        st.markdown("#### Team confidence curve")
-        st.plotly_chart(
-            gold_glow_line_chart(
-                (confidence_frame["Confidence"] * 100.0).tolist(),
-                confidence_frame.index.tolist(),
-                title="Team confidence curve",
-                name="Confidence",
-                height=330,
-                y_suffix="%",
-            ),
-            use_container_width=True,
-            config={"displayModeBar": False},
-            key="fantasy-manager-confidence-curve",
-        )
-    else:
-        empty_state(
-            "No saved team yet",
-            "Finish a draft or load a roster, then save it here to activate weekly team management.",
-            icon="🏈",
-        )
-
-# ---------------------------------------------------------------------------
-# 3. Waivers
+# 2. Waivers
 # ---------------------------------------------------------------------------
 with waivers_tab:
     section_header(
@@ -426,7 +254,7 @@ with waivers_tab:
         )
 
 # ---------------------------------------------------------------------------
-# 4. Lineup
+# 3. Lineup
 # ---------------------------------------------------------------------------
 with lineup_tab:
     section_header(
@@ -498,7 +326,7 @@ with lineup_tab:
         )
 
 # ---------------------------------------------------------------------------
-# 5. Trades
+# 4. Trades
 # ---------------------------------------------------------------------------
 with trades_tab:
     section_header("Trade analyzer", "Monte Carlo simulate a proposed trade's rest-of-season value for both sides.")
@@ -554,7 +382,7 @@ with trades_tab:
         )
 
 # ---------------------------------------------------------------------------
-# 6. Scoring
+# 5. Scoring
 # ---------------------------------------------------------------------------
 with scoring_tab:
     section_header(
@@ -623,7 +451,20 @@ with scoring_tab:
             else:
                 st.metric("Total points", scored["total_points"])
             breakdown_items = sorted(scored["breakdown"].items(), key=lambda kv: -abs(kv[1]))
-            st.bar_chart(pd.DataFrame(breakdown_items, columns=["Stat", "Points"]).set_index("Stat"))
+            breakdown_frame = pd.DataFrame(breakdown_items, columns=["Stat", "Points"])
+            st.plotly_chart(
+                gold_glow_chart(
+                    breakdown_frame,
+                    x="Stat",
+                    y="Points",
+                    title="Scoring contribution by stat",
+                    name="Points",
+                    height=340,
+                ),
+                use_container_width=True,
+                config={"displayModeBar": False},
+                key="fantasy-scoring-breakdown",
+            )
             if scored["bonuses_applied"]:
                 st.write("Bonuses applied:")
                 st.dataframe(pd.DataFrame(scored["bonuses_applied"]), width="stretch", hide_index=True)

@@ -15,7 +15,6 @@ if str(PROJECT_ROOT) not in sys.path:
 from app import fantasy_shared
 from app.components.player_card import player_card_markup
 from app.style import GLOBAL_CSS, PALETTE, drag_drop_lineup_html, stacked_card_html
-from fantasy import my_team_manager
 
 
 class UILayoutContracts(unittest.TestCase):
@@ -45,9 +44,7 @@ class UILayoutContracts(unittest.TestCase):
             )
         ]
         original_loader = fantasy_shared.load_pool
-        original_team_loader = my_team_manager.load_user_team
         fantasy_shared.load_pool = lambda *_args, **_kwargs: (list(players), "offline UI contract pool")
-        my_team_manager.load_user_team = list
         try:
             application = AppTest.from_file(str(PROJECT_ROOT / "app" / "app.py"), default_timeout=60)
             application.run()
@@ -58,7 +55,6 @@ class UILayoutContracts(unittest.TestCase):
                     self.assertGreater(len(application.get("plotly_chart")), 0)
         finally:
             fantasy_shared.load_pool = original_loader
-            my_team_manager.load_user_team = original_team_loader
 
     def test_stacked_card_is_vertical_safe_and_uses_shared_classes(self):
         markup = stacked_card_html(
@@ -122,6 +118,7 @@ class UILayoutContracts(unittest.TestCase):
         required_pages = [
             "pages/Home.py",
             "pages/25_Fantasy_Hub.py",
+            "pages/26_Fantasy_Saved_Teams.py",
             "pages/27_Fantasy_Season_Tools.py",
             "pages/28_Fantasy_My_Team.py",
             "pages/29_Graph_Lab.py",
@@ -140,8 +137,8 @@ class UILayoutContracts(unittest.TestCase):
         )
         self.assertIn("render_drag_drop_lineup", my_team)
         self.assertIn("rarity_rank=rank", my_team)
-        self.assertIn("gold_glow_line_chart", my_team)
-        self.assertIn("gold_glow_line_chart", weekly_tools)
+        self.assertIn("gold_glow_chart", my_team)
+        self.assertIn("gold_glow_chart", weekly_tools)
         self.assertIn("rarity_rank=selected_rank", weekly_tools)
         for surface in ("Weekly Projections", "Start / Sit", "Waivers", "Trades"):
             self.assertIn(surface, weekly_tools)

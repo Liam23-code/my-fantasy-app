@@ -30,7 +30,7 @@ from app.style import (
     SLATE_BLUE,
     SOFT_WHITE,
     apply_gold_glow_theme,
-    gold_glow_line_chart,
+    gold_glow_chart,
     rarity_icon,
     safe_number,
 )
@@ -90,9 +90,9 @@ def _radar_figure(
 
 def _momentum_figure(points: list[float]) -> go.Figure:
     rolling = [sum(points[max(0, index - 2) : index + 1]) / min(index + 1, 3) for index in range(len(points))]
-    figure = gold_glow_line_chart(
+    figure = gold_glow_chart(
         points,
-        list(range(1, 19)),
+        x=list(range(1, 19)),
         title="Weekly momentum",
         name="Projection",
         height=360,
@@ -204,7 +204,13 @@ projection_percentile = 100.0 * sum(total <= _projection(selected) for total in 
 section_header("Projection Curve", "Thin gold weekly signal with cyan peak markers.")
 with st.container(border=True):
     st.plotly_chart(
-        gold_glow_line_chart(points, weeks, title="18-week projected points", name="Projected points", height=390),
+        gold_glow_chart(
+            points,
+            x=weeks,
+            title="18-week projected points",
+            name="Projected points",
+            height=390,
+        ),
         use_container_width=True,
         config={"displayModeBar": False},
         key="graph-lab-projection",
@@ -240,9 +246,9 @@ with st.container(border=True):
 section_header("Confidence Curve", "Forecast certainty fades modestly with time and reacts to matchup data.")
 with st.container(border=True):
     st.plotly_chart(
-        gold_glow_line_chart(
+        gold_glow_chart(
             confidences,
-            weeks,
+            x=weeks,
             title="Weekly confidence",
             name="Confidence",
             height=320,

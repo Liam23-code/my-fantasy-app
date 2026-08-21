@@ -58,12 +58,48 @@ CYAN_GLOW = "0 0 0 1px rgba(0,200,255,.18), 0 10px 34px rgba(0,200,255,.10)"
 GOLD_GLOW = "0 0 18px rgba(245,197,66,.22)"
 
 RARITY_TIERS = (
-    {"name": "Mythic", "min_rank": 1, "max_rank": 1, "class": "rarity-mythic", "symbol": "◆"},
-    {"name": "Legendary", "min_rank": 2, "max_rank": 5, "class": "rarity-legendary", "symbol": "◇"},
-    {"name": "Elite", "min_rank": 6, "max_rank": 10, "class": "rarity-elite", "symbol": "⬡"},
-    {"name": "Pro", "min_rank": 11, "max_rank": 20, "class": "rarity-pro", "symbol": "⬢"},
-    {"name": "Starter", "min_rank": 21, "max_rank": 40, "class": "rarity-starter", "symbol": "●"},
-    {"name": "Depth", "min_rank": 41, "max_rank": math.inf, "class": "rarity-depth", "symbol": "•"},
+    {
+        "name": "Mythic",
+        "min_rank": 1,
+        "max_rank": 1,
+        "class": "rarity-mythic",
+        "symbol": "◆",
+    },
+    {
+        "name": "Legendary",
+        "min_rank": 2,
+        "max_rank": 5,
+        "class": "rarity-legendary",
+        "symbol": "◇",
+    },
+    {
+        "name": "Elite",
+        "min_rank": 6,
+        "max_rank": 10,
+        "class": "rarity-elite",
+        "symbol": "⬡",
+    },
+    {
+        "name": "Pro",
+        "min_rank": 11,
+        "max_rank": 20,
+        "class": "rarity-pro",
+        "symbol": "⬢",
+    },
+    {
+        "name": "Starter",
+        "min_rank": 21,
+        "max_rank": 40,
+        "class": "rarity-starter",
+        "symbol": "●",
+    },
+    {
+        "name": "Depth",
+        "min_rank": 41,
+        "max_rank": math.inf,
+        "class": "rarity-depth",
+        "symbol": "•",
+    },
 )
 
 GOLD_GLOW_CHART_THEME = {
@@ -71,7 +107,11 @@ GOLD_GLOW_CHART_THEME = {
     "plot_bgcolor": MIDNIGHT_NAVY,
     "font": {"family": "Inter, Segoe UI, sans-serif", "color": SOFT_WHITE},
     "title_font": {"color": SOFT_WHITE, "size": 17},
-    "hoverlabel": {"bgcolor": SLATE_BLUE, "font_color": SOFT_WHITE, "bordercolor": CIRCUIT_CYAN},
+    "hoverlabel": {
+        "bgcolor": SLATE_BLUE,
+        "font_color": SOFT_WHITE,
+        "bordercolor": CIRCUIT_CYAN,
+    },
     "colorway": [SIGNAL_GOLD, CIRCUIT_CYAN, "#7891B4", "#D8E2EF"],
 }
 
@@ -96,7 +136,11 @@ def rarity_tier(rank: Any) -> str:
 def rarity_icon(rank: Any, *, include_label: bool = True) -> str:
     """Return accessible rarity badge HTML for use inside a player card."""
     rarity = rarity_metadata(rank)
-    label = f'<span class="rarity-label">{escape(rarity["name"])}</span>' if include_label else ""
+    label = (
+        f'<span class="rarity-label">{escape(rarity["name"])}</span>'
+        if include_label
+        else ""
+    )
     return (
         f'<span class="rarity-badge {rarity["class"]}" '
         f'aria-label="{escape(rarity["name"])} rarity, rank {rarity["rank"]}">'
@@ -110,7 +154,10 @@ def rarity_icon_component(rank: Any, *, include_label: bool = True) -> str:
 
 
 def _slug(value: Any) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-") or "card"
+    return (
+        re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+        or "card"
+    )
 
 
 def stacked_card_html(
@@ -125,21 +172,29 @@ def stacked_card_html(
     extra_class: str = "",
 ) -> str:
     """Build one reusable navy/cyan stacked card as safe HTML."""
-    kicker_html = f'<div class="quant-card-kicker">{escape(str(kicker))}</div>' if kicker else ""
-    body_html = f'<p>{escape(str(body))}</p>' if body else ""
+    kicker_html = (
+        f'<div class="quant-card-kicker">{escape(str(kicker))}</div>' if kicker else ""
+    )
+    body_html = f"<p>{escape(str(body))}</p>" if body else ""
     rarity_html = rarity_icon(rarity_rank) if rarity_rank is not None else ""
     stat_html = ""
     if stats:
-        stat_html = '<div class="quant-card-stats">' + "".join(
-            f'<div><span>{escape(str(label))}</span><strong>{escape(str(value))}</strong></div>'
-            for label, value in stats.items()
-        ) + "</div>"
+        stat_html = (
+            '<div class="quant-card-stats">'
+            + "".join(
+                f"<div><span>{escape(str(label))}</span><strong>{escape(str(value))}</strong></div>"
+                for label, value in stats.items()
+            )
+            + "</div>"
+        )
     content = (
         f'<div class="quant-card-head"><div>{kicker_html}<h3>{escape(str(title))}</h3></div>{rarity_html}</div>'
         f"{body_html}{stat_html}"
     )
     if href:
-        content += '<div class="quant-card-link">Open <span aria-hidden="true">→</span></div>'
+        content += (
+            '<div class="quant-card-link">Open <span aria-hidden="true">→</span></div>'
+        )
         content = f'<a href="{escape(href, quote=True)}">{content}</a>'
     identity = escape(card_id or _slug(title), quote=True)
     classes = f"quant-card stacked-card {escape(extra_class, quote=True)}".strip()
@@ -179,6 +234,321 @@ def apply_gold_glow_theme(figure: go.Figure, height: int | None = None) -> go.Fi
     return figure
 
 
+_CHART_X_FIELDS = (
+    "x",
+    "week",
+    "weeks",
+    "week_number",
+    "date",
+    "dates",
+    "period",
+    "game",
+    "label",
+    "labels",
+    "_index",
+)
+_CHART_Y_FIELDS = (
+    "y",
+    "points",
+    "projected_points",
+    "weekly_points",
+    "projection",
+    "projections",
+    "projected_score",
+    "score",
+    "scores",
+    "value",
+    "values",
+    "confidence",
+    "confidences",
+)
+
+
+def _normalized_chart_field(value: Any) -> str:
+    """Normalize a tabular field name without constraining its display label."""
+    return re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower()).strip("_")
+
+
+def _is_chart_iterable(value: Any) -> bool:
+    """Return whether ``value`` is a non-string, non-mapping chart series."""
+    return isinstance(value, Iterable) and not isinstance(
+        value, (str, bytes, bytearray, Mapping)
+    )
+
+
+def _as_chart_list(value: Any) -> list[Any]:
+    if hasattr(value, "tolist"):
+        converted = value.tolist()
+        return converted if isinstance(converted, list) else [converted]
+    return list(value) if _is_chart_iterable(value) else [value]
+
+
+def _numeric_chart_score(values: Sequence[Any]) -> float:
+    """Return the share of populated values that can be plotted as finite numbers."""
+    populated = [
+        value for value in values if value is not None and not isinstance(value, bool)
+    ]
+    if not populated:
+        return 0.0
+    numeric = 0
+    for value in populated:
+        try:
+            numeric += int(math.isfinite(float(value)))
+        except (TypeError, ValueError, OverflowError):
+            continue
+    return numeric / len(populated)
+
+
+def _matching_chart_field(fields: Sequence[Any], requested: str) -> Any | None:
+    target = _normalized_chart_field(requested)
+    return next(
+        (field for field in fields if _normalized_chart_field(field) == target), None
+    )
+
+
+def _preferred_chart_field(
+    fields: Sequence[Any], priorities: Sequence[str]
+) -> Any | None:
+    normalized = {_normalized_chart_field(field): field for field in fields}
+    return next(
+        (normalized[field] for field in priorities if field in normalized), None
+    )
+
+
+def _select_chart_columns(
+    columns: Mapping[Any, Sequence[Any]],
+    *,
+    x_field: str | None,
+    y_field: str | None,
+) -> tuple[list[Any], list[Any], str]:
+    """Select x/y series from a normalized mapping of equally sized columns."""
+    fields = list(columns)
+    if not fields:
+        return [], [], "Projection"
+
+    lengths = {len(columns[field]) for field in fields}
+    if len(lengths) > 1:
+        raise ValueError("Chart columns must contain the same number of items")
+    row_count = lengths.pop() if lengths else 0
+
+    selected_x: Any | None = None
+    if x_field is not None:
+        selected_x = _matching_chart_field(fields, x_field)
+        if selected_x is None:
+            raise ValueError(f"Chart x field {x_field!r} was not found")
+    else:
+        selected_x = _preferred_chart_field(fields, _CHART_X_FIELDS)
+
+    selected_y: Any | None = None
+    if y_field is not None:
+        selected_y = _matching_chart_field(fields, y_field)
+        if selected_y is None:
+            raise ValueError(f"Chart y field {y_field!r} was not found")
+    else:
+        selected_y = _preferred_chart_field(fields, _CHART_Y_FIELDS)
+        if selected_y == selected_x:
+            selected_y = None
+        if selected_y is None:
+            candidates = [field for field in fields if field != selected_x]
+            selected_y = max(
+                candidates,
+                key=lambda field: _numeric_chart_score(columns[field]),
+                default=None,
+            )
+
+    if selected_y is None:
+        raise ValueError("Chart data does not contain a plottable value series")
+    values = list(columns[selected_y])
+    if values and _numeric_chart_score(values) == 0:
+        raise ValueError(
+            f"Chart y field {selected_y!r} does not contain numeric values"
+        )
+    labels = (
+        list(columns[selected_x])
+        if selected_x is not None
+        else list(range(1, row_count + 1))
+    )
+    return labels, values, str(selected_y)
+
+
+def _chart_data_series(
+    data: Any,
+    *,
+    x: str | Iterable[Any] | None,
+    y: str | Iterable[Any] | None,
+) -> tuple[list[Any], list[Any], str]:
+    """Adapt pandas, mapping, record, pair, and simple sequence inputs."""
+    x_field = x if isinstance(x, str) else None
+    y_field = y if isinstance(y, str) else None
+    explicit_x = None if x is None or isinstance(x, str) else _as_chart_list(x)
+    explicit_y = None if y is None or isinstance(y, str) else _as_chart_list(y)
+
+    if explicit_y is not None:
+        labels = (
+            explicit_x
+            if explicit_x is not None
+            else list(range(1, len(explicit_y) + 1))
+        )
+        if len(labels) != len(explicit_y):
+            raise ValueError("x and y must contain the same number of items")
+        return labels, explicit_y, "Projection"
+
+    # pandas.DataFrame and compatible two-dimensional tabular objects.
+    if (
+        hasattr(data, "columns")
+        and hasattr(data, "index")
+        and hasattr(data, "__getitem__")
+    ):
+        fields = list(data.columns)
+        columns = {field: _as_chart_list(data[field]) for field in fields}
+        labels, values, inferred_name = _select_chart_columns(
+            columns, x_field=x_field, y_field=y_field
+        )
+        if x_field is None and _preferred_chart_field(fields, _CHART_X_FIELDS) is None:
+            labels = _as_chart_list(data.index)
+        if explicit_x is not None:
+            labels = explicit_x
+
+    # pandas.Series and compatible named one-dimensional objects.
+    elif (
+        hasattr(data, "index")
+        and hasattr(data, "tolist")
+        and not isinstance(data, Mapping)
+    ):
+        values = _as_chart_list(data)
+        labels = explicit_x if explicit_x is not None else _as_chart_list(data.index)
+        inferred_name = str(getattr(data, "name", None) or "Projection")
+
+    elif isinstance(data, Mapping):
+        fields = list(data)
+        vector_fields = [field for field in fields if _is_chart_iterable(data[field])]
+        mapping_values = list(data.values())
+
+        if vector_fields:
+            columns = {field: _as_chart_list(data[field]) for field in vector_fields}
+            labels, values, inferred_name = _select_chart_columns(
+                columns, x_field=x_field, y_field=y_field
+            )
+        elif mapping_values and all(
+            isinstance(value, Mapping) for value in mapping_values
+        ):
+            records: list[dict[Any, Any]] = []
+            for outer_key, value in data.items():
+                record = dict(value)
+                record.setdefault("_index", outer_key)
+                records.append(record)
+            record_fields = list(
+                dict.fromkeys(field for record in records for field in record)
+            )
+            columns = {
+                field: [record.get(field) for record in records]
+                for field in record_fields
+            }
+            labels, values, inferred_name = _select_chart_columns(
+                columns, x_field=x_field, y_field=y_field
+            )
+        else:
+            recognized = any(
+                _normalized_chart_field(field) in {*_CHART_X_FIELDS, *_CHART_Y_FIELDS}
+                for field in fields
+            )
+            if recognized or x_field is not None or y_field is not None:
+                columns = {field: [value] for field, value in data.items()}
+                labels, values, inferred_name = _select_chart_columns(
+                    columns, x_field=x_field, y_field=y_field
+                )
+            else:
+                labels = fields
+                values = mapping_values
+                inferred_name = "Projection"
+        if explicit_x is not None:
+            labels = explicit_x
+
+    else:
+        if isinstance(data, (str, bytes, bytearray)) or not isinstance(data, Iterable):
+            raise TypeError(
+                "gold_glow_chart data must be a pandas object, mapping, or iterable"
+            )
+        items = list(data)
+        if items and all(isinstance(item, Mapping) for item in items):
+            records = [dict(item) for item in items]
+            record_fields = list(
+                dict.fromkeys(field for record in records for field in record)
+            )
+            columns = {
+                field: [record.get(field) for record in records]
+                for field in record_fields
+            }
+            labels, values, inferred_name = _select_chart_columns(
+                columns, x_field=x_field, y_field=y_field
+            )
+        elif items and all(_is_chart_iterable(item) for item in items):
+            pairs = [_as_chart_list(item) for item in items]
+            if any(len(pair) < 2 for pair in pairs):
+                raise ValueError(
+                    "Chart pair sequences must contain at least two items per row"
+                )
+            labels = [pair[0] for pair in pairs]
+            values = [pair[1] for pair in pairs]
+            inferred_name = "Projection"
+        else:
+            labels = list(range(1, len(items) + 1))
+            values = items
+            inferred_name = "Projection"
+        if explicit_x is not None:
+            labels = explicit_x
+
+    if len(labels) != len(values):
+        raise ValueError("x and values must contain the same number of items")
+    if values and _numeric_chart_score(values) == 0:
+        raise ValueError("Chart data does not contain numeric values")
+    return labels, values, inferred_name
+
+
+def gold_glow_chart(
+    data: Any,
+    *,
+    x: str | Iterable[Any] | None = None,
+    y: str | Iterable[Any] | None = None,
+    title: str = "",
+    name: str | None = None,
+    height: int = 330,
+    y_suffix: str = "",
+) -> go.Figure:
+    """Return the canonical gold-glow projection chart for common data shapes.
+
+    ``data`` may be a pandas ``Series``/``DataFrame``, a mapping of labels to
+    values, an ``x``/``y`` column mapping, a weekly projection mapping, a
+    sequence of records or pairs, or a simple value sequence. For tabular
+    inputs, ``x`` and ``y`` may name columns; iterable overrides are also
+    accepted. The adapter always returns a Plotly figure with a 2px smooth gold
+    signal, a 13%-opacity glow, cyan markers at every maximum, and a navy,
+    minimally gridded canvas.
+    """
+    labels, values, inferred_name = _chart_data_series(data, x=x, y=y)
+    figure = gold_glow_line_chart(
+        values,
+        labels,
+        title=title,
+        name=name or inferred_name or "Projection",
+        height=height,
+        y_suffix=y_suffix,
+    )
+    # Keep the long-standing line-chart API stable while enforcing the tighter
+    # 10-15% glow contract for all consumers of this shared adapter.
+    if figure.data:
+        figure.data[0].line.color = "rgba(245,197,66,.13)"
+        figure.data[0].line.width = 9
+    if len(figure.data) > 1:
+        figure.data[1].line.color = SIGNAL_GOLD
+        figure.data[1].line.width = 2
+        figure.data[1].line.shape = "spline"
+    figure.update_layout(paper_bgcolor=MIDNIGHT_NAVY, plot_bgcolor=MIDNIGHT_NAVY)
+    figure.update_xaxes(gridcolor="rgba(242,244,247,.06)")
+    figure.update_yaxes(gridcolor="rgba(242,244,247,.06)")
+    return figure
+
+
 def gold_glow_line_chart(
     values: Iterable[Any],
     x: Iterable[Any] | None = None,
@@ -194,7 +564,11 @@ def gold_glow_line_chart(
     if len(x_values) != len(numeric_values):
         raise ValueError("x and values must contain the same number of items")
     peak = max(numeric_values, default=0.0)
-    peak_x = [label for label, value in zip(x_values, numeric_values, strict=True) if value == peak]
+    peak_x = [
+        label
+        for label, value in zip(x_values, numeric_values, strict=True)
+        if value == peak
+    ]
     peak_y = [value for value in numeric_values if value == peak]
     hover = f"%{{y:.2f}}{escape(y_suffix)}<extra>{escape(name)}</extra>"
 
@@ -255,17 +629,21 @@ def _drag_player_card(player: Mapping[str, Any], index: int) -> str:
     name = str(player.get("name") or player.get("player_name") or player_id)
     position = str(player.get("position") or "—").upper()
     team = str(player.get("team") or player.get("nfl_team") or "FA").upper()
-    rank = player.get("overall_rank", player.get("rank", player.get("position_rank", 41)))
+    rank = player.get(
+        "overall_rank", player.get("rank", player.get("position_rank", 41))
+    )
     return (
         f'<div class="drag-player" draggable="true" data-player-id="{escape(player_id, quote=True)}" '
         f'data-player-name="{escape(name, quote=True)}" tabindex="0">'
-        f'{rarity_icon(rank, include_label=False)}'
+        f"{rarity_icon(rank, include_label=False)}"
         f'<div class="drag-copy"><strong>{escape(name)}</strong><span>{escape(position)} · {escape(team)}</span></div>'
         '<span class="drag-handle" aria-label="Drag player">⋮⋮</span></div>'
     )
 
 
-def drag_drop_lineup_html(players: Sequence[Mapping[str, Any]], *, key: str = "quant-lineup") -> str:
+def drag_drop_lineup_html(
+    players: Sequence[Mapping[str, Any]], *, key: str = "quant-lineup"
+) -> str:
     """Return an accessible HTML5 drag/drop lineup board.
 
     Moves persist in browser ``localStorage`` under ``key``. Keyboard users can
@@ -276,7 +654,11 @@ def drag_drop_lineup_html(players: Sequence[Mapping[str, Any]], *, key: str = "q
     for index, player in enumerate(players):
         slot = str(player.get("slot") or "BENCH").upper()
         card = _drag_player_card(player, index)
-        (bench_cards if slot in {"", "BENCH", "BN", "IR", "TAXI", "RESERVE"} else starter_cards).append(card)
+        (
+            bench_cards
+            if slot in {"", "BENCH", "BN", "IR", "TAXI", "RESERVE"}
+            else starter_cards
+        ).append(card)
     storage_key = json.dumps(f"uqa-lineup-{key}")
     board_id = escape(_slug(key), quote=True)
     return f"""
@@ -327,11 +709,11 @@ def drag_drop_lineup_html(players: Sequence[Mapping[str, Any]], *, key: str = "q
     <div id="{board_id}" class="drag-lineup-board" data-component="drag-drop-lineup">
       <div class="drag-lane" data-lane="starters">
         <div class="drag-lane-head"><strong>Starters</strong><span>Drop active lineup here</span></div>
-        <div class="drop-zone">{''.join(starter_cards)}</div>
+        <div class="drop-zone">{"".join(starter_cards)}</div>
       </div>
       <div class="drag-lane" data-lane="bench">
         <div class="drag-lane-head"><strong>Bench</strong><span>Drop reserves here</span></div>
-        <div class="drop-zone">{''.join(bench_cards)}</div>
+        <div class="drop-zone">{"".join(bench_cards)}</div>
       </div>
       <div class="drag-status" role="status" aria-live="polite">Drag cards to manage the lineup.</div>
     </div>
@@ -400,7 +782,9 @@ def render_drag_drop_lineup(
     height: int = 520,
 ) -> None:
     """Render the HTML5 drag/drop lineup component."""
-    components.html(drag_drop_lineup_html(players, key=key), height=height, scrolling=True)
+    components.html(
+        drag_drop_lineup_html(players, key=key), height=height, scrolling=True
+    )
 
 
 GLOBAL_CSS = f"""
@@ -585,6 +969,7 @@ __all__ = [
     "TYPOGRAPHY_SCALE",
     "apply_gold_glow_theme",
     "drag_drop_lineup_html",
+    "gold_glow_chart",
     "gold_glow_line_chart",
     "inject_style",
     "rarity_icon",

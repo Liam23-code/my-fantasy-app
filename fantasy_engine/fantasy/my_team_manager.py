@@ -7,10 +7,14 @@ authoritative projection sources:
 * :mod:`fantasy.weekly_projections` supplies matchup-adjusted weekly points
   and confidence.
 
-The saved team lives at ``fantasy_engine/data/user_team.json``.  A team may be
-a plain list of players or a document containing ``players``/``roster`` plus
-optional ``league_settings``.  Both forms round-trip without being rewritten
-into a different public shape.
+The legacy saved team lives at ``fantasy_engine/data/user_team.json``.  A team
+may be a plain list of players or a document containing ``players``/``roster``
+plus optional ``league_settings``.  Both forms round-trip without being
+rewritten into a different public shape.
+
+Named, multi-league saves live in ``fantasy_engine/data/user_teams`` as
+``team_<id>.json`` documents.  Those documents carry stable metadata and use
+the same roster shapes understood by the projection helpers below.
 """
 
 from __future__ import annotations
@@ -19,8 +23,12 @@ import json
 import math
 import numbers
 import os
+import re
 import tempfile
+import unicodedata
+import uuid
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +39,11 @@ from fantasy.utils import clamp, normalize_player_name, safe_float
 from fantasy.weekly_projections import WEEKS, build_weekly_projection, weekly_matchups
 
 USER_TEAM_PATH = Path(__file__).resolve().parents[1] / "data" / "user_team.json"
+USER_TEAMS_DIR = USER_TEAM_PATH.parent / "user_teams"
+
+_MAX_TEAM_ID_LENGTH = 64
+_TEAM_FILE_PREFIX = "team_"
+_TEAM_FILE_SUFFIX = ".json"
 
 INACTIVE_STATUSES = frozenset({"OUT", "IR", "DOUBTFUL", "SUSPENDED", "PUP", "NFI"})
 BENCH_SLOTS = frozenset({"", "BENCH", "BN", "IR", "TAXI", "RESERVE"})
@@ -56,6 +69,324 @@ def _jsonable(value: Any) -> Any:
     raise TypeError(f"Cannot serialize {type(value).__name__} in a fantasy team")
 
 
+def _atomic_write_json(path: Path, payload: Any) -> None:
+    """Write JSON to ``path`` without exposing a partially written save."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    serialized = json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+    temp_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            prefix=f".{path.stem}.",
+            suffix=".tmp",
+            dir=path.parent,
+            delete=False,
+        ) as temporary:
+            temp_name = temporary.name
+            temporary.write(serialized)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.replace(temp_name, path)
+    finally:
+        if temp_name:
+            Path(temp_name).unlink(missing_ok=True)
+
+
+def _read_json(path: Path, *, label: str) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"{label} is not valid JSON: {path}") from error
+
+
+def _sanitize_team_id(team_id: Any) -> str:
+    """Return a filesystem-safe, stable save id.
+
+    Separators and traversal tokens are rejected rather than silently mapped
+    to another team's id. Friendly ids such as ``"Office League"`` are
+    normalized to ``"office-league"``.
+    """
+    raw = str(team_id).strip() if team_id is not None else ""
+    if not raw:
+        raise ValueError("team_id must not be empty")
+    if any(character in raw for character in ("/", "\\", "\x00")) or ".." in raw:
+        raise ValueError("team_id must not contain path separators or traversal tokens")
+
+    normalized = unicodedata.normalize("NFKD", raw)
+    normalized = normalized.encode("ascii", "ignore").decode("ascii").lower()
+    normalized = re.sub(r"[^a-z0-9_-]+", "-", normalized)
+    normalized = re.sub(r"[-_]{2,}", "-", normalized).strip("-_")
+    if not normalized:
+        raise ValueError("team_id must contain at least one letter or number")
+    if len(normalized) > _MAX_TEAM_ID_LENGTH:
+        normalized = normalized[:_MAX_TEAM_ID_LENGTH].rstrip("-_")
+    if not normalized:
+        raise ValueError("team_id must contain at least one letter or number")
+    return normalized
+
+
+def _saved_team_path(team_id: Any) -> tuple[str, Path]:
+    safe_id = _sanitize_team_id(team_id)
+    base = USER_TEAMS_DIR.resolve(strict=False)
+    path = base / f"{_TEAM_FILE_PREFIX}{safe_id}{_TEAM_FILE_SUFFIX}"
+    resolved = path.resolve(strict=False)
+    try:
+        resolved.relative_to(base)
+    except ValueError as error:  # pragma: no cover - defense beyond id validation
+        raise ValueError("team_id resolves outside the saved-team directory") from error
+    return safe_id, resolved
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
+def _coerce_saved_team_content(team: Any) -> dict[str, Any]:
+    payload = _jsonable([] if team is None else team)
+    if isinstance(payload, list):
+        return {"players": payload}
+    if not isinstance(payload, dict):
+        raise TypeError("team must be a player list or a mapping containing a roster")
+    return dict(payload)
+
+
+def _metadata_mapping(value: Any, *, argument: str = "metadata") -> dict[str, Any]:
+    if value is None:
+        return {}
+    payload = _jsonable(value)
+    if not isinstance(payload, dict):
+        raise TypeError(f"{argument} must be a mapping")
+    return payload
+
+
+def _roster_count(team: Mapping[str, Any]) -> int:
+    for key in ("players", "roster", "team"):
+        value = team.get(key)
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return len(value)
+    return 0
+
+
+def _display_name(team_id: str, value: Any = None) -> str:
+    text = str(value).strip() if value is not None else ""
+    if text:
+        return text
+    return " ".join(part.capitalize() for part in re.split(r"[-_]", team_id) if part) or "Fantasy Team"
+
+
+def _league_name(value: Any = None) -> str:
+    text = str(value).strip() if value is not None else ""
+    return text or "Fantasy League"
+
+
+def _saved_team_record(
+    team_id: str,
+    content: Mapping[str, Any],
+    *,
+    existing: Mapping[str, Any] | None = None,
+    name: str | None = None,
+    league: str | None = None,
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build one canonical save record while preserving caller roster fields."""
+    existing = existing or {}
+    incoming = dict(content)
+
+    incoming_id = incoming.pop("team_id", None)
+    if incoming_id is not None and _sanitize_team_id(incoming_id) != team_id:
+        raise ValueError("team payload team_id does not match the requested team_id")
+
+    incoming_name = incoming.pop("name", None)
+    incoming_league = incoming.pop("league", incoming.pop("league_name", None))
+    incoming_created = incoming.pop("created_at", None)
+    incoming.pop("updated_at", None)
+    incoming_metadata = _metadata_mapping(incoming.pop("metadata", None))
+
+    combined_metadata = _metadata_mapping(existing.get("metadata"))
+    combined_metadata.update(incoming_metadata)
+    combined_metadata.update(_metadata_mapping(metadata))
+
+    created_at = str(existing.get("created_at") or incoming_created or _utc_timestamp())
+    record: dict[str, Any] = {
+        "team_id": team_id,
+        "name": _display_name(team_id, name or incoming_name or existing.get("name")),
+        "league": _league_name(league or incoming_league or existing.get("league")),
+        "created_at": created_at,
+        "updated_at": _utc_timestamp(),
+        "metadata": combined_metadata,
+    }
+    record.update(incoming)
+    return record
+
+
+def save_saved_team(
+    team_id: Any,
+    team: Any,
+    *,
+    name: str | None = None,
+    league: str | None = None,
+    league_name: str | None = None,
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create or atomically replace a named team save.
+
+    ``created_at`` and existing custom metadata survive updates. ``name``,
+    ``league`` and explicit ``metadata`` values may update the record while
+    replacing its roster content.
+    """
+    if league and league_name and league != league_name:
+        raise ValueError("league and league_name must match when both are provided")
+    safe_id, path = _saved_team_path(team_id)
+    existing: dict[str, Any] = {}
+    if path.exists():
+        loaded = _read_json(path, label="Saved team")
+        if not isinstance(loaded, dict):
+            raise ValueError(f"Saved team must be a JSON object: {path}")
+        existing = loaded
+
+    content = _coerce_saved_team_content(team)
+    record = _saved_team_record(
+        safe_id,
+        content,
+        existing=existing,
+        name=name,
+        league=league or league_name,
+        metadata=metadata,
+    )
+    _atomic_write_json(path, record)
+    return record
+
+
+def create_new_team_save(
+    team: Any = None,
+    *,
+    team_id: Any = None,
+    name: str | None = None,
+    league: str | None = None,
+    league_name: str | None = None,
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create a new named team record and return the complete saved document.
+
+    With no arguments, the function creates an empty team with a generated id.
+    A string positional argument is accepted as a convenient team name.
+    Existing ids are never overwritten; use :func:`save_saved_team` to update.
+    """
+    if isinstance(team, str) and name is None:
+        name, team = team, None
+    if league and league_name and league != league_name:
+        raise ValueError("league and league_name must match when both are provided")
+
+    if team_id is not None:
+        safe_id = _sanitize_team_id(team_id)
+    elif name:
+        base_id = _sanitize_team_id(name)
+        safe_id = base_id
+        counter = 2
+        while _saved_team_path(safe_id)[1].exists():
+            suffix = f"-{counter}"
+            safe_id = f"{base_id[: _MAX_TEAM_ID_LENGTH - len(suffix)]}{suffix}"
+            counter += 1
+    else:
+        safe_id = uuid.uuid4().hex[:12]
+
+    _, path = _saved_team_path(safe_id)
+    if path.exists():
+        raise FileExistsError(f"A saved team with id {safe_id!r} already exists")
+
+    content = _coerce_saved_team_content(team)
+    record = _saved_team_record(
+        safe_id,
+        content,
+        name=name,
+        league=league or league_name,
+        metadata=metadata,
+    )
+    _atomic_write_json(path, record)
+    return record
+
+
+def load_saved_team(team_id: Any) -> dict[str, Any]:
+    """Load a named team save, raising ``FileNotFoundError`` when absent."""
+    safe_id, path = _saved_team_path(team_id)
+    if not path.is_file():
+        raise FileNotFoundError(f"No saved team exists with id {safe_id!r}")
+    payload = _read_json(path, label="Saved team")
+    if not isinstance(payload, dict):
+        raise ValueError(f"Saved team must be a JSON object: {path}")
+    stored_id = payload.get("team_id")
+    if stored_id is not None and _sanitize_team_id(stored_id) != safe_id:
+        raise ValueError(f"Saved team id does not match its filename: {path}")
+    return payload
+
+
+def list_saved_teams() -> list[dict[str, Any]]:
+    """Return deterministic summary metadata for every named team save.
+
+    Corrupt records remain visible with ``is_valid=False`` so a single damaged
+    save cannot hide otherwise healthy teams from the Saved Teams page.
+    """
+    if not USER_TEAMS_DIR.is_dir():
+        return []
+
+    summaries: list[dict[str, Any]] = []
+    for path in USER_TEAMS_DIR.glob(f"{_TEAM_FILE_PREFIX}*{_TEAM_FILE_SUFFIX}"):
+        filename = path.name
+        raw_id = filename[len(_TEAM_FILE_PREFIX) : -len(_TEAM_FILE_SUFFIX)]
+        try:
+            safe_id = _sanitize_team_id(raw_id)
+            _resolved_id, safe_path = _saved_team_path(safe_id)
+        except ValueError:
+            continue
+        if safe_id != raw_id or safe_path != path.resolve(strict=False):
+            continue
+        try:
+            payload = _read_json(safe_path, label="Saved team")
+            if not isinstance(payload, dict):
+                raise ValueError(f"Saved team must be a JSON object: {safe_path}")
+            summaries.append(
+                {
+                    "team_id": safe_id,
+                    "name": _display_name(safe_id, payload.get("name")),
+                    "league": _league_name(payload.get("league", payload.get("league_name"))),
+                    "created_at": str(payload.get("created_at") or ""),
+                    "updated_at": str(payload.get("updated_at") or ""),
+                    "player_count": _roster_count(payload),
+                    "metadata": _metadata_mapping(payload.get("metadata")),
+                    "is_valid": True,
+                }
+            )
+        except (OSError, TypeError, ValueError) as error:
+            summaries.append(
+                {
+                    "team_id": safe_id,
+                    "name": _display_name(safe_id),
+                    "league": "Fantasy League",
+                    "created_at": "",
+                    "updated_at": "",
+                    "player_count": 0,
+                    "metadata": {},
+                    "is_valid": False,
+                    "error": str(error),
+                }
+            )
+
+    summaries.sort(key=lambda item: (str(item["name"]).casefold(), item["team_id"]))
+    return summaries
+
+
+def delete_team_save(team_id: Any) -> bool:
+    """Delete one named save, returning whether a file was removed."""
+    _safe_id, path = _saved_team_path(team_id)
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True
+
+
 def load_user_team() -> Any:
     """Load the saved team, returning ``[]`` when no team has been saved yet.
 
@@ -65,10 +396,7 @@ def load_user_team() -> Any:
     """
     if not USER_TEAM_PATH.exists():
         return []
-    try:
-        return json.loads(USER_TEAM_PATH.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise ValueError(f"Saved team is not valid JSON: {USER_TEAM_PATH}") from error
+    return _read_json(USER_TEAM_PATH, label="Saved team")
 
 
 def save_user_team(team: Any) -> Any:
@@ -77,27 +405,7 @@ def save_user_team(team: Any) -> Any:
     if not isinstance(payload, (list, dict)):
         raise TypeError("team must be a player list or a mapping containing a roster")
 
-    USER_TEAM_PATH.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
-    temp_name: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            newline="\n",
-            prefix=f".{USER_TEAM_PATH.stem}.",
-            suffix=".tmp",
-            dir=USER_TEAM_PATH.parent,
-            delete=False,
-        ) as temporary:
-            temp_name = temporary.name
-            temporary.write(serialized)
-            temporary.flush()
-            os.fsync(temporary.fileno())
-        os.replace(temp_name, USER_TEAM_PATH)
-    finally:
-        if temp_name and Path(temp_name).exists():
-            Path(temp_name).unlink()
+    _atomic_write_json(USER_TEAM_PATH, payload)
     return payload
 
 
@@ -632,12 +940,18 @@ def team_confidence_curve(team: Any) -> dict[int, dict[str, float]]:
 
 __all__ = [
     "USER_TEAM_PATH",
+    "USER_TEAMS_DIR",
     "bench_vs_start_decision",
+    "create_new_team_save",
+    "delete_team_save",
     "find_weak_positions",
+    "list_saved_teams",
+    "load_saved_team",
     "load_user_team",
     "recommend_add_drop",
     "recommend_lineup_swaps",
     "recommend_trades",
+    "save_saved_team",
     "save_user_team",
     "team_confidence_curve",
     "team_health_status",

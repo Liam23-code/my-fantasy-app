@@ -18,8 +18,10 @@ league using the exact same raw projections.
 
 from __future__ import annotations
 
+import math
 from collections import Counter
-from typing import Any
+from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence
+from typing import Any, TypeAlias, overload
 
 import numpy as np
 
@@ -37,7 +39,7 @@ from fantasy.projections import projected_points
 from fantasy.room_brain import is_round_one_chalk, room_brain_weight, room_candidate_pool, round_one_pick
 from fantasy.scoring import calculate_fantasy_points
 from fantasy.user_brain import user_brain_pick
-from fantasy.utils import safe_float
+from fantasy.utils import normalize_player_name, safe_float
 from fantasy.weekly_projections import build_weekly_projection
 
 RISK_WEIGHTS = {
@@ -96,6 +98,314 @@ CARRIED_SOURCE_FIELDS: tuple[str, ...] = (
     "points_per_game",
     "scoring_mode",
 )
+
+BoardRow: TypeAlias = dict[str, Any]
+BoardList: TypeAlias = list[BoardRow]
+BoardState: TypeAlias = MutableMapping[str, Any]
+BoardInput: TypeAlias = BoardList | BoardState
+
+_BOARD_KEYS: tuple[str, ...] = ("remaining", "board", "available_players")
+_DRAFTED_STATE_KEYS: tuple[str, ...] = ("drafted_player_ids", "drafted_players", "drafted", "picks")
+
+
+def _normalized_player_id(value: Any) -> str:
+    """Return the case-insensitive token used for explicit player ids."""
+    if isinstance(value, Mapping):
+        value = value.get("player_id") or value.get("id") or value.get("playerId")
+    if value is None or isinstance(value, bool):
+        return ""
+    identifier = str(value).strip()
+    return identifier.casefold() if identifier else ""
+
+
+def _board_identity(player: Mapping[str, Any]) -> str:
+    """Stable board identity, including a safe fallback for rows without ids.
+
+    Real projection feeds should always provide ``player_id``.  Name-based
+    fallback keeps hand-authored/imported boards usable without collapsing
+    every id-less row into the same blank identifier.
+    """
+    player_id = _normalized_player_id(player)
+    if player_id:
+        return f"id:{player_id}"
+
+    name = normalize_player_name(player.get("name") or player.get("player") or player.get("player_name"))
+    position = str(player.get("position") or player.get("player_position") or "").strip().upper()
+    team = str(player.get("team") or player.get("nfl_team") or "").strip().upper()
+    if name:
+        return f"fallback:{name}|{position}|{team}"
+    return ""
+
+
+def _selector_identity(player_id: Any) -> str:
+    """Normalize a public removal/exclusion selector to a board identity."""
+    if isinstance(player_id, Mapping):
+        return _board_identity(player_id)
+    normalized = _normalized_player_id(player_id)
+    return f"id:{normalized}" if normalized else ""
+
+
+def _iter_identity_tokens(values: Any) -> Iterable[str]:
+    """Yield board identities from ids, player rows, pick rows, or iterables."""
+    if values is None:
+        return
+    if isinstance(values, Mapping):
+        token = _board_identity(values)
+        if token:
+            yield token
+        return
+    if isinstance(values, (str, bytes)) or not isinstance(values, Iterable):
+        token = _selector_identity(values)
+        if token:
+            yield token
+        return
+    for value in values:
+        token = _board_identity(value) if isinstance(value, Mapping) else _selector_identity(value)
+        if token:
+            yield token
+
+
+def _resolve_board(board_state: BoardInput) -> tuple[MutableSequence[BoardRow], str | None]:
+    """Return the mutable board and its state key (``None`` for a bare list)."""
+    if isinstance(board_state, MutableSequence) and not isinstance(board_state, (str, bytes)):
+        return board_state, None
+    if isinstance(board_state, MutableMapping):
+        for key in _BOARD_KEYS:
+            board = board_state.get(key)
+            if isinstance(board, MutableSequence) and not isinstance(board, (str, bytes)):
+                return board, key
+        raise KeyError(f"Draft state must contain a mutable board under one of {_BOARD_KEYS!r}.")
+    raise TypeError("board_state must be a mutable player list or a mutable draft-state mapping.")
+
+
+def _state_excluded_identities(
+    board_state: BoardInput,
+    drafted_player_ids: Iterable[Any] | None = None,
+) -> set[str]:
+    excluded = set(_iter_identity_tokens(drafted_player_ids))
+    if not isinstance(board_state, Mapping):
+        return excluded
+
+    for key in _DRAFTED_STATE_KEYS:
+        excluded.update(_iter_identity_tokens(board_state.get(key)))
+    excluded.update(_iter_identity_tokens(board_state.get("removed_player_ids")))
+    rosters = board_state.get("rosters")
+    if isinstance(rosters, Mapping):
+        for roster in rosters.values():
+            excluded.update(_iter_identity_tokens(roster))
+    for key in ("my_roster", "user_roster"):
+        excluded.update(_iter_identity_tokens(board_state.get(key)))
+    return excluded
+
+
+def _normalized_position(position: Any) -> str:
+    value = str(position or "").strip().upper().replace("D/ST", "DST")
+    return "DST" if value == "DEF" else value
+
+
+def _position_filter(position: str | Iterable[str] | None) -> set[str] | None:
+    if position is None:
+        return None
+    raw_positions = [position] if isinstance(position, str) else list(position)
+    normalized = {_normalized_position(value) for value in raw_positions}
+    normalized.discard("")
+    if not normalized or normalized & {"ALL", "ANY", "*"}:
+        return None
+    if "FLEX" in normalized:
+        normalized.remove("FLEX")
+        normalized.update({"RB", "WR", "TE"})
+    return normalized
+
+
+def _finite_positive_number(value: Any) -> float | None:
+    number = safe_float(value, default=float("nan"))
+    return number if math.isfinite(number) and number > 0 else None
+
+
+def _board_order_key(player: Mapping[str, Any], original_index: int) -> tuple[Any, ...]:
+    """Consensus-board order: ADP first, then rank, then deterministic name."""
+    adp = _finite_positive_number(player.get("adp"))
+    rank = _finite_positive_number(player.get("overall_rank"))
+    name = normalize_player_name(player.get("name") or player.get("player") or player.get("player_name"))
+    if adp is not None:
+        return (0, adp, rank if rank is not None else float("inf"), name, original_index)
+    return (1, rank if rank is not None else float("inf"), name, original_index)
+
+
+@overload
+def ensure_unique_board_state(
+    board_state: BoardList,
+    drafted_player_ids: Iterable[Any] | None = None,
+    position: str | Iterable[str] | None = None,
+    *,
+    position_filter: str | Iterable[str] | None = None,
+    sort_by_adp: bool = True,
+) -> BoardList: ...
+
+
+@overload
+def ensure_unique_board_state(
+    board_state: BoardState,
+    drafted_player_ids: Iterable[Any] | None = None,
+    position: str | Iterable[str] | None = None,
+    *,
+    position_filter: str | Iterable[str] | None = None,
+    sort_by_adp: bool = True,
+) -> BoardState: ...
+
+
+def ensure_unique_board_state(
+    board_state: BoardInput,
+    drafted_player_ids: Iterable[Any] | None = None,
+    position: str | Iterable[str] | None = None,
+    *,
+    position_filter: str | Iterable[str] | None = None,
+    sort_by_adp: bool = True,
+) -> BoardInput:
+    """Normalize a mock-draft board in place and return the same container.
+
+    The operation is deliberately idempotent.  It removes invalid rows,
+    duplicate players, players already drafted/rostered, and ids explicitly
+    removed from a state.  A positional filter is optional; ``FLEX`` expands
+    to RB/WR/TE.  Unless disabled, survivors follow consensus ADP ascending,
+    with board rank as the deterministic fallback for players lacking ADP.
+
+    Passing a draft-state mapping preserves removal tombstones, so appending a
+    stale copy of a removed player and normalizing again cannot make that
+    player reappear.  Passing a bare list mutates that list and returns it.
+    """
+    if position is not None and position_filter is not None:
+        raise ValueError("Use either position or position_filter, not both.")
+    allowed_positions = _position_filter(position if position is not None else position_filter)
+    board, board_key = _resolve_board(board_state)
+    excluded = _state_excluded_identities(board_state, drafted_player_ids)
+
+    indexed_rows = [(index, row) for index, row in enumerate(board) if isinstance(row, Mapping)]
+    if sort_by_adp:
+        indexed_rows.sort(key=lambda item: _board_order_key(item[1], item[0]))
+
+    seen: set[str] = set()
+    cleaned: BoardList = []
+    for _index, source in indexed_rows:
+        row = source if isinstance(source, dict) else dict(source)
+        identity = _board_identity(row)
+        if not identity or identity in seen or identity in excluded:
+            continue
+        if allowed_positions is not None and _normalized_position(row.get("position")) not in allowed_positions:
+            continue
+        seen.add(identity)
+        cleaned.append(row)
+
+    board[:] = cleaned
+    if board_key is not None:
+        board_state[board_key] = board
+    return board_state
+
+
+@overload
+def remove_player_from_board(
+    board_state: BoardList,
+    player_id: Any,
+    *,
+    mark_removed: bool = True,
+    sort_by_adp: bool = True,
+) -> BoardList: ...
+
+
+@overload
+def remove_player_from_board(
+    board_state: BoardState,
+    player_id: Any,
+    *,
+    mark_removed: bool = True,
+    sort_by_adp: bool = True,
+) -> BoardState: ...
+
+
+def remove_player_from_board(
+    board_state: BoardInput,
+    player_id: Any,
+    *,
+    mark_removed: bool = True,
+    sort_by_adp: bool = True,
+) -> BoardInput:
+    """Remove every copy of ``player_id`` and optionally tombstone the id.
+
+    Removal is idempotent: an unknown/already-removed id is a successful
+    no-op.  State mappings keep the id in ``removed_player_ids`` by default,
+    preventing stale UI/session data from reinserting it.  Internal pick
+    resolution uses ``mark_removed=False`` because the authoritative pick and
+    roster records already exclude drafted players from subsequent boards.
+    """
+    target = _selector_identity(player_id)
+    if not target:
+        raise ValueError("player_id must identify a player with a non-empty id or name.")
+
+    board, _board_key = _resolve_board(board_state)
+    board[:] = [row for row in board if not isinstance(row, Mapping) or _board_identity(row) != target]
+
+    if mark_removed and isinstance(board_state, MutableMapping):
+        removed = board_state.setdefault("removed_player_ids", [])
+        if not isinstance(removed, list):
+            removed = list(removed or [])
+            board_state["removed_player_ids"] = removed
+        explicit_id = _normalized_player_id(player_id)
+        stored_selector: Any = explicit_id or (dict(player_id) if isinstance(player_id, Mapping) else player_id)
+        if target not in set(_iter_identity_tokens(removed)):
+            removed.append(stored_selector)
+
+    ensure_unique_board_state(board_state, sort_by_adp=sort_by_adp)
+    return board_state
+
+
+def validate_board_integrity(
+    board_state: BoardInput,
+    drafted_player_ids: Iterable[Any] | None = None,
+    position: str | Iterable[str] | None = None,
+    *,
+    position_filter: str | Iterable[str] | None = None,
+    require_adp_order: bool = True,
+    raise_on_error: bool = False,
+) -> bool:
+    """Return whether a board is unique, available, filtered, and ordered.
+
+    Set ``raise_on_error=True`` at mutation boundaries to turn a corrupt state
+    into a descriptive :class:`ValueError`.  Validation never repairs or
+    mutates its input; use :func:`ensure_unique_board_state` for that.
+    """
+    if position is not None and position_filter is not None:
+        raise ValueError("Use either position or position_filter, not both.")
+    allowed_positions = _position_filter(position if position is not None else position_filter)
+    board, _board_key = _resolve_board(board_state)
+    excluded = _state_excluded_identities(board_state, drafted_player_ids)
+    errors: list[str] = []
+    identities: list[str] = []
+
+    for index, row in enumerate(board):
+        if not isinstance(row, Mapping):
+            errors.append(f"row {index} is not a player mapping")
+            continue
+        identity = _board_identity(row)
+        if not identity:
+            errors.append(f"row {index} has no usable player identity")
+            continue
+        identities.append(identity)
+        if identity in excluded:
+            errors.append(f"{identity} is already drafted or explicitly removed")
+        if allowed_positions is not None and _normalized_position(row.get("position")) not in allowed_positions:
+            errors.append(f"{identity} does not match the active position filter")
+
+    if len(identities) != len(set(identities)):
+        errors.append("board contains duplicate players")
+    if require_adp_order:
+        indexed_rows = [(index, row) for index, row in enumerate(board) if isinstance(row, Mapping)]
+        expected = sorted(indexed_rows, key=lambda item: _board_order_key(item[1], item[0]))
+        if [id(row) for _index, row in indexed_rows] != [id(row) for _index, row in expected]:
+            errors.append("board is not ordered by ascending ADP")
+
+    if errors and raise_on_error:
+        raise ValueError("Invalid draft board: " + "; ".join(dict.fromkeys(errors)))
+    return not errors
 
 
 def _coerce_league_settings(league_settings: dict[str, Any] | LeagueSettings) -> LeagueSettings:
@@ -255,6 +565,11 @@ def rank_players_for_draft(
                 "weekly_projection": build_weekly_projection(source, settings.scoring_mode),
             }
         )
+
+    # A player can arrive more than once when multiple projection/ADP feeds
+    # are merged.  Replacement levels must never count those copies as
+    # separate NFL players, so deduplicate before positional depth is built.
+    ensure_unique_board_state(scored, sort_by_adp=False)
 
     replacement_levels = _replacement_levels(scored, settings, settings.n_teams)
 
@@ -525,21 +840,22 @@ def room_team_pick(
 
 
 def finalize_user_team(user_roster: list[dict[str, Any]]) -> dict[str, Any]:
-    """Persist a completed user roster and describe the UI handoff.
+    """Describe a completed roster without creating or overwriting a save.
 
-    Core engine code cannot navigate a Streamlit session directly, so the
-    return value is an explicit redirect contract for UI callers.  The saved
-    roster is immediately available to both the Season Tools ``My Team`` tab
-    and the standalone My Team page.
+    A mock draft is disposable simulation state.  Persisting it automatically
+    used to overwrite the user's managed team as soon as the mock completed.
+    Saving is now an explicit Saved Teams action; this handoff contains enough
+    metadata for the UI to offer that action without performing filesystem
+    I/O or silently selecting a team.
     """
-    from fantasy.my_team_manager import save_user_team
-
-    saved_roster = save_user_team(user_roster)
     return {
-        "saved": True,
-        "player_count": len(saved_roster),
-        "redirect_page": "pages/28_Fantasy_My_Team.py",
-        "season_tools_tab": "My Team",
+        "saved": False,
+        "requires_explicit_save": True,
+        "player_count": len(user_roster),
+        "roster": list(user_roster),
+        "recommended_page": "pages/26_Fantasy_Saved_Teams.py",
+        "redirect_page": None,
+        "season_tools_tab": None,
     }
 
 
@@ -620,6 +936,10 @@ def simulate_draft(
         warnings.append("No real players were available to draft.")
 
     remaining = rank_players_for_draft(real_projections, settings) if real_projections else []
+    ensure_unique_board_state(remaining)
+    duplicate_count = len(real_projections) - len(remaining)
+    if duplicate_count:
+        warnings.append(f"Excluded {duplicate_count} duplicate player row(s) from the draft board.")
     requested_picks = settings.n_teams * rounds
     if len(remaining) < requested_picks:
         warnings.append(
@@ -704,7 +1024,7 @@ def simulate_draft(
         # this pick -- a real, honestly-computed "how thin was this position at
         # this moment" scarcity proxy for the round-by-round board.
         remaining_at_position = sum(1 for candidate in remaining if candidate["position"] == player["position"])
-        remaining.pop(next(i for i, candidate in enumerate(remaining) if candidate is player))
+        remove_player_from_board(remaining, player, mark_removed=False, sort_by_adp=False)
 
         rosters[team_name].append(player)
         is_user_pick = team_name == user_team
@@ -755,12 +1075,7 @@ def simulate_draft(
             "already capped out for that team -- a rare, late-draft emergency, not routine cap enforcement."
         )
 
-    my_team_handoff = None
-    if user_team and rosters.get(user_team):
-        try:
-            my_team_handoff = finalize_user_team(rosters[user_team])
-        except (OSError, TypeError, ValueError) as error:
-            warnings.append(f"Draft completed, but the user roster could not be saved: {error}")
+    my_team_handoff = finalize_user_team(rosters[user_team]) if user_team and rosters.get(user_team) else None
 
     return {
         "by_round": by_round,
@@ -776,6 +1091,8 @@ def simulate_draft(
         "cap_relaxations": cap_relaxations,
         "warnings": warnings,
         "position_runs": clusters,
+        "remaining": remaining,
+        "board": remaining,
         "my_team_handoff": my_team_handoff,
         "redirect_page": my_team_handoff["redirect_page"] if my_team_handoff else None,
         "redirect_tab": my_team_handoff["season_tools_tab"] if my_team_handoff else None,

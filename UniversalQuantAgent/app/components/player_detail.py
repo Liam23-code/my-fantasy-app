@@ -13,7 +13,7 @@ from fantasy.weekly_projections import build_weekly_projection, weekly_matchups
 from app.style import (
     CIRCUIT_CYAN,
     SIGNAL_GOLD,
-    gold_glow_line_chart,
+    gold_glow_chart,
     rarity_icon,
     safe_number,
 )
@@ -35,9 +35,8 @@ def player_detail_figure(
 ) -> go.Figure:
     """Return the branded 18-week detail chart for one player."""
     curve = build_weekly_projection(player, scoring_mode)
-    return gold_glow_line_chart(
-        [curve[week]["points"] for week in curve],
-        list(curve),
+    return gold_glow_chart(
+        curve,
         title="Weekly projection curve",
         name="Projected points",
         height=360,

@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 _PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
 while _PROJECT_ROOT in sys.path:
@@ -9,9 +9,9 @@ _loaded_app = sys.modules.get("app")
 if _loaded_app is not None and not hasattr(_loaded_app, "__path__"):
     del sys.modules["app"]
 
-# Fantasy Draft Room: the live, pick-by-pick draft.
+# Fantasy Mock Draft: the live, pick-by-pick draft.
 #
-# One of three Fantasy pages. This one is the draft itself -- you on the clock,
+# This page is the draft itself -- you on the clock,
 # the room drafting around you, recommendations recomputed off your real
 # roster after every pick, a live team grade, and the manual override for
 # players the simulation took but your real draft has not.
@@ -28,8 +28,6 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
-
-from app.page_runtime import apply_global_theme, empty_state, page_header, run_analysis, section_header
 from app.fantasy_shared import (
     drafted_card_html,
     league_setup,
@@ -38,7 +36,13 @@ from app.fantasy_shared import (
     render_grade_panel,
     require_pool,
 )
-
+from app.page_runtime import (
+    apply_global_theme,
+    empty_state,
+    page_header,
+    run_analysis,
+    section_header,
+)
 from fantasy.assistant import get_best_pick_for_round
 from fantasy.grader import grade_team
 from fantasy.live_draft import (
@@ -54,10 +58,10 @@ apply_global_theme()
 setup = league_setup()
 
 page_header(
-    "Draft Room",
+    "Mock Draft",
     "Draft live, one pick at a time, with the assistant recommending your best move every turn — "
     f"and a team grade that updates after every pick. All values are {projection_season_label(setup['target_season'])}.",
-    eyebrow="Fantasy · live draft",
+    eyebrow="Fantasy · mock draft",
 )
 
 if require_pool(setup, "run a draft"):
@@ -217,16 +221,15 @@ if require_pool(setup, "run a draft"):
                 )
                 rec_columns = st.columns(3)
                 for index, entry in enumerate(recommendations):
-                    with rec_columns[index % 3]:
-                        with st.container(border=True):
-                            st.markdown(player_card_html(entry, f"#{entry['rank']}"), unsafe_allow_html=True)
-                            if st.button(
-                                f"Draft {entry['name']}",
-                                key=f"fantasy_draft_{context['overall_pick']}_{entry['player_id']}",
-                                type="primary" if index == 0 else "secondary",
-                                width="stretch",
-                            ):
-                                _advance(lambda pid=entry["player_id"]: draft_for_user(live, pid))
+                    with rec_columns[index % 3], st.container(border=True):
+                        st.markdown(player_card_html(entry, f"#{entry['rank']}"), unsafe_allow_html=True)
+                        if st.button(
+                            f"Draft {entry['name']}",
+                            key=f"fantasy_draft_{context['overall_pick']}_{entry['player_id']}",
+                            type="primary" if index == 0 else "secondary",
+                            width="stretch",
+                        ):
+                            _advance(lambda pid=entry["player_id"]: draft_for_user(live, pid))
                 with st.expander("Why these, in this order?"):
                     for entry in recommendations:
                         st.markdown(
@@ -280,17 +283,14 @@ if require_pool(setup, "run a draft"):
                         st.caption(f"{len(matches)} drafted player(s) — most recent first.")
                         override_columns = st.columns(3)
                         for index, entry in enumerate(matches[:12]):
-                            with override_columns[index % 3]:
-                                with st.container(border=True):
-                                    st.markdown(drafted_card_html(entry), unsafe_allow_html=True)
-                                    if st.button(
-                                        "Override and Draft",
-                                        key=f"fantasy_override_{context['overall_pick']}_{entry['player_id']}",
-                                        width="stretch",
-                                    ):
-                                        _advance(
-                                            lambda pid=entry["player_id"]: override_draft_for_user(live, pid)
-                                        )
+                            with override_columns[index % 3], st.container(border=True):
+                                st.markdown(drafted_card_html(entry), unsafe_allow_html=True)
+                                if st.button(
+                                    "Override and Draft",
+                                    key=f"fantasy_override_{context['overall_pick']}_{entry['player_id']}",
+                                    width="stretch",
+                                ):
+                                    _advance(lambda pid=entry["player_id"]: override_draft_for_user(live, pid))
                         if len(matches) > 12:
                             st.caption(f"{len(matches) - 12} more — narrow the search to see them.")
 
@@ -324,11 +324,10 @@ if require_pool(setup, "run a draft"):
             players_by_id = {player.get("player_id"): player for player in projections if player.get("player_id")}
             roster_columns = st.columns(3)
             for index, pick in enumerate(my_picks):
-                with roster_columns[index % 3]:
-                    with st.container(border=True):
-                        st.markdown(
-                            pick_card_html(pick, players_by_id.get(pick["player_id"], {})), unsafe_allow_html=True
-                        )
+                with roster_columns[index % 3], st.container(border=True):
+                    st.markdown(
+                        pick_card_html(pick, players_by_id.get(pick["player_id"], {})), unsafe_allow_html=True
+                    )
 
         # -------------------------------------------------------------------
         # Reference: the board so far, and league-wide rosters.

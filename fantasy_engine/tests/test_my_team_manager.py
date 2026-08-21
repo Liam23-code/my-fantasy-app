@@ -159,7 +159,7 @@ def test_team_health_reports_inactive_players(team):
     assert health["issues"][0]["player"] == "Low Starter"
 
 
-def test_completed_user_draft_saves_roster_and_returns_redirect(tmp_path, monkeypatch):
+def test_completed_user_draft_requires_an_explicit_team_save(tmp_path, monkeypatch):
     monkeypatch.setattr(manager, "USER_TEAM_PATH", tmp_path / "user_team.json")
     pool = [
         _player("one", "Back One", 250.0, 16.0),
@@ -169,23 +169,45 @@ def test_completed_user_draft_saves_roster_and_returns_redirect(tmp_path, monkey
 
     result = simulate_draft(pool, settings, rounds=1, seed=1, user_draft_slot=1)
 
-    assert result["my_team_handoff"]["saved"] is True
-    assert result["redirect_page"] == "pages/28_Fantasy_My_Team.py"
-    assert result["redirect_tab"] == "My Team"
-    assert len(manager.load_user_team()) == 1
+    handoff = result["my_team_handoff"]
+    assert handoff["saved"] is False
+    assert handoff["requires_explicit_save"] is True
+    assert handoff["recommended_page"] == "pages/26_Fantasy_Saved_Teams.py"
+    assert result["redirect_page"] is None
+    assert result["redirect_tab"] is None
+    assert not manager.USER_TEAM_PATH.exists()
 
 
-def test_both_my_team_ui_surfaces_parse_and_use_the_manager():
+def test_saved_team_and_my_team_surfaces_have_separate_responsibilities():
     workspace = Path(__file__).resolve().parents[2]
     season_tools = workspace / "UniversalQuantAgent" / "app" / "pages" / "27_Fantasy_Season_Tools.py"
+    saved_teams_page = workspace / "UniversalQuantAgent" / "app" / "pages" / "26_Fantasy_Saved_Teams.py"
     my_team_page = workspace / "UniversalQuantAgent" / "app" / "pages" / "28_Fantasy_My_Team.py"
 
-    for page in (season_tools, my_team_page):
-        source = page.read_text(encoding="utf-8")
+    season_source = season_tools.read_text(encoding="utf-8")
+    saved_source = saved_teams_page.read_text(encoding="utf-8")
+    my_team_source = my_team_page.read_text(encoding="utf-8")
+    for source in (season_source, saved_source, my_team_source):
         ast.parse(source)
-        assert "weekly_team_projection" in source
-        assert "recommend_add_drop" in source
-        assert "recommend_trades" in source
-        assert "recommend_lineup_swaps" in source
-        assert "team_confidence_curve" in source
-    assert '"My Team"' in season_tools.read_text(encoding="utf-8")
+
+    for name in (
+        "weekly_team_projection",
+        "recommend_add_drop",
+        "recommend_trades",
+        "recommend_lineup_swaps",
+        "team_confidence_curve",
+    ):
+        assert name in my_team_source
+
+    for name in ("list_saved_teams", "create_new_team_save", "delete_team_save"):
+        assert name in saved_source
+
+    for name in (
+        "weekly_team_projection",
+        "recommend_add_drop",
+        "recommend_trades",
+        "recommend_lineup_swaps",
+        "team_confidence_curve",
+    ):
+        assert name not in season_source
+    assert '"My Team"' not in season_source

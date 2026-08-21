@@ -2560,7 +2560,6 @@ def main() -> None:
         st.Page("pages/11_Daily_Slate.py", title="Daily Slate", icon=":material/calendar_today:"),
     ]
     graph_pages = [
-        st.Page("pages/29_Graph_Lab.py", title="Graph Lab", icon=":material/monitoring:"),
         st.Page("pages/14_Shot_Chart_Heatmap.py", title="Shot-Chart Heatmap", icon=":material/blur_on:"),
         st.Page("pages/15_Efficiency_Radar.py", title="Efficiency Radar", icon=":material/radar:"),
         st.Page("pages/16_Badge_Graph.py", title="Badge Graph", icon=":material/bubble_chart:"),
@@ -2591,10 +2590,11 @@ def main() -> None:
     ]
     fantasy_pages = [
         st.Page("pages/25_Fantasy_Hub.py", title="Fantasy Hub", icon=":material/dashboard:"),
-        st.Page("pages/25_Fantasy_Draft_Room.py", title="Draft Room", icon=":material/emoji_events:"),
-        st.Page("pages/26_Fantasy_Draft_Assistant.py", title="Draft Assistant", icon=":material/lightbulb:"),
+        st.Page("pages/25_Fantasy_Draft_Room.py", title="Mock Draft", icon=":material/emoji_events:"),
+        st.Page("pages/26_Fantasy_Saved_Teams.py", title="Saved Teams", icon=":material/folder_open:"),
         st.Page("pages/28_Fantasy_My_Team.py", title="My Team", icon=":material/groups:"),
         st.Page("pages/27_Fantasy_Season_Tools.py", title="Weekly Tools", icon=":material/calendar_month:"),
+        st.Page("pages/29_Graph_Lab.py", title="Graph Lab", icon=":material/monitoring:"),
     ]
     groups = {
         "Workspace": [home_page],
@@ -2616,7 +2616,7 @@ def main() -> None:
         fantasy_pages[1],
         betting_pages[0],
         fantasy_pages[0],
-        graph_pages[0],
+        fantasy_pages[5],
     )
     _custom_sidebar(groups)
     navigator.run()
