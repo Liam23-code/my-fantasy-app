@@ -106,6 +106,8 @@ def generate_default_props(season: str | None = None, *, pool_size: int = 175) -
                     "team": team,
                     "category": category,
                     "line": _round_to_half(rate),
+                    "over_price": -110.0,
+                    "under_price": -110.0,
                     "sportsbook": "default",
                     "basis": f"{season} real per-game rate ({games:g} games)",
                 }

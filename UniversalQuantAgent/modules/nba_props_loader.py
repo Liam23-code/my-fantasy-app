@@ -39,6 +39,14 @@ _TEAM_ALIASES = ("team", "nba_team")
 _CATEGORY_ALIASES = ("category", "market", "stat", "prop", "prop_type")
 _LINE_ALIASES = ("line", "prop_line", "value", "handicap")
 _SPORTSBOOK_ALIASES = ("sportsbook", "source", "book")
+_OVER_PRICE_ALIASES = ("over_price", "over", "over_odds")
+_UNDER_PRICE_ALIASES = ("under_price", "under", "under_odds")
+
+#: No real market price is known for a row that doesn't supply one -- this
+#: is the conventional default for a two-way line (see
+#: fantasy_engine/betting/odds_generator.py's identical convention), not a
+#: claim about any real book's actual price.
+_DEFAULT_PRICE = -110.0
 
 
 def _first(row: dict[str, Any], aliases: tuple[str, ...]) -> Any:
@@ -46,6 +54,14 @@ def _first(row: dict[str, Any], aliases: tuple[str, ...]) -> Any:
         if alias in row and row[alias] not in (None, ""):
             return row[alias]
     return None
+
+
+def _safe_price(value: Any) -> float:
+    try:
+        price = float(value)
+    except (TypeError, ValueError):
+        return _DEFAULT_PRICE
+    return price if price == price else _DEFAULT_PRICE  # filter NaN
 
 
 def _normalize_row(row: dict[str, Any], *, source: str) -> dict[str, Any] | None:
@@ -59,11 +75,14 @@ def _normalize_row(row: dict[str, Any], *, source: str) -> dict[str, Any] | None
     except (TypeError, ValueError):
         return None
     team_raw = _first(row, _TEAM_ALIASES)
+    over_price_raw, under_price_raw = _first(row, _OVER_PRICE_ALIASES), _first(row, _UNDER_PRICE_ALIASES)
     normalized = {
         "player_name": player,
         "team": normalize_team_name(str(team_raw)) if team_raw else "",
         "category": category,
         "line": line,
+        "over_price": _safe_price(over_price_raw) if over_price_raw is not None else _DEFAULT_PRICE,
+        "under_price": _safe_price(under_price_raw) if under_price_raw is not None else _DEFAULT_PRICE,
         "sportsbook": str(_first(row, _SPORTSBOOK_ALIASES) or source),
         "timestamp": str(row.get("timestamp") or now_iso()),
     }

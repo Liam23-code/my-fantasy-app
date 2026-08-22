@@ -34,12 +34,21 @@ if str(NBA_ROOT) not in sys.path:
 
 # fantasy_engine's `betting`/`fantasy` packages are installed editable into
 # this venv (see fantasy_engine/pyproject.toml) and importable from any cwd.
+from betting import odds_math
 from betting.odds_generator import generate_default_games as nfl_generate_default_games
 from betting.odds_loader import load_default_odds, merge_odds
+from betting.parlay_engine import detect_correlations as nfl_detect_correlations, make_leg
+from betting.team_model import project_game
 
+from modules.nba_moneyline_model import fair_moneyline as nba_fair_moneyline
+from modules.nba_parlay_engine import nba_detect_correlations
 from modules.nba_props_generator import DEFAULT_PROPS_PATH as NBA_DEFAULT_PROPS_PATH
 from modules.nba_props_loader import load_props_from_file, unified_props
 from modules.nba_schedule import fetch_todays_games
+from modules.nba_team_model import team_scoring_averages as nba_team_scoring_averages
+
+import modules.nba_moneyline_model as nba_moneyline_model
+import modules.nba_prop_model as nba_prop_model
 
 _BANNED_LIBRARIES = {"requests", "httpx", "aiohttp", "urllib3", "selenium", "playwright", "bs4"}
 
@@ -48,9 +57,20 @@ _BANNED_LIBRARIES = {"requests", "httpx", "aiohttp", "urllib3", "selenium", "pla
 _MARKET_PIPELINE_FILES = (
     ROOT / "fantasy_engine" / "betting" / "odds_loader.py",
     ROOT / "fantasy_engine" / "betting" / "odds_generator.py",
+    ROOT / "fantasy_engine" / "betting" / "odds_math.py",
+    ROOT / "fantasy_engine" / "betting" / "team_model.py",
+    ROOT / "fantasy_engine" / "betting" / "moneyline_model.py",
+    ROOT / "fantasy_engine" / "betting" / "prop_model.py",
+    ROOT / "fantasy_engine" / "betting" / "parlay_engine.py",
     NBA_ROOT / "modules" / "nba_props_loader.py",
     NBA_ROOT / "modules" / "nba_props_generator.py",
     NBA_ROOT / "modules" / "nba_schedule.py",
+    NBA_ROOT / "modules" / "nba_odds_loader.py",
+    NBA_ROOT / "modules" / "nba_team_model.py",
+    NBA_ROOT / "modules" / "nba_moneyline_model.py",
+    NBA_ROOT / "modules" / "nba_prop_model.py",
+    NBA_ROOT / "modules" / "nba_parlay_engine.py",
+    NBA_ROOT / "modules" / "nba_trend_signals.py",
 )
 
 
@@ -153,6 +173,59 @@ class LiveScheduleIngestionParityTests(unittest.TestCase):
         with patch("modules.nba_schedule._from_live_scoreboard", side_effect=RuntimeError("simulated: nba_api unreachable")):
             result = fetch_todays_games()
         self.assertEqual(result, [])
+
+
+class SharedEngineReuseTests(unittest.TestCase):
+    """betting_engine.md's "shared, not duplicated" claims, made executable.
+
+    These assert genuine object identity -- NBA's modules call the exact
+    same function objects NFL's engine defines -- not just "two functions
+    that happen to behave the same," which a future refactor could quietly
+    let drift apart without any test noticing.
+    """
+
+    def test_nba_moneyline_model_reuses_nfl_odds_math_functions_directly(self):
+        self.assertIs(nba_moneyline_model.expected_value, odds_math.expected_value)
+        self.assertIs(nba_moneyline_model.edge_vs_fair, odds_math.edge_vs_fair)
+        self.assertIs(nba_moneyline_model.remove_vig_two_way, odds_math.remove_vig_two_way)
+        self.assertIs(nba_moneyline_model.fair_price_from_probability, odds_math.fair_price_from_probability)
+
+    def test_nba_prop_model_reuses_nfl_odds_math_functions_directly(self):
+        self.assertIs(nba_prop_model.expected_value, odds_math.expected_value)
+        self.assertIs(nba_prop_model.edge_vs_fair, odds_math.edge_vs_fair)
+        self.assertIs(nba_prop_model.remove_vig_two_way, odds_math.remove_vig_two_way)
+
+    def test_nba_moneyline_model_reuses_nfl_project_game_directly(self):
+        self.assertIs(nba_moneyline_model.project_game, project_game)
+
+    def test_nba_fair_moneyline_and_nfl_project_game_agree_on_a_pick_em_matchup(self):
+        # Two teams with identical real scoring rates should project a 0.0
+        # spread from the shared project_game math regardless of sport.
+        averages = {"AAA": {"points_scored_avg": 110.0, "points_allowed_avg": 110.0, "games_played": 20},
+                    "BBB": {"points_scored_avg": 110.0, "points_allowed_avg": 110.0, "games_played": 20}}
+        fair = nba_fair_moneyline("AAA", "BBB", averages=averages, margin_stdev=12.0)
+        self.assertEqual(fair["spread"], 0.0)
+        self.assertAlmostEqual(fair["home_win_probability"], 0.5, places=2)
+
+    def test_nba_parlay_correlation_detector_finds_the_same_generic_pattern_nfl_does(self):
+        # Same market names ("moneyline"/"total"), same game -- the shared,
+        # fully generic favorite/total pattern must fire identically.
+        legs = [
+            make_leg(description="Favorite ML", model_probability=0.65, price=-150.0, game_id="g1", market="moneyline", side="home"),
+            make_leg(description="Game total over", model_probability=0.5, price=-110.0, game_id="g1", market="total", side="over"),
+        ]
+        nfl_findings = nfl_detect_correlations(legs)
+        nba_findings = nba_detect_correlations(legs)
+        self.assertEqual(len(nfl_findings), 1)
+        self.assertEqual(nfl_findings[0]["kind"], nba_findings[0]["kind"])
+        self.assertEqual(nfl_findings[0]["legs"], nba_findings[0]["legs"])
+
+    def test_nba_team_scoring_averages_matches_nfl_shape_so_project_game_accepts_it_unmodified(self):
+        with patch("modules.nba_team_model.team_scoring_by_game", return_value={"DEN": [{"points_scored": 110.0, "points_allowed": 100.0}]}):
+            averages = nba_team_scoring_averages("2025-26")
+        self.assertEqual(set(averages["DEN"]), {"points_scored_avg", "points_allowed_avg", "games_played"})
+        # project_game must not raise when handed NBA's averages dict directly.
+        project_game("DEN", "DEN", averages=averages)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- there is no fixed NBA schedule to pre-populate the way the NFL side pre-generates a full week (see fantasy_engine/data/odds.json). This app never fetches game odds from any sportsbook. Populate this file with real lines you have, or upload a game-odds file from the app; the fair line is always computed from real team scoring regardless.",
+  "games": []
+}
