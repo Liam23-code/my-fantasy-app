@@ -13,8 +13,9 @@ import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +26,7 @@ from modules.nba_props_loader import (
     load_props_from_user_upload,
     unified_props,
 )
+from modules.nba_props_generator import _round_to_half, generate_default_props
 from modules.nba_schedule import fetch_todays_games
 
 
@@ -60,10 +62,17 @@ class NbaPropsLoaderTests(unittest.TestCase):
         self.assertEqual(result[0]["category"], "rebounds")
         self.assertEqual(result[0]["line"], 8.5)
 
-    def test_default_shipped_file_is_empty(self):
-        # data/nba_props.json ships empty by default -- this app never
-        # fetches prop lines from a sportsbook.
-        self.assertEqual(load_props_from_file(), [])
+    def test_default_shipped_file_loads_real_generated_rows(self):
+        # data/nba_props.json is seeded by modules.nba_props_generator from
+        # real NBA per-game rates -- never from a sportsbook -- and every
+        # row must carry that provenance.
+        rows = load_props_from_file()
+        self.assertGreater(len(rows), 0)
+        for row in rows:
+            self.assertIn(row["category"], {"points", "rebounds", "assists", "PRA", "3PM"})
+            self.assertGreater(row["line"], 0)
+            self.assertIn("basis", row)
+            self.assertIn("real per-game rate", row["basis"])
 
     def test_upload_json_list(self):
         text = json.dumps([{"player_name": "Luka Doncic", "category": "assists", "line": 9.5}])
@@ -142,6 +151,55 @@ class NbaScheduleTests(unittest.TestCase):
                 imported.add(node.module.split(".")[0])
         banned = imported & {"requests", "bs4", "selenium", "playwright", "sportsbook_scraper_disabled"}
         self.assertEqual(banned, set())
+
+
+class NbaPropsGeneratorTests(unittest.TestCase):
+    def test_round_to_half_never_returns_a_whole_number(self):
+        for value, expected in ((18.2, 18.5), (18.6, 18.5), (19.1, 19.5), (0.4, 0.5), (0.0, 0.5)):
+            self.assertEqual(_round_to_half(value), expected)
+
+    def test_generate_default_props_computes_real_per_game_rates(self):
+        frame = pd.DataFrame(
+            [
+                {"PLAYER_ID": 1, "PLAYER_NAME": "Test Star", "TEAM_ABBREVIATION": "DEN", "GP": 20, "MIN": 700.0,
+                 "PTS": 500.0, "REB": 200.0, "AST": 100.0, "FG3M": 40.0},
+                {"PLAYER_ID": 2, "PLAYER_NAME": "Bench Guy", "TEAM_ABBREVIATION": "DEN", "GP": 20, "MIN": 100.0,
+                 "PTS": 40.0, "REB": 20.0, "AST": 10.0, "FG3M": 2.0},
+            ]
+        )
+        endpoint = MagicMock()
+        endpoint.get_data_frames.return_value = [frame]
+        with patch("nba_api.stats.endpoints.leaguedashplayerstats.LeagueDashPlayerStats", return_value=endpoint):
+            rows = generate_default_props("2025-26", pool_size=10)
+
+        by_key = {(row["player_name"], row["category"]): row for row in rows}
+        self.assertEqual(by_key[("Test Star", "points")]["line"], _round_to_half(500.0 / 20))
+        self.assertEqual(by_key[("Test Star", "points")]["team"], "DEN")
+        self.assertIn("2025-26 real per-game rate (20 games)", by_key[("Test Star", "points")]["basis"])
+        # Bench Guy's 100 total minutes over 20 games is 5.0 min/game --
+        # below the rotation-minutes floor, so no lines at all.
+        self.assertNotIn(("Bench Guy", "points"), by_key)
+
+    def test_generate_default_props_dedupes_traded_player_to_combined_row(self):
+        frame = pd.DataFrame(
+            [
+                {"PLAYER_ID": 1, "PLAYER_NAME": "Traded Player", "TEAM_ABBREVIATION": "TOT", "GP": 40, "MIN": 1200.0,
+                 "PTS": 800.0, "REB": 200.0, "AST": 150.0, "FG3M": 60.0},
+                {"PLAYER_ID": 1, "PLAYER_NAME": "Traded Player", "TEAM_ABBREVIATION": "DEN", "GP": 15, "MIN": 450.0,
+                 "PTS": 300.0, "REB": 75.0, "AST": 55.0, "FG3M": 22.0},
+                {"PLAYER_ID": 1, "PLAYER_NAME": "Traded Player", "TEAM_ABBREVIATION": "BOS", "GP": 25, "MIN": 750.0,
+                 "PTS": 500.0, "REB": 125.0, "AST": 95.0, "FG3M": 38.0},
+            ]
+        )
+        endpoint = MagicMock()
+        endpoint.get_data_frames.return_value = [frame]
+        with patch("nba_api.stats.endpoints.leaguedashplayerstats.LeagueDashPlayerStats", return_value=endpoint):
+            rows = generate_default_props("2025-26", pool_size=10)
+
+        points_rows = [row for row in rows if row["category"] == "points"]
+        self.assertEqual(len(points_rows), 1)  # one combined line, not one per team stint
+        self.assertEqual(points_rows[0]["line"], _round_to_half(800.0 / 40))
+        self.assertEqual(points_rows[0]["team"], "")  # TOT is not a real team; consumers fall back to live lookup
 
 
 if __name__ == "__main__":

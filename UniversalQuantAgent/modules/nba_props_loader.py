@@ -59,7 +59,7 @@ def _normalize_row(row: dict[str, Any], *, source: str) -> dict[str, Any] | None
     except (TypeError, ValueError):
         return None
     team_raw = _first(row, _TEAM_ALIASES)
-    return {
+    normalized = {
         "player_name": player,
         "team": normalize_team_name(str(team_raw)) if team_raw else "",
         "category": category,
@@ -67,6 +67,10 @@ def _normalize_row(row: dict[str, Any], *, source: str) -> dict[str, Any] | None
         "sportsbook": str(_first(row, _SPORTSBOOK_ALIASES) or source),
         "timestamp": str(row.get("timestamp") or now_iso()),
     }
+    basis = row.get("basis")
+    if basis:
+        normalized["basis"] = str(basis)
+    return normalized
 
 
 def _rows_from_dicts(rows: list[dict[str, Any]], *, source: str) -> list[dict[str, Any]]:
