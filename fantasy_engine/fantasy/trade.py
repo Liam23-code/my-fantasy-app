@@ -29,7 +29,7 @@ import numpy as np
 from fantasy.adapter import normalize_projection
 from fantasy.draft import _position_need_multiplier
 from fantasy.models import LeagueSettings
-from fantasy.scoring import calculate_fantasy_points
+from fantasy.projections import projected_or_scored
 from fantasy.utils import safe_float
 
 DEFAULT_WEEKS_REMAINING = 10
@@ -71,7 +71,7 @@ def _resolve_side(players: list[Any], lookup: dict[str, dict[str, Any]]) -> list
 
 def _weekly_distribution(canonical: dict[str, Any], settings: LeagueSettings) -> tuple[float, float]:
     """Return (mean, std) of one player's weekly fantasy points."""
-    mean = calculate_fantasy_points(canonical, mode=settings.scoring_mode, custom_rules=settings.custom_rules)["total_points"]
+    mean = projected_or_scored(canonical, settings)
     floor, ceiling = canonical.get("floor"), canonical.get("ceiling")
     if floor is not None and ceiling is not None and ceiling > floor:
         # Treat [floor, ceiling] as a rough 5th-95th percentile band (+/-1.645 SD).

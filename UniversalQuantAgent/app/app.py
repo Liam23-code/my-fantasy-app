@@ -2570,6 +2570,10 @@ def main() -> None:
         st.Page("pages/19_Edge_Heatmap.py", title="Edge Heatmap", icon=":material/grid_on:"),
         st.Page("pages/9_Prop_Recommendations.py", title="Prop Recommendations", icon=":material/recommend:"),
         st.Page("pages/10_Parlay_Builder.py", title="Parlay Builder", icon=":material/account_tree:"),
+        # Independent of the pages above: odds come only from our own
+        # generated default file or a file you upload, never a live
+        # sportsbook/ESPN fetch. See fantasy_engine/betting/.
+        st.Page("pages/30_Betting_Engine.py", title="Betting Engine (Offline)", icon=":material/balance:"),
     ]
     advanced_pages = [
         st.Page("pages/18_Similarity_Engine.py", title="Similarity Engine", icon=":material/group_work:"),

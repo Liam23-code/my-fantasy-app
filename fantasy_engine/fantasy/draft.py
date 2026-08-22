@@ -19,8 +19,10 @@ league using the exact same raw projections.
 from __future__ import annotations
 
 import math
+import sys
 from collections import Counter
 from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence
+from pathlib import Path
 from typing import Any, TypeAlias, overload
 
 import numpy as np
@@ -41,6 +43,19 @@ from fantasy.scoring import calculate_fantasy_points
 from fantasy.user_brain import user_brain_pick
 from fantasy.utils import normalize_player_name, safe_float
 from fantasy.weekly_projections import build_weekly_projection
+
+try:
+    from quant import quant_engine as quant
+except ModuleNotFoundError as exc:  # pragma: no cover - exercised by legacy editable installs
+    if exc.name != "quant":
+        raise
+    # Older editable installs map only ``fantasy``/``api`` from this source
+    # tree.  Make the sibling ``quant`` package visible without requiring an
+    # online reinstall, while keeping the standard installed import first.
+    engine_root = str(Path(__file__).resolve().parents[1])
+    if engine_root not in sys.path:
+        sys.path.insert(0, engine_root)
+    from quant import quant_engine as quant
 
 RISK_WEIGHTS = {
     "safe": {"floor": 0.6, "median": 0.4, "ceiling": 0.0},
@@ -439,6 +454,145 @@ def _score_player(source: Any, canonical: dict[str, Any], settings: LeagueSettin
     return result["total_points"]
 
 
+def _quant_projection_for_draft(
+    source: Any,
+    settings: LeagueSettings,
+) -> dict[str, Any] | None:
+    """Return Quant's ensemble only for an explicit, compatible projection.
+
+    Hand-authored raw stat lines are common throughout the public API and are
+    deliberately scored exactly under the league rules by :func:`_score_player`.
+    Sending those weekly stat lines through a season-level ensemble would
+    change their units and break custom-scoring correctness.  A usable
+    precomputed projection is the explicit opt-in boundary for Quant's
+    forward-looking model.
+    """
+
+    if projected_points(source, settings) is None:
+        return None
+    result = quant.compute_final_projection(source, scoring_mode=settings.scoring_mode)
+    if not isinstance(result, Mapping):
+        raise TypeError("Quant Engine compute_final_projection must return a mapping")
+    projection = _finite_positive_number(result.get("final_projection") or result.get("projection"))
+    if projection is None:
+        # Zero is a valid projection (for example a known season-long absence)
+        # even though the normal positive-number helper intentionally rejects
+        # it for ADP/rank sorting.
+        raw = result.get("final_projection", result.get("projection"))
+        numeric = safe_float(raw, default=float("nan"))
+        if not math.isfinite(numeric) or numeric < 0:
+            raise ValueError("Quant Engine returned an invalid final projection")
+    return dict(result)
+
+
+def _quant_projection_fields(result: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Select stable ensemble diagnostics without leaking model internals."""
+
+    if result is None:
+        return {}
+    selected: dict[str, Any] = {
+        "quant_projection": dict(result),
+        "projection_method": "quant_ensemble",
+    }
+    field_map = {
+        "projection_confidence": "projection_confidence",
+        "confidence": "quant_confidence",
+        "volatility": "quant_volatility",
+        "breakout_probability": "breakout_probability",
+        "bust_probability": "bust_probability",
+        "health_multiplier": "health_multiplier",
+        "matchup_multiplier": "matchup_multiplier",
+        "usage_rate": "usage_rate",
+    }
+    for source_key, output_key in field_map.items():
+        if result.get(source_key) is not None:
+            selected[output_key] = result[source_key]
+    for band in ("floor", "median", "ceiling"):
+        if result.get(band) is not None:
+            selected[band] = result[band]
+    return selected
+
+
+def _weekly_projection_source(
+    source: Any,
+    canonical: Mapping[str, Any],
+    quant_projection: Mapping[str, Any] | None,
+    points: float,
+    scoring_mode: str,
+) -> Any:
+    """Keep weekly curves on the exact projection used by the draft board."""
+
+    if quant_projection is None:
+        return source
+    if isinstance(source, Mapping):
+        row = dict(source)
+    elif hasattr(source, "model_dump") and callable(source.model_dump):
+        row = dict(source.model_dump())
+    elif hasattr(source, "__dict__"):
+        row = dict(vars(source))
+    else:
+        row = dict(canonical)
+    row.update(_quant_projection_fields(quant_projection))
+    row.update(
+        {
+            "projection": points,
+            "expected_fantasy_points": points,
+            "scoring_mode": scoring_mode,
+        }
+    )
+    return row
+
+
+def _quant_draft_overlays(
+    scored_players: list[dict[str, Any]],
+    settings: LeagueSettings,
+) -> dict[str, dict[str, Any]]:
+    """Build scarcity, draft-value, and rarity fields keyed by player id."""
+
+    if not scored_players:
+        return {}
+    roster_slots = {
+        **settings.roster_requirements.model_dump(),
+        "flex_eligible": list(settings.flex_eligible),
+    }
+    scarcity = quant.compute_positional_scarcity(
+        scored_players,
+        roster_slots=roster_slots,
+        teams=settings.n_teams,
+    )
+    draft_values = quant.compute_draft_value(
+        scored_players,
+        roster_slots=roster_slots,
+        teams=settings.n_teams,
+    )
+    rarity = quant.compute_rarity_tier(scored_players)
+    scarcity_by_player = scarcity.get("by_player", {}) if isinstance(scarcity, Mapping) else {}
+    draft_by_player = draft_values.get("by_player", {}) if isinstance(draft_values, Mapping) else {}
+    rarity_by_player = rarity.get("by_player", {}) if isinstance(rarity, Mapping) else {}
+
+    overlays: dict[str, dict[str, Any]] = {}
+    for player in scored_players:
+        player_id = str(player.get("player_id") or "")
+        scarcity_row = scarcity_by_player.get(player_id, {})
+        draft_row = draft_by_player.get(player_id, {})
+        rarity_row = rarity_by_player.get(player_id, {})
+        overlays[player_id] = {
+            "scarcity_score": round(safe_float(scarcity_row.get("scarcity_score")), 2),
+            "scarcity_multiplier": round(safe_float(scarcity_row.get("scarcity_multiplier"), 1.0), 4),
+            "scarcity_adjusted_value": round(safe_float(scarcity_row.get("scarcity_adjusted_value")), 3),
+            "quant_replacement_level": round(safe_float(scarcity_row.get("replacement_level")), 3),
+            "quant_value_over_replacement": round(safe_float(scarcity_row.get("value_over_replacement")), 3),
+            "draft_value": round(safe_float(draft_row.get("draft_value")), 3),
+            "draft_value_score": round(safe_float(draft_row.get("draft_value_score")), 2),
+            "market_delta": round(safe_float(draft_row.get("market_delta")), 3),
+            "market_adjustment": round(safe_float(draft_row.get("market_adjustment")), 3),
+            "rarity_tier": rarity_row.get("rarity_tier", rarity_row.get("tier", "Depth")),
+            "rarity_symbol": rarity_row.get("symbol", "○"),
+            "rarity_percentile": round(safe_float(rarity_row.get("percentile")), 4),
+        }
+    return overlays
+
+
 def _carried_fields(source: Any) -> dict[str, Any]:
     """Projection provenance from the source row, for :data:`CARRIED_SOURCE_FIELDS`."""
     if isinstance(source, dict):
@@ -476,6 +630,10 @@ def _build_rationale(player: dict[str, Any], replacement_points: float) -> str:
         parts.append("mild injury risk (questionable)")
     if player.get("floor") is not None and player.get("ceiling") is not None:
         parts.append(f"confidence band {player['floor']:.1f}-{player['ceiling']:.1f} pts")
+    if player.get("scarcity_score", 0) >= 60:
+        parts.append(f"scarce positional curve ({player['scarcity_score']:.0f}/100)")
+    if player.get("rarity_tier"):
+        parts.append(f"{player['rarity_tier']} Quant tier")
     return "; ".join(parts)
 
 
@@ -549,7 +707,19 @@ def rank_players_for_draft(
     scored: list[dict[str, Any]] = []
     for source in projections:
         canonical = normalize_projection(source)
-        points = _score_player(source, canonical, settings)
+        quant_projection = _quant_projection_for_draft(source, settings)
+        points = (
+            safe_float(quant_projection.get("final_projection", quant_projection.get("projection")))
+            if quant_projection is not None
+            else _score_player(source, canonical, settings)
+        )
+        weekly_source = _weekly_projection_source(
+            source,
+            canonical,
+            quant_projection,
+            points,
+            settings.scoring_mode,
+        )
         # `points`, `projection`, and `expected_fantasy_points` are set to the
         # same number on purpose: every consumer of a ranked board (the
         # assistant's recommendations, the live draft, the grader) reads one
@@ -559,10 +729,11 @@ def rank_players_for_draft(
             {
                 **canonical,
                 **_carried_fields(source),
+                **_quant_projection_fields(quant_projection),
                 "points": round(points, 2),
                 "projection": round(points, 2),
                 "expected_fantasy_points": round(points, 2),
-                "weekly_projection": build_weekly_projection(source, settings.scoring_mode),
+                "weekly_projection": build_weekly_projection(weekly_source, settings.scoring_mode),
             }
         )
 
@@ -572,6 +743,7 @@ def rank_players_for_draft(
     ensure_unique_board_state(scored, sort_by_adp=False)
 
     replacement_levels = _replacement_levels(scored, settings, settings.n_teams)
+    quant_overlays = _quant_draft_overlays(scored, settings)
 
     ranked: list[dict[str, Any]] = []
     for player in scored:
@@ -579,9 +751,10 @@ def rank_players_for_draft(
         ranked.append(
             {
                 **player,
+                **quant_overlays.get(str(player.get("player_id") or ""), {}),
                 "vor": round(player["points"] - replacement_points, 2),
                 "replacement_points": round(replacement_points, 2),
-                "volatility": _volatility(player, player["points"]),
+                "volatility": safe_float(player.get("quant_volatility"), _volatility(player, player["points"])),
             }
         )
 

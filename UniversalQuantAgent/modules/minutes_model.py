@@ -14,7 +14,7 @@ from modules.data_quality import (
     safe_number,
     window_average,
 )
-from modules.injury_model import get_player_availability
+from modules.injury_parser import get_player_availability, load_injury_data_from_file
 from modules.nba_cache import FALLBACK_WARNING, select_fallback_minutes
 from modules.projections import (
     _find_player,
@@ -102,7 +102,7 @@ def project_minutes(
     stability = 1.0 - variation / 12.0
     projection = baseline_minutes + role_change * 0.35
 
-    availability = safe_dict(get_player_availability(player["full_name"]))
+    availability = safe_dict(get_player_availability(player["full_name"], load_injury_data_from_file()))
     availability.setdefault("availability", "ACTIVE")
     availability.setdefault("impact_score", 0.0)
     injury_factor = 1.0 - safe_number(

@@ -96,10 +96,6 @@ class FantasyPageContracts(unittest.TestCase):
         self.assertTrue(any(button.key == "fantasy_start_live_draft" for button in app.button))
         self.assertIn("Mock Draft", self._text(app) + " ".join(h.value for h in app.header))
 
-    def test_draft_assistant_renders(self):
-        app = self._run("26_Fantasy_Draft_Assistant.py")
-        self.assertTrue(any(widget.key == "fantasy_assistant_round" for widget in app.number_input))
-
     def test_season_tools_renders(self):
         app = self._run("27_Fantasy_Season_Tools.py")
         self.assertTrue(any(widget.key == "fantasy_scoring_mode" for widget in app.selectbox))
@@ -110,7 +106,6 @@ class FantasyPageContracts(unittest.TestCase):
         label = projection_season_label(TARGET_SEASON)
         for filename in (
             "25_Fantasy_Draft_Room.py",
-            "26_Fantasy_Draft_Assistant.py",
             "27_Fantasy_Season_Tools.py",
         ):
             with self.subTest(page=filename):

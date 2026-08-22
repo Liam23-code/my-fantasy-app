@@ -354,17 +354,20 @@ from `fantasy/` — the only contact point is the projection dict shape.
   only priced to the extent ADP has priced it. Every projected player carries
   `projection_confidence` (0-1, from sample size and whether the market had an
   opinion) so a caller can see how much evidence sits behind the number.
-- **`optimizer.py`, `waiver.py`, and `trade.py` score the raw stat line, not
-  the forward projection.** `draft.py` and `assistant.py` both prefer a
-  precomputed projection when one is present (see
-  `fantasy.projections.projected_points`); the three in-season modules still
-  call `calculate_fantasy_points` on the stat line directly. Their outputs are
-  therefore consistent *relative* rankings but sit on a different basis from
-  the draft board's point totals. Switching them is a deliberate open
-  question rather than an oversight: `trade.py` treats its per-player score as
-  a *weekly* mean and multiplies by `weeks_remaining`, so feeding it a season
-  total would inflate the result ~17x, and resolving that properly means
-  deciding whether these tools should consume weekly or season projections.
+- **`trade.py` takes its per-player number as a *weekly* mean.** Every
+  points-consuming module now shares one preference order --
+  `fantasy.projections.projected_or_scored`: use the precomputed projection
+  when it is usable under the league's scoring mode, and score the raw stat
+  line only when it is not. So `optimizer.py`, `waiver.py`, `trade.py`,
+  `draft.py`, and `assistant.py` all agree about what a player is worth. What
+  `trade.py` cannot tell you is the *cadence* of the number it was handed: it
+  multiplies by `weeks_remaining` on the assumption the value is per-week, so
+  a caller passing season totals gets season-scale magnitudes throughout
+  (`fair_value`, `team_a_receives_points`). The relative comparison between
+  the two sides stays sound either way, which is what `recommendation` and
+  `win_prob_delta` are built on -- but read the raw point totals with the
+  cadence you supplied in mind. `fantasy.weekly_projections` is the supported
+  way to hand it genuine per-week values.
 - **Trade Monte Carlo variance model is a heuristic.** Each player's weekly
   point distribution is treated as normal, parameterized from the
   projection's own `floor`/`ceiling` as a rough 5th–95th-percentile band

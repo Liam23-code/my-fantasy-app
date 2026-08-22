@@ -70,6 +70,7 @@ from typing import Any
 
 from fantasy.data_loader import latest_completed_season, load_real_projections
 from fantasy.models import LeagueSettings
+from fantasy.scoring import calculate_fantasy_points
 from fantasy.utils import clamp, safe_float
 
 #: Games in an NFL regular season -- the ceiling on ``expected_games``.
@@ -118,6 +119,17 @@ def projection_season_label(season: int | None = None) -> str:
     return f"{int(season) if season is not None else upcoming_season()} Projections"
 
 
+def _as_row(player: Any) -> Mapping[str, Any] | None:
+    """Best-effort view of any player-like object as a mapping, or ``None``."""
+    if isinstance(player, Mapping):
+        return player
+    if hasattr(player, "model_dump") and callable(player.model_dump):
+        return player.model_dump()
+    if hasattr(player, "__dict__"):
+        return vars(player)
+    return None
+
+
 def projected_points(
     player: Any,
     league_settings: dict[str, Any] | LeagueSettings | None = None,
@@ -131,13 +143,8 @@ def projected_points(
     precomputed number: a PPR projection must never be silently reported as a
     standard-league total just because it was already sitting on the record.
     """
-    if isinstance(player, Mapping):
-        row: Mapping[str, Any] = player
-    elif hasattr(player, "model_dump") and callable(player.model_dump):
-        row = player.model_dump()
-    elif hasattr(player, "__dict__"):
-        row = vars(player)
-    else:
+    row = player if isinstance(player, Mapping) else _as_row(player)
+    if row is None:
         return None
 
     settings = league_settings if isinstance(league_settings, LeagueSettings) else LeagueSettings(**(league_settings or {}))
@@ -154,6 +161,38 @@ def projected_points(
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return float(value)
     return None
+
+
+def projected_or_scored(
+    player: Any,
+    league_settings: dict[str, Any] | LeagueSettings | None = None,
+) -> float:
+    """A player's projection when there is one, their scored stat line when there isn't.
+
+    The single preference order every points-consuming module should use, so
+    a lineup, a waiver ranking, a trade valuation, and the draft board can
+    never disagree about what one player is worth. :func:`projected_points`
+    decides whether a precomputed projection is usable at all (including
+    refusing one baked under a different scoring mode); only when it is not
+    does the raw stat line get scored, and that result is a *baseline*, not a
+    forecast.
+
+    Returns ``0.0`` for a missing player rather than raising -- an unmatched
+    roster slot is a normal state for callers like
+    :func:`fantasy.optimizer.optimize_lineup`, which already reports it
+    separately via ``has_projection``.
+    """
+    if player is None:
+        return 0.0
+    settings = league_settings if isinstance(league_settings, LeagueSettings) else LeagueSettings(**(league_settings or {}))
+    projection = projected_points(player, settings)
+    if projection is not None:
+        return float(projection)
+    row = player if isinstance(player, Mapping) else _as_row(player)
+    if row is None:
+        return 0.0
+    scored = calculate_fantasy_points(dict(row), mode=settings.scoring_mode, custom_rules=settings.custom_rules)
+    return float(scored["total_points"])
 
 
 def _position_of(player: Mapping[str, Any]) -> str:

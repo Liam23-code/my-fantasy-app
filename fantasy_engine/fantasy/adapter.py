@@ -69,12 +69,21 @@ DISTRIBUTION_ALIASES: dict[str, tuple[str, ...]] = {
 # but draft/waiver rationale needs them when a source happens to provide
 # them, so they are carried through on the plain-dict path. Silently dropped
 # by CanonicalProjection's extra="ignore" when as_model=True.
+#
+# `projection` and `scoring_mode` travel together and must not be separated:
+# fantasy.projections.projected_points refuses a projection baked under a
+# different scoring mode than the league uses, and that guard can only fire if
+# the mode survives normalization alongside the number. Carrying the number
+# without the mode would be worse than carrying neither -- it would let a PPR
+# total be read as a standard-league one.
 EXTRA_ALIASES: dict[str, tuple[str, ...]] = {
     "injury_status": ("injury_status", "status", "injury"),
     "bye_week": ("bye_week",),
     "ownership_pct": ("ownership_pct", "percent_owned", "owned_pct"),
     "adp": ("adp", "average_draft_position"),
     "schedule_difficulty": ("schedule_difficulty", "strength_of_schedule", "sos"),
+    "projection": ("projection",),
+    "scoring_mode": ("scoring_mode",),
 }
 
 ALL_ALIASES: dict[str, tuple[str, ...]] = {**IDENTITY_ALIASES, **STAT_ALIASES, **DISTRIBUTION_ALIASES, **EXTRA_ALIASES}
@@ -141,6 +150,18 @@ def _resolve_extras(row: dict[str, Any]) -> dict[str, Any]:
             extras[field] = int(safe_float(raw)) if raw is not None else None
         elif field in {"ownership_pct", "adp", "schedule_difficulty"}:
             extras[field] = safe_float(raw) if raw is not None else None
+        elif field == "projection":
+            # `project_nfl_player` output nests its whole stat block under this
+            # same key, so only a genuine number is carried through. Coercing a
+            # mapping with safe_float would stamp a 0.0 projection onto every
+            # player of that shape -- silently zeroing a real projection is far
+            # worse than not carrying one.
+            extras[field] = float(raw) if isinstance(raw, (int, float)) and not isinstance(raw, bool) else None
+        elif field == "scoring_mode":
+            # Lower-cased, not upper like the other string extras: this is
+            # compared against LeagueSettings.scoring_mode ("ppr"/"half-ppr"/
+            # "standard"), which is lower-case.
+            extras[field] = str(raw).strip().lower() if raw is not None else None
         else:
             extras[field] = str(raw).strip().upper() if raw is not None else None
     return extras

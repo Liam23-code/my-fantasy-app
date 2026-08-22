@@ -15,9 +15,8 @@ from modules.reliability import get_reliability_score
 from modules.data_quality import as_dict, safe_number
 from modules.projections import (_find_player, _game_log_with_fuzzy_fallback, _player_team,
                                  latest_season, normalize_columns, project_player_statline)
-from modules.sportsbook import (fetch_all_sportsbook_props, fetch_daily_games,
-                                normalize_category, normalize_player_name,
-                                normalize_team_name)
+from modules.sportsbook_parser import normalize_category, normalize_player_name, normalize_team_name
+from modules.nba_props_loader import unified_props
 
 VALID_CATEGORIES = ("points", "rebounds", "assists", "PRA", "3PM")
 
@@ -57,7 +56,7 @@ def compare_props(player_name: str, opponent_team: str, categories: Iterable[str
     wanted = _categories(categories)
     if not wanted:
         raise ValueError("Choose at least one supported prop category.")
-    lines = [row for row in fetch_all_sportsbook_props()
+    lines = [row for row in unified_props()
              if normalize_player_name(row.get("player_name","")).lower() == player_key
              and normalize_category(row.get("category","")) in wanted]
     if not lines:

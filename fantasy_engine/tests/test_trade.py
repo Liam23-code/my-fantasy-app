@@ -180,3 +180,17 @@ def test_accepts_league_settings_model_instance():
         monte_carlo_iterations=100,
     )
     assert "recommendation" in result
+
+
+# --- basis: trade value is forward-looking ------------------------------------
+
+
+def test_trade_value_comes_from_the_projection_not_the_prior_season_stat_line():
+    """Identical box scores -- under the old raw-stat basis this trade valued at 0."""
+    team_a_gives = [_player("a", "Give Guy", "RB", "rushing_yards", 50, projection=5.0, scoring_mode="ppr")]
+    team_b_gives = [_player("b", "Receive Guy", "RB", "rushing_yards", 50, projection=9.0, scoring_mode="ppr")]
+    result = evaluate_trade(
+        team_a_gives, team_b_gives, SETTINGS, weeks_remaining=10, monte_carlo_iterations=200, seed=1
+    )
+    assert result["fair_value"] == pytest.approx((9.0 - 5.0) * 10, abs=0.01)
+    assert result["team_a_receives_points"] == pytest.approx(9.0 * 10, abs=0.01)

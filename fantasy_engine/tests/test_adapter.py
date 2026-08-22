@@ -184,3 +184,38 @@ def test_numeric_strings_in_source_are_coerced():
     result = normalize_projection({"name": "X", "position": "QB", "passing_yards": "245.0", "season": "2026"})
     assert result["passing_yards"] == pytest.approx(245.0)
     assert result["season"] == 2026
+
+
+def test_normalize_carries_the_projection_and_its_scoring_mode():
+    """Both, or the scoring-mode guard downstream cannot fire (see EXTRA_ALIASES)."""
+    result = normalize_projection(
+        {
+            "player_id": "rb1",
+            "name": "Bijan Robinson",
+            "position": "RB",
+            "team": "ATL",
+            "projection": 271.4,
+            "scoring_mode": "PPR",
+        }
+    )
+    assert result["projection"] == pytest.approx(271.4)
+    assert result["scoring_mode"] == "ppr"  # lower-cased to match LeagueSettings
+
+
+def test_normalize_does_not_read_a_nested_projection_block_as_a_number():
+    """`project_nfl_player` nests its stat block under `projection`.
+
+    Coercing that mapping to a float would stamp 0.0 onto every player of that
+    shape, which reads downstream as "projected to score nothing" rather than
+    "no projection here".
+    """
+    result = normalize_projection(
+        {
+            "player": "Josh Allen",
+            "position": "QB",
+            "team": "BUF",
+            "projection": {"passing_yards": 214.2, "expected_fantasy_points": 21.5},
+        }
+    )
+    assert result["projection"] is None
+    assert result["expected_fantasy_points"] == pytest.approx(21.5)

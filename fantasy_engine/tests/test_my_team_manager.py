@@ -99,6 +99,19 @@ def test_weekly_team_projection_uses_optimized_weekly_lineup(team):
     assert result["total_points"] == pytest.approx(20.0)
     assert [player["name"] for player in result["starters"]] == ["High Bench"]
     assert result["confidence"] == pytest.approx(0.90)
+    assert result["quant_total_points"] == pytest.approx(20.0)
+    assert 0.0 <= result["quant_confidence"] <= 1.0
+    assert result["starters"][0]["rarity_tier"]
+    assert result["starters"][0]["trend_direction"] in {"up", "down", "flat"}
+
+
+def test_weekly_team_projection_falls_back_when_quant_enrichment_is_unavailable(team, monkeypatch):
+    monkeypatch.setattr(manager, "_quant_by_player", lambda *args, **kwargs: {})
+
+    result = manager.weekly_team_projection(team, WEEK)
+
+    assert result["quant_total_points"] == result["total_points"] == pytest.approx(20.0)
+    assert result["quant_confidence"] == result["confidence"] == pytest.approx(0.90)
 
 
 def test_lineup_recommendations_swap_the_better_bench_player_in(team):
@@ -108,6 +121,8 @@ def test_lineup_recommendations_swap_the_better_bench_player_in(team):
     assert swaps[0]["start"] == "High Bench"
     assert swaps[0]["bench"] == "Low Starter"
     assert swaps[0]["projected_gain"] == pytest.approx(10.0)
+    assert swaps[0]["quant_projected_gain"] == pytest.approx(10.0)
+    assert "momentum_score" in swaps[0]
 
 
 def test_waiver_recommendation_adds_an_upgrade_and_names_the_drop(team):
@@ -119,6 +134,9 @@ def test_waiver_recommendation_adds_an_upgrade_and_names_the_drop(team):
     assert recommendations[0]["add"] == "Waiver Upgrade"
     assert recommendations[0]["drop"] == "Low Starter"
     assert recommendations[0]["weekly_gain"] == pytest.approx(15.0)
+    assert 0.0 <= recommendations[0]["quant_priority_score"] <= 100.0
+    assert 0.0 <= recommendations[0]["breakout_probability"] <= 1.0
+    assert recommendations[0]["rarity_tier"]
 
 
 def test_trade_recommendation_targets_rest_of_season_upgrade(team):
@@ -130,6 +148,9 @@ def test_trade_recommendation_targets_rest_of_season_upgrade(team):
     assert recommendations[0]["trade_for"] == "Trade Target"
     assert recommendations[0]["offer"] == "Low Starter"
     assert recommendations[0]["rest_of_season_gain"] > 0
+    assert 0.0 <= recommendations[0]["quant_trade_score"] <= 100.0
+    assert "fairness_score" in recommendations[0]
+    assert recommendations[0]["quant"]["target"]["rarity_tier"]
 
 
 def test_bench_vs_start_decision_sits_a_player_on_bye():
@@ -139,6 +160,8 @@ def test_bench_vs_start_decision_sits_a_player_on_bye():
     assert decision["decision"] == "sit"
     assert decision["points"] == 0.0
     assert decision["opponent"] == "BYE"
+    assert decision["quant_decision"] == "sit"
+    assert decision["quant_projected_points"] == 0.0
 
 
 def test_team_confidence_curve_contains_points_and_confidence_for_all_weeks(team):
@@ -148,6 +171,9 @@ def test_team_confidence_curve_contains_points_and_confidence_for_all_weeks(team
     assert curve[WEEK]["points"] == pytest.approx(20.0)
     assert curve[WEEK]["confidence"] == pytest.approx(0.90)
     assert all(0.0 <= value["confidence"] <= 1.0 for value in curve.values())
+    assert curve[WEEK]["quant_points"] == pytest.approx(20.0)
+    assert all(0.0 <= value["quant_confidence"] <= 1.0 for value in curve.values())
+    assert all(0.0 <= value["volatility"] <= 1.0 for value in curve.values())
 
 
 def test_team_health_reports_inactive_players(team):
@@ -157,6 +183,8 @@ def test_team_health_reports_inactive_players(team):
     assert health["status"] in {"watch", "critical"}
     assert health["available_players"] == 1
     assert health["issues"][0]["player"] == "Low Starter"
+    assert 0.0 <= health["quant_health_score"] <= 100.0
+    assert health["quant_players"]["low"]["health_multiplier"] == 0.0
 
 
 def test_completed_user_draft_requires_an_explicit_team_save(tmp_path, monkeypatch):

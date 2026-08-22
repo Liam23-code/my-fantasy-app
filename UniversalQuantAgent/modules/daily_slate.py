@@ -1,14 +1,16 @@
-"""Compose schedule, real sportsbook props, and lightweight player projections."""
+"""Compose schedule, offline prop lines, and lightweight player projections."""
 from __future__ import annotations
 from datetime import date
 from typing import Any
 from modules.fusion_model import fuse_projection
 from modules.data_quality import safe_number
-from modules.sportsbook import fetch_all_sportsbook_props, fetch_daily_games, normalize_team_name
+from modules.sportsbook_parser import normalize_team_name
+from modules.nba_props_loader import unified_props
+from modules.nba_schedule import fetch_todays_games
 
 def get_daily_slate(max_projections: int | None = None) -> dict[str, Any]:
-    games = fetch_daily_games()
-    props = fetch_all_sportsbook_props()
+    games = fetch_todays_games()
+    props = unified_props()
     opponents = {}
     for game in games:
         opponents[game["home_team"]] = game["away_team"]

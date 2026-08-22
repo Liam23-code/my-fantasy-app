@@ -8,8 +8,9 @@ from modules.props import (VALID_CATEGORIES, _categories, _opponent_map,
                            _player_team_name, compare_props, prop_confidence)
 from modules.projections import latest_season
 from modules.reliability import get_reliability_score
-from modules.sportsbook import (fetch_all_sportsbook_props, fetch_daily_games,
-                                normalize_category, normalize_team_name)
+from modules.sportsbook_parser import normalize_category, normalize_team_name
+from modules.nba_props_loader import unified_props
+from modules.nba_schedule import fetch_todays_games
 
 def recommend_props(categories: Iterable[str] = VALID_CATEGORIES, min_edge: float = 1.5,
                     min_confidence: float = 55.0, season: str | None = None,
@@ -17,8 +18,8 @@ def recommend_props(categories: Iterable[str] = VALID_CATEGORIES, min_edge: floa
                     ) -> list[dict[str, Any]]:
     """Rank verified lines using edge, interval confidence, and reliability."""
     wanted = _categories(categories)
-    lines = fetch_all_sportsbook_props()
-    opponents = _opponent_map(fetch_daily_games())
+    lines = unified_props()
+    opponents = _opponent_map(fetch_todays_games())
     groups: dict[tuple[str,str], set[str]] = defaultdict(set)
     inferred, active_season = {}, season or latest_season()
     for line in lines:

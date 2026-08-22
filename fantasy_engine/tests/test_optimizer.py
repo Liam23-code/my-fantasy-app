@@ -302,3 +302,29 @@ def test_start_sit_advice_flex_starter_compares_against_all_flex_eligible_bench(
     assert by_name["RB1"]["start_or_bench"] == "start"
     assert by_name["WR1"]["start_or_bench"] == "bench"
     assert "RB1" in by_name["WR1"]["reason"]
+
+
+# --- basis: the lineup is solved on projections, not prior-season box scores ---
+
+ONE_RB_SETTINGS = {
+    "n_teams": 10,
+    "scoring_mode": "ppr",
+    "roster_requirements": {"QB": 0, "RB": 1, "WR": 0, "TE": 0, "FLEX": 0, "DST": 0, "K": 0, "BENCH": 1},
+    "flex_eligible": [],
+}
+
+
+def test_lineup_starts_the_better_projection_not_the_better_box_score():
+    """A back coming off an injured season outstarts one whose raw line was better."""
+    roster = [_player("hurt", "Hurt Star", "RB"), _player("filler", "Healthy Filler", "RB")]
+    projections = [
+        # 40 raw points, but projected for a full season back in the lead role.
+        {"player_id": "hurt", "name": "Hurt Star", "position": "RB",
+         "rushing_yards": 400, "projection": 240.0, "scoring_mode": "ppr"},
+        # A better box score last year, and a worse outlook.
+        {"player_id": "filler", "name": "Healthy Filler", "position": "RB",
+         "rushing_yards": 900, "projection": 120.0, "scoring_mode": "ppr"},
+    ]
+    lineup = optimize_lineup(roster, projections, ONE_RB_SETTINGS)
+    assert [starter["name"] for starter in lineup["starters"]] == ["Hurt Star"]
+    assert lineup["total_points"] == pytest.approx(240.0)

@@ -33,6 +33,7 @@ from app.fantasy_shared import (
     league_setup,
     pick_card_html,
     player_card_html,
+    quant_breakout_by_player,
     render_grade_panel,
     require_pool,
 )
@@ -219,8 +220,14 @@ if require_pool(setup, "run a draft"):
                     "model — not locked to one position, so a gone target never limits you to a worse "
                     "player at the same spot."
                 )
+                # Computed from the original board, not the recommendation rows
+                # above -- those are reshaped to ~15 summary fields and would
+                # starve the Quant breakout model of the player data it reads.
+                breakout_by_player = quant_breakout_by_player(context["board"])
                 rec_columns = st.columns(3)
                 for index, entry in enumerate(recommendations):
+                    breakout_row = breakout_by_player.get(str(entry.get("player_id")), {})
+                    entry = {**entry, "quant_breakout_probability": breakout_row.get("breakout_probability")}
                     with rec_columns[index % 3], st.container(border=True):
                         st.markdown(player_card_html(entry, f"#{entry['rank']}"), unsafe_allow_html=True)
                         if st.button(

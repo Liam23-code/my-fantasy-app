@@ -17,6 +17,7 @@ from fantasy.projections import (
     MARKET_RECONCILIATION_WEIGHT,
     load_forward_projections,
     project_forward,
+    projected_or_scored,
     projected_points,
     projection_season_label,
     upcoming_season,
@@ -255,3 +256,30 @@ def test_load_forward_projections_projects_what_the_loader_returned(monkeypatch)
     assert captured["season"] == 2025
     assert captured["scoring_mode"] == "ppr"
     assert {player["projection_season"] for player in players} == {2026}
+
+
+# --- projected_or_scored: the one preference order every module shares --------
+
+
+def test_projected_or_scored_prefers_the_projection():
+    player = _rb("rb", 255.0, 17, rushing_yards=900.0)
+    assert projected_or_scored(player, {"scoring_mode": "ppr"}) == pytest.approx(255.0)
+
+
+def test_projected_or_scored_falls_back_to_scoring_the_stat_line():
+    """No projection at all -- the stat line is a baseline, and better than nothing."""
+    # 90 yards, deliberately under the 100-yard bonus threshold, so the
+    # expected number is a clean 0.1/yd with nothing else folded in.
+    bare = {"player_id": "x", "name": "X", "position": "RB", "rushing_yards": 90.0}
+    assert projected_or_scored(bare, {"scoring_mode": "ppr"}) == pytest.approx(9.0)
+
+
+def test_projected_or_scored_falls_back_when_the_projections_mode_disagrees():
+    """A PPR total must not be served up as a standard-league number."""
+    player = _rb("rb", 255.0, 17, rushing_yards=90.0)
+    assert projected_or_scored(player, {"scoring_mode": "standard"}) == pytest.approx(9.0)
+
+
+def test_projected_or_scored_returns_zero_for_a_missing_player():
+    """An unmatched roster slot is a normal state, not an error."""
+    assert projected_or_scored(None, {"scoring_mode": "ppr"}) == 0.0

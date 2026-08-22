@@ -34,7 +34,7 @@ dev = [
 fantasy = "fantasy.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["fantasy*", "api*"]
+include = ["fantasy*", "api*", "quant*", "projections*", "betting*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

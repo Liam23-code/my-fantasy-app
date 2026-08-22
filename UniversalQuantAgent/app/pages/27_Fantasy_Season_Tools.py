@@ -9,6 +9,10 @@ _loaded_app = sys.modules.get("app")
 if _loaded_app is not None and not hasattr(_loaded_app, "__path__"):
     del sys.modules["app"]
 
+_FANTASY_ENGINE_ROOT = Path(__file__).resolve().parents[3] / "fantasy_engine"
+if _FANTASY_ENGINE_ROOT.is_dir() and str(_FANTASY_ENGINE_ROOT) not in sys.path:
+    sys.path.insert(0, str(_FANTASY_ENGINE_ROOT))
+
 # Fantasy Season Tools: everything after the draft.
 #
 # Waivers, lineups, trades, and the scoring sandbox -- the in-season half of
@@ -20,6 +24,8 @@ if _loaded_app is not None and not hasattr(_loaded_app, "__path__"):
 # Deliberately a comment, not a string -- see the note in 25_Fantasy_Draft_Room.py.
 
 import json
+from collections.abc import Mapping
+from typing import Any
 
 import pandas as pd
 import streamlit as st
@@ -44,6 +50,176 @@ from fantasy.scoring import (
 from fantasy.trade import evaluate_trade
 from fantasy.waiver import waiver_recommendations
 from fantasy.weekly_projections import build_weekly_projection, weekly_matchups
+from quant import quant_engine as quant
+from quant.trade_engine import trade_fairness_score
+from quant.waiver_engine import rank_waiver_priority
+
+
+def _player_key(player: Mapping[str, Any]) -> str:
+    """Return a stable join key for player records from different engines."""
+    identifier = player.get("player_id") or player.get("id")
+    if identifier:
+        return str(identifier).strip().casefold()
+    return str(player.get("name") or player.get("player_name") or "").strip().casefold()
+
+
+def _quant_result(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Extract one row from a Quant Engine metric envelope."""
+    result = payload.get("result")
+    if isinstance(result, Mapping):
+        return dict(result)
+    rows = payload.get("results")
+    if isinstance(rows, list) and rows and isinstance(rows[0], Mapping):
+        return dict(rows[0])
+    return dict(payload)
+
+
+def _quant_by_player(payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    """Index metric rows by both id and normalized display name."""
+    result: dict[str, dict[str, Any]] = {}
+    rows = payload.get("results")
+    if not isinstance(rows, list):
+        return result
+    for raw_row in rows:
+        if not isinstance(raw_row, Mapping):
+            continue
+        row = dict(raw_row)
+        for value in (row.get("player_id"), row.get("name")):
+            key = str(value or "").strip().casefold()
+            if key:
+                result[key] = row
+    return result
+
+
+def _quant_matchup_context(player: Mapping[str, Any], week: int) -> dict[str, Any]:
+    """Translate the weekly engine's defense scale to Quant's strength scale."""
+    matchup = weekly_matchups(dict(player))[week]
+    adjustment = safe_number(matchup.get("defensive_adjustment"), 1.0)
+    is_bye = str(matchup.get("opponent") or "").upper() == "BYE" or adjustment == 0.0
+    # The legacy curve maps a neutral defense to 1.0 and the Quant Engine maps
+    # neutral strength to 0.5.  This inverse preserves all known matchup data.
+    defensive_strength = 0.5 if is_bye else max(0.0, min(1.0, 0.5 - (adjustment - 1.0) / 0.30))
+    return {
+        "opponent": matchup.get("opponent") or "TBD",
+        "opponent_strength": defensive_strength,
+        "is_bye": is_bye,
+        "defensive_adjustment": adjustment,
+        "has_defense_data": bool(matchup.get("has_defense_data")),
+    }
+
+
+def _quant_weekly_result(player: Mapping[str, Any], week: int, scoring_mode: str) -> dict[str, Any]:
+    """Calculate one authoritative Quant-adjusted weekly forecast."""
+    context = _quant_matchup_context(player, week)
+    source = dict(player)
+    # Existing weekly curves already include matchup and volatility effects.
+    # Remove them here so Quant performs the adjustment exactly once from the
+    # season baseline; the curve is re-attached for downstream consumers.
+    source.pop("weekly_projection", None)
+    row = _quant_result(
+        quant.compute_weekly_matchup_score(
+            source,
+            week,
+            matchup=context,
+            scoring_mode=scoring_mode,
+        )
+    )
+    return {
+        **row,
+        "week": week,
+        "opponent": context["opponent"],
+        "is_bye": context["is_bye"],
+        "defensive_adjustment": context["defensive_adjustment"],
+        "has_defense_data": context["has_defense_data"],
+        "points": safe_number(row.get("weekly_projected_points", row.get("adjusted_projection"))),
+        "confidence": max(0.0, min(1.0, safe_number(row.get("confidence"), 0.5))),
+    }
+
+
+def _quant_weekly_curve(player: Mapping[str, Any], scoring_mode: str) -> dict[int, dict[str, Any]]:
+    """Produce the complete 18-week Quant projection and confidence curve."""
+    return {week: _quant_weekly_result(player, week, scoring_mode) for week in range(1, 19)}
+
+
+def _quant_week_pool(players: list[dict[str, Any]], week: int, scoring_mode: str) -> list[dict[str, Any]]:
+    """Attach the selected Quant week to a projection pool for start/sit."""
+    enriched: list[dict[str, Any]] = []
+    for player in players:
+        weekly = _quant_weekly_result(player, week, scoring_mode)
+        curve = dict(player.get("weekly_projection") or build_weekly_projection(player, scoring_mode))
+        curve[week] = {"points": weekly["points"], "confidence": weekly["confidence"]}
+        enriched.append(
+            {
+                **player,
+                "weekly_projection": curve,
+                "quant_weekly_matchup_score": weekly.get("weekly_matchup_score", 0.0),
+                "quant_weekly_confidence": weekly["confidence"],
+            }
+        )
+    return enriched
+
+
+def _optimizer_proxies(players: list[dict[str, Any]], week: int, scoring_mode: str) -> list[dict[str, Any]]:
+    """Express Quant weekly points in the optimizer's exact point carrier."""
+    proxies: list[dict[str, Any]] = []
+    for player in _quant_week_pool(players, week, scoring_mode):
+        value = player["weekly_projection"][week]
+        proxies.append(
+            {
+                "player_id": player.get("player_id") or player.get("id"),
+                "name": player.get("name") or player.get("player_name"),
+                "position": player.get("position"),
+                "team": player.get("team") or player.get("nfl_team"),
+                "passing_yards": safe_number(value.get("points")) * 25.0,
+                "quant_confidence": value.get("confidence"),
+            }
+        )
+    return proxies
+
+
+def _quant_waiver_recommendations(
+    league_state: dict[str, Any],
+    available: list[dict[str, Any]],
+    scoring_mode: str,
+    budget: float,
+) -> list[dict[str, Any]]:
+    """Preserve league recommendations and append Quant waiver intelligence."""
+    recommendations = waiver_recommendations(league_state, available, scoring_mode, budget=budget)
+    quant_rows = rank_waiver_priority(
+        available,
+        team=league_state.get("my_roster") or [],
+        week=league_state.get("current_week"),
+        roster_requirements=(league_state.get("league_settings") or {}).get("roster_requirements"),
+    )
+    by_key: dict[str, dict[str, Any]] = {}
+    for row in quant_rows:
+        by_key[_player_key(row)] = row
+        name_key = str(row.get("name") or "").strip().casefold()
+        if name_key:
+            by_key[name_key] = row
+    enriched = []
+    for recommendation in recommendations:
+        quant_row = by_key.get(_player_key(recommendation), {})
+        enriched.append(
+            {
+                **recommendation,
+                "quant_waiver_score": quant_row.get("waiver_priority_score"),
+                "opportunity_score": quant_row.get("opportunity_score"),
+                "breakout_probability": quant_row.get("breakout_probability"),
+                "usage_trend": quant_row.get("usage_trend_direction"),
+                "quant_matchup": quant_row.get("matchup_label"),
+                "volatility_profile": quant_row.get("volatility_label"),
+            }
+        )
+    enriched.sort(
+        key=lambda row: (
+            -safe_number(row.get("quant_waiver_score"), safe_number(row.get("composite_score"))),
+            safe_number(row.get("waiver_rank"), 9999.0),
+        )
+    )
+    for rank, row in enumerate(enriched, start=1):
+        row["waiver_rank"] = rank
+    return enriched
 
 apply_global_theme()
 setup = league_setup()
@@ -61,9 +237,9 @@ target_season = setup["target_season"]
 
 st.caption(
     f"The player pool on this page is the same {projection_season_label(target_season)} pool the draft pages "
-    "use. Weekly projections and start/sit advice use the matchup-adjusted weekly curve. The lineup optimizer, "
-    "waiver model, and trade model still score each player's underlying stat line directly, so treat those "
-    "totals as relative rankings rather than the same forecast shown by the weekly model."
+    "use. The Quant Engine now supplies weekly projections, confidence, matchup, volatility, scarcity, trend, "
+    "waiver-priority, and trade-fairness signals. The lineup optimizer applies league roster rules to those "
+    "weekly Quant forecasts, so its total matches the selected week's analytical curve."
 )
 
 tool_cards = (
@@ -111,20 +287,51 @@ with weekly_tab:
             key="fantasy_weekly_player",
         )
         selected_player = weekly_players[selected_player_id]
-        weekly_projection = build_weekly_projection(selected_player, league_settings.get("scoring_mode", "ppr"))
-        matchup_curve = weekly_matchups(selected_player)
+        scoring_mode = str(league_settings.get("scoring_mode") or "ppr")
+        weekly_projection = _quant_weekly_curve(selected_player, scoring_mode)
         weekly_rows = [
             {
                 "Week": week,
                 "Projected points": weekly_projection[week]["points"],
                 "Confidence": weekly_projection[week]["confidence"],
-                "Opponent": matchup_curve[week]["opponent"],
-                "Matchup multiplier": matchup_curve[week]["defensive_adjustment"],
-                "Defense data": "Available" if matchup_curve[week]["has_defense_data"] else "Neutral fallback",
+                "Opponent": weekly_projection[week]["opponent"],
+                "Matchup multiplier": weekly_projection[week]["defensive_adjustment"],
+                "Matchup score": weekly_projection[week].get("weekly_matchup_score", 0.0),
+                "Defense data": "Available" if weekly_projection[week]["has_defense_data"] else "Neutral fallback",
             }
             for week in weekly_projection
         ]
         weekly_frame = pd.DataFrame(weekly_rows).set_index("Week")
+
+        final_projection = quant.compute_final_projection(
+            selected_player,
+            players=projections,
+            scoring_mode=scoring_mode,
+        )
+        volatility = _quant_result(quant.compute_volatility(selected_player))
+        confidence = _quant_result(quant.compute_confidence_scores(selected_player))
+        scarcity = _quant_by_player(
+            quant.compute_positional_scarcity(
+                projections,
+                roster_slots=league_settings.get("roster_requirements"),
+                teams=int(league_settings.get("n_teams") or 12),
+            )
+        ).get(_player_key(selected_player), {})
+        rarity = _quant_by_player(quant.compute_rarity_tier(projections)).get(_player_key(selected_player), {})
+
+        trend_source = dict(selected_player)
+        if not trend_source.get("history"):
+            trend_source["history"] = [
+                {
+                    "week": row["Week"],
+                    "points": row["Projected points"],
+                    "projection": safe_number(final_projection.get("final_projection")) / 17.0,
+                }
+                for row in weekly_rows
+                if row["Opponent"] != "BYE"
+            ]
+        trend = _quant_result(quant.compute_trend_lines(trend_source, window=3))
+        momentum = _quant_result(quant.compute_momentum(trend_source, window=3))
 
         selected_rank = selected_player.get(
             "overall_rank",
@@ -136,8 +343,10 @@ with weekly_tab:
                 f"{selected_player.get('position', '—')} · {selected_player.get('team') or 'FA'}",
                 kicker="Selected weekly profile",
                 stats={
-                    "Season projection": f"{safe_number(selected_player.get('projection')):.1f}",
-                    "Weeks": 18,
+                    "Quant projection": f"{safe_number(final_projection.get('final_projection')):.1f}",
+                    "Confidence": f"{safe_number(confidence.get('confidence_score')):.0%}",
+                    "Rarity": rarity.get("rarity_tier", "—"),
+                    "Scarcity": f"{safe_number(scarcity.get('scarcity_score')):.1f}",
                 },
                 rarity_rank=selected_rank,
                 extra_class="weekly-player-card",
@@ -176,9 +385,25 @@ with weekly_tab:
         matchup_col.metric("Matchup", "Bye" if matchup_value == 0 else f"{matchup_value:.2f}x")
         confidence_col.metric("Confidence", f"{focus['Confidence']:.0%}")
 
+        quant_col, volatility_col, scarcity_col, momentum_col = st.columns(4)
+        quant_col.metric("Quant matchup score", f"{focus['Matchup score']:.0f}/100")
+        volatility_col.metric(
+            "Volatility",
+            f"{safe_number(volatility.get('volatility')):.0%}",
+            help=str(volatility.get("risk_level") or "Quant weekly risk"),
+        )
+        scarcity_col.metric("Positional scarcity", f"{safe_number(scarcity.get('scarcity_score')):.1f}/100")
+        momentum_col.metric(
+            "Momentum",
+            f"{safe_number(momentum.get('momentum_score'), 50.0):.0f}/100",
+            help=str(momentum.get("direction") or "flat").title(),
+        )
+
         st.markdown("#### Opponent matchups")
         st.dataframe(
-            weekly_frame[["Opponent", "Matchup multiplier", "Defense data", "Projected points"]],
+            weekly_frame[
+                ["Opponent", "Matchup multiplier", "Matchup score", "Defense data", "Projected points"]
+            ],
             width="stretch",
             height=330,
         )
@@ -197,6 +422,29 @@ with weekly_tab:
             config={"displayModeBar": False},
             key="fantasy-weekly-confidence-curve",
         )
+
+        rolling_points = trend.get("rolling_points") or trend.get("trend_line") or []
+        trend_pairs = [
+            (week, value)
+            for week, value in enumerate(rolling_points, start=1)
+            if isinstance(value, (int, float))
+        ]
+        st.markdown("#### Quant trend line")
+        if trend_pairs:
+            st.plotly_chart(
+                gold_glow_chart(
+                    [value for _week, value in trend_pairs],
+                    x=[week for week, _value in trend_pairs],
+                    title=f"Rolling form · {str(trend.get('trend_direction') or trend.get('direction') or 'flat').title()}",
+                    name="Three-week rolling points",
+                    height=330,
+                ),
+                use_container_width=True,
+                config={"displayModeBar": False},
+                key="fantasy-weekly-quant-trend",
+            )
+        else:
+            st.caption("A trend line will appear after at least three usable weekly observations are available.")
         if all(row["Defense data"] == "Neutral fallback" for row in weekly_rows):
             st.caption(
                 "No week-specific defense data is attached to this player pool, so matchup multipliers are "
@@ -232,7 +480,12 @@ with waivers_tab:
             scoring_mode_override = league_settings.get("scoring_mode")
             recs = run_analysis(
                 "waiver recommendations",
-                lambda: waiver_recommendations(league_state, available, scoring_mode_override, budget=float(budget)),
+                lambda: _quant_waiver_recommendations(
+                    league_state,
+                    available,
+                    str(scoring_mode_override or "ppr"),
+                    float(budget),
+                ),
             )
             if recs:
                 st.session_state["fantasy_waiver_result"] = recs
@@ -242,7 +495,21 @@ with waivers_tab:
             bid_col = "suggested_auction_bid" if league_settings.get("is_auction") else "suggested_faab_bid"
             columns_wanted = [
                 col
-                for col in ["waiver_rank", "name", "position", "composite_score", "replacement_value", bid_col, "rationale"]
+                for col in [
+                    "waiver_rank",
+                    "name",
+                    "position",
+                    "quant_waiver_score",
+                    "opportunity_score",
+                    "breakout_probability",
+                    "usage_trend",
+                    "quant_matchup",
+                    "volatility_profile",
+                    "composite_score",
+                    "replacement_value",
+                    bid_col,
+                    "rationale",
+                ]
                 if col in recs[0]
             ]
             st.dataframe(pd.DataFrame(recs)[columns_wanted], width="stretch", hide_index=True, height=360)
@@ -282,7 +549,16 @@ with lineup_tab:
         if st.button("Optimize lineup", type="primary", key="fantasy_optimize_lineup"):
             lineup = run_analysis(
                 "lineup optimization",
-                lambda: optimize_lineup(roster, projections, league_settings, constraints),
+                lambda: optimize_lineup(
+                    roster,
+                    _optimizer_proxies(
+                        projections,
+                        lineup_week,
+                        str(league_settings.get("scoring_mode") or "ppr"),
+                    ),
+                    {**league_settings, "scoring_mode": "ppr", "custom_rules": None},
+                    constraints,
+                ),
             )
             if lineup:
                 st.session_state["fantasy_lineup_result"] = lineup
@@ -310,7 +586,16 @@ with lineup_tab:
         if st.button("Get start/sit advice", key="fantasy_start_sit"):
             advice = run_analysis(
                 "weekly start/sit advice",
-                lambda: weekly_start_sit_advice(roster, projections, lineup_week, league_settings),
+                lambda: weekly_start_sit_advice(
+                    roster,
+                    _quant_week_pool(
+                        projections,
+                        lineup_week,
+                        str(league_settings.get("scoring_mode") or "ppr"),
+                    ),
+                    lineup_week,
+                    league_settings,
+                ),
             )
             if advice:
                 st.session_state["fantasy_start_sit_result"] = advice
@@ -351,16 +636,25 @@ with trades_tab:
             else:
                 trade = run_analysis(
                     "trade evaluation",
-                    lambda: evaluate_trade(
-                        team_a_players=team_a_gives,
-                        team_b_players=team_b_gives,
-                        league_settings=league_settings,
-                        projections=projections,
-                        monte_carlo_iterations=int(iterations),
-                        weeks_remaining=int(weeks_remaining),
-                        team_a_roster=roster,
-                        seed=int(trade_seed),
-                    ),
+                    lambda: {
+                        **evaluate_trade(
+                            team_a_players=team_a_gives,
+                            team_b_players=team_b_gives,
+                            league_settings=league_settings,
+                            projections=projections,
+                            monte_carlo_iterations=int(iterations),
+                            weeks_remaining=int(weeks_remaining),
+                            team_a_roster=roster,
+                            seed=int(trade_seed),
+                        ),
+                        "quant_fairness": trade_fairness_score(
+                            [player for player in [*projections, *roster] if player.get("name") in team_a_gives],
+                            [player for player in [*projections, *roster] if player.get("name") in team_b_gives],
+                            team_a=roster,
+                            player_pool=projections,
+                            roster_requirements=league_settings.get("roster_requirements"),
+                        ),
+                    },
                 )
                 if trade:
                     st.session_state["fantasy_trade_result"] = trade
@@ -372,6 +666,13 @@ with trades_tab:
             m1.metric("Fair value (Team A net)", f"{trade['fair_value']:+.1f} pts")
             m2.metric("Team A win-prob delta", f"{trade['win_prob_delta']:+.2%}")
             m3.metric("Team A win probability", f"{trade['team_a_win_probability']:.1%}")
+            quant_fairness = trade.get("quant_fairness") or {}
+            if quant_fairness:
+                q1, q2, q3 = st.columns(3)
+                q1.metric("Quant fairness", f"{safe_number(quant_fairness.get('fairness_score')):.0f}/100")
+                q2.metric("Quant value edge", f"{safe_number(quant_fairness.get('team_a_net_value')):+.1f}")
+                q3.metric("Roster fit", f"{safe_number(quant_fairness.get('team_a_fit_score')):.0f}/100")
+                st.caption(f"Quant verdict: {quant_fairness.get('recommendation', 'No verdict available')}.")
             for line in trade["rationale"]:
                 st.write(f"- {line}")
     else:
@@ -429,9 +730,14 @@ with scoring_tab:
                 lambda: calculate_fantasy_points(chosen_player, mode=scoring_mode, custom_rules=custom_rules),
             )
             if scored:
-                scored["_authoritative_projection"] = chosen_player.get("projection")
+                quant_projection = quant.compute_final_projection(
+                    chosen_player,
+                    players=projections,
+                    scoring_mode=scoring_mode,
+                )
+                scored["_authoritative_projection"] = quant_projection.get("final_projection")
                 scored["_player_name"] = chosen_player.get("name")
-                scored["_projection_basis"] = chosen_player.get("projection_basis", "")
+                scored["_projection_basis"] = "Quant Engine weighted ensemble"
                 st.session_state["fantasy_single_score"] = scored
 
         scored = st.session_state.get("fantasy_single_score")

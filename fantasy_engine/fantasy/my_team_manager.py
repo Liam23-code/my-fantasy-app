@@ -1,11 +1,12 @@
 """Persistent, week-aware management for a user's drafted fantasy team.
 
-The manager is deliberately a thin orchestration layer over the engine's two
-authoritative projection sources:
+The manager is deliberately an orchestration layer over three stable sources:
 
 * :mod:`fantasy.projections` supplies season value; and
 * :mod:`fantasy.weekly_projections` supplies matchup-adjusted weekly points
-  and confidence.
+  and confidence for legacy compatibility; while
+* :mod:`quant.quant_engine` supplies the cross-module matchup, volatility,
+  rarity, trend, momentum, health, waiver, and trade intelligence.
 
 The legacy saved team lives at ``fantasy_engine/data/user_team.json``.  A team
 may be a plain list of players or a document containing ``players``/``roster``
@@ -24,6 +25,7 @@ import math
 import numbers
 import os
 import re
+import sys
 import tempfile
 import unicodedata
 import uuid
@@ -37,6 +39,16 @@ from fantasy.models import LeagueSettings
 from fantasy.projections import projected_points
 from fantasy.utils import clamp, normalize_player_name, safe_float
 from fantasy.weekly_projections import WEEKS, build_weekly_projection, weekly_matchups
+
+try:
+    from quant import quant_engine as quant
+except ModuleNotFoundError as error:
+    if error.name != "quant":
+        raise
+    engine_root = str(Path(__file__).resolve().parents[1])
+    if engine_root not in sys.path:
+        sys.path.insert(0, engine_root)
+    from quant import quant_engine as quant
 
 USER_TEAM_PATH = Path(__file__).resolve().parents[1] / "data" / "user_team.json"
 USER_TEAMS_DIR = USER_TEAM_PATH.parent / "user_teams"
@@ -508,7 +520,95 @@ def _lineup_advice(team: Any, week: int) -> tuple[list[dict[str, Any]], list[dic
     return advice, players, settings
 
 
-def weekly_team_projection(team: Any, week: int) -> dict[str, Any]:
+def _quant_by_player(function: Any, *args: Any, **kwargs: Any) -> dict[str, dict[str, Any]]:
+    """Run one Quant metric without letting optional enrichment hide the team.
+
+    The legacy manager accepts partial manually-entered player rows.  Quant
+    functions validate more aggressively, so malformed optional evidence is
+    treated as unavailable enrichment while the established points/gain
+    fields keep working.
+    """
+    try:
+        payload = function(*args, **kwargs)
+    except (KeyError, TypeError, ValueError):
+        return {}
+    if not isinstance(payload, Mapping) or not isinstance(payload.get("by_player"), Mapping):
+        return {}
+    return {str(key): dict(value) for key, value in payload["by_player"].items() if isinstance(value, Mapping)}
+
+
+def _quant_player_context(
+    players: Sequence[Mapping[str, Any]],
+    *,
+    week: int | None = None,
+    scoring_mode: str = "ppr",
+    base_context: Mapping[str, Mapping[str, Mapping[str, Any]]] | None = None,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    """Compute shared player analytics once for a manager operation."""
+    pool = [dict(player) for player in players]
+    context = {key: dict(value) for key, value in (base_context or {}).items()}
+    if not base_context:
+        context.update(
+            {
+                "confidence": _quant_by_player(quant.compute_confidence_scores, pool),
+                "volatility": _quant_by_player(quant.compute_volatility, pool),
+                "rarity": _quant_by_player(quant.compute_rarity_tier, pool),
+                "trends": _quant_by_player(quant.compute_trend_lines, pool),
+                "momentum": _quant_by_player(quant.compute_momentum, pool),
+            }
+        )
+    context["matchup"] = (
+        _quant_by_player(
+            quant.compute_weekly_matchup_score,
+            pool,
+            week,
+            scoring_mode=scoring_mode,
+        )
+        if week is not None
+        else {}
+    )
+    return context
+
+
+def _quant_summary(
+    player: Mapping[str, Any],
+    context: Mapping[str, Mapping[str, Mapping[str, Any]]],
+) -> dict[str, Any]:
+    player_id = _player_key(player)
+    confidence = context.get("confidence", {}).get(player_id, {})
+    volatility = context.get("volatility", {}).get(player_id, {})
+    rarity = context.get("rarity", {}).get(player_id, {})
+    trends = context.get("trends", {}).get(player_id, {})
+    momentum = context.get("momentum", {}).get(player_id, {})
+    matchup = context.get("matchup", {}).get(player_id, {})
+    return {
+        "matchup_available": bool(matchup),
+        "confidence_available": bool(confidence),
+        "projected_points": round(safe_float(matchup.get("adjusted_projection")), 2),
+        "matchup_score": round(safe_float(matchup.get("weekly_matchup_score"), 50.0), 2),
+        "confidence": round(
+            clamp(
+                safe_float(matchup.get("confidence"), safe_float(confidence.get("confidence_score"), 0.5)),
+                0.0,
+                1.0,
+            ),
+            3,
+        ),
+        "volatility": round(clamp(safe_float(volatility.get("volatility"), 0.5), 0.0, 1.0), 3),
+        "rarity_tier": str(rarity.get("rarity_tier") or rarity.get("tier") or "Depth"),
+        "rarity_rank": int(safe_float(rarity.get("rank"), 0.0)),
+        "trend_direction": str(trends.get("trend_direction") or trends.get("direction") or "flat"),
+        "trend_line": list(trends.get("trend_line") or []),
+        "momentum_score": round(safe_float(momentum.get("momentum_score"), 50.0), 2),
+    }
+
+
+def weekly_team_projection(
+    team: Any,
+    week: int,
+    *,
+    _quant_context: Mapping[str, Mapping[str, Mapping[str, Any]]] | None = None,
+) -> dict[str, Any]:
     """Project the legal, optimized starting lineup for one week.
 
     Returns the total, weighted lineup confidence, and explicit starter/bench
@@ -517,6 +617,11 @@ def weekly_team_projection(team: Any, week: int) -> dict[str, Any]:
     week_number = _validated_week(week)
     advice, players, settings = _lineup_advice(team, week_number)
     by_name = {normalize_player_name(player["name"]): player for player in players}
+    quant_context = (
+        {key: dict(value) for key, value in _quant_context.items()}
+        if _quant_context is not None
+        else _quant_player_context(players, week=week_number, scoring_mode=settings.scoring_mode)
+    )
 
     starters: list[dict[str, Any]] = []
     bench: list[dict[str, Any]] = []
@@ -535,6 +640,31 @@ def weekly_team_projection(team: Any, week: int) -> dict[str, Any]:
             "opponent": recommendation.get("opponent", "TBD"),
             "reason": recommendation.get("reason", ""),
         }
+        analytics = _quant_summary(player, quant_context) if player else {}
+        quant_points = (
+            analytics.get("projected_points", row["points"])
+            if analytics.get("matchup_available")
+            else row["points"]
+        )
+        quant_confidence = (
+            analytics.get("confidence", row["confidence"])
+            if analytics.get("matchup_available") or analytics.get("confidence_available")
+            else row["confidence"]
+        )
+        row.update(
+            {
+                "quant_projected_points": quant_points,
+                "quant_confidence": quant_confidence,
+                "matchup_score": analytics.get("matchup_score", 50.0),
+                "volatility": analytics.get("volatility", 0.0),
+                "rarity_tier": analytics.get("rarity_tier", "Depth"),
+                "rarity_rank": analytics.get("rarity_rank", 0),
+                "trend_direction": analytics.get("trend_direction", "flat"),
+                "trend_line": analytics.get("trend_line", []),
+                "momentum_score": analytics.get("momentum_score", 50.0),
+                "quant": analytics,
+            }
+        )
         if recommendation.get("start_or_bench") == "start":
             starters.append(row)
         else:
@@ -546,10 +676,27 @@ def weekly_team_projection(team: Any, week: int) -> dict[str, Any]:
         confidence = sum(player["confidence"] * max(player["points"], 0.1) for player in starters) / confidence_weight
     else:
         confidence = 0.0
+    quant_total = round(sum(safe_float(player.get("quant_projected_points")) for player in starters), 2)
+    quant_weight = sum(max(safe_float(player.get("quant_projected_points")), 0.1) for player in starters)
+    if starters and quant_weight:
+        quant_confidence = sum(
+            safe_float(player.get("quant_confidence")) * max(safe_float(player.get("quant_projected_points")), 0.1)
+            for player in starters
+        ) / quant_weight
+        team_volatility = sum(
+            safe_float(player.get("volatility")) * max(safe_float(player.get("quant_projected_points")), 0.1)
+            for player in starters
+        ) / quant_weight
+    else:
+        quant_confidence = 0.0
+        team_volatility = 0.0
     return {
         "week": week_number,
         "total_points": total,
         "confidence": round(clamp(confidence, 0.0, 1.0), 3),
+        "quant_total_points": quant_total,
+        "quant_confidence": round(clamp(quant_confidence, 0.0, 1.0), 3),
+        "team_volatility": round(clamp(team_volatility, 0.0, 1.0), 3),
         "starters": sorted(starters, key=lambda player: player["points"], reverse=True),
         "bench": sorted(bench, key=lambda player: player["points"], reverse=True),
     }
@@ -561,6 +708,8 @@ def find_weak_positions(team: Any, week: int) -> list[dict[str, Any]]:
     projection = weekly_team_projection(team, week_number)
     players, settings = _team_parts(team)
     starters = projection["starters"]
+    starter_by_name = {normalize_player_name(player.get("name")): player for player in starters}
+    scarcity_by_player = _quant_by_player(quant.compute_positional_scarcity, players)
     starter_counts: dict[str, int] = {}
     for player in starters:
         position = str(player.get("position") or "").upper()
@@ -604,16 +753,32 @@ def find_weak_positions(team: Any, week: int) -> list[dict[str, Any]]:
         if opponent == "BYE":
             _add(position, 2.5, "player is on bye", player["name"])
         season_per_game = _season_value(player, settings) / 17.0
-        if player["name"] in {starter["name"] for starter in starters}:
+        starter = starter_by_name.get(normalize_player_name(player["name"]))
+        if starter:
             if season_per_game > 0 and weekly["points"] < season_per_game * 0.80:
                 _add(position, 1.25, "starter projects at least 20% below season pace", player["name"])
             if weekly["confidence"] < 0.45:
                 _add(position, 1.0, "starter projection has low confidence", player["name"])
+            if safe_float(starter.get("matchup_score"), 50.0) < 35.0:
+                _add(position, 0.75, "Quant matchup grade is unfavorable", player["name"])
+            if starter.get("trend_direction") == "down":
+                _add(position, 0.5, "recent production trend is down", player["name"])
+            if safe_float(starter.get("volatility")) >= 0.7:
+                _add(position, 0.5, "weekly outcome profile is highly volatile", player["name"])
 
     results = list(weaknesses.values())
     for entry in results:
         entry["severity"] = round(entry["severity"], 2)
         entry["reason"] = "; ".join(entry["reasons"])
+        position_rows = [
+            scarcity_by_player.get(_player_key(player), {})
+            for player in players
+            if player.get("position") == entry["position"]
+        ]
+        entry["scarcity_score"] = round(
+            max((safe_float(row.get("scarcity_score")) for row in position_rows), default=0.0),
+            2,
+        )
     results.sort(key=lambda entry: (-entry["severity"], entry["position"]))
     return results
 
@@ -646,13 +811,25 @@ def recommend_add_drop(team: Any, week: int, player_pool: Any) -> list[dict[str,
     projection = weekly_team_projection(team, week_number)
     starting_names = {player["name"] for player in projection["starters"]}
     weak_positions = {entry["position"] for entry in find_weak_positions(team, week_number)}
+    available_pool = _pool_players(player_pool)
+    combined_pool = [*players, *available_pool]
+    quant_context = _quant_player_context(
+        combined_pool,
+        week=week_number,
+        scoring_mode=settings.scoring_mode,
+    )
+    breakout_by_player = _quant_by_player(quant.compute_breakout_probability, combined_pool)
+    bust_by_player = _quant_by_player(quant.compute_bust_probability, combined_pool)
+    usage_by_player = _quant_by_player(quant.compute_usage_rates, combined_pool)
+    efficiency_by_player = _quant_by_player(quant.compute_efficiency_scores, combined_pool)
+    draft_by_player = _quant_by_player(quant.compute_draft_value, combined_pool)
 
     by_position: dict[str, list[dict[str, Any]]] = {}
     for player in players:
         by_position.setdefault(player.get("position", ""), []).append(player)
 
     recommendations: list[dict[str, Any]] = []
-    for candidate in _pool_players(player_pool):
+    for candidate in available_pool:
         if _player_key(candidate) in roster_keys or normalize_player_name(candidate.get("name")) in roster_names:
             continue
         position = str(candidate.get("position") or "").strip().upper()
@@ -688,6 +865,39 @@ def recommend_add_drop(team: Any, week: int, player_pool: Any) -> list[dict[str,
         score = weekly_gain + season_gain / 68.0 + weakness_bonus
         add_name = str(candidate.get("name") or candidate.get("player_name") or _player_key(candidate))
         drop_name = drop_player.get("name") if drop_player else None
+        candidate_key = _player_key(candidate)
+        analytics = _quant_summary(candidate, quant_context)
+        breakout = clamp(
+            safe_float(breakout_by_player.get(candidate_key, {}).get("breakout_probability"), 0.5),
+            0.0,
+            1.0,
+        )
+        bust = clamp(
+            safe_float(bust_by_player.get(candidate_key, {}).get("bust_probability"), 0.5),
+            0.0,
+            1.0,
+        )
+        usage = clamp(safe_float(usage_by_player.get(candidate_key, {}).get("usage_rate")), 0.0, 1.0)
+        efficiency = clamp(
+            safe_float(efficiency_by_player.get(candidate_key, {}).get("efficiency_score"), 50.0),
+            0.0,
+            100.0,
+        )
+        draft_value = clamp(
+            safe_float(draft_by_player.get(candidate_key, {}).get("draft_value_score"), 50.0),
+            0.0,
+            100.0,
+        )
+        quant_priority = (
+            0.22 * analytics["matchup_score"]
+            + 0.18 * breakout * 100.0
+            + 0.13 * usage * 100.0
+            + 0.10 * efficiency
+            + 0.13 * draft_value
+            + 0.10 * analytics["confidence"] * 100.0
+            + 0.07 * (1.0 - analytics["volatility"]) * 100.0
+            + 0.07 * (1.0 - bust) * 100.0
+        )
         recommendations.append(
             {
                 "add": add_name,
@@ -700,13 +910,37 @@ def recommend_add_drop(team: Any, week: int, player_pool: Any) -> list[dict[str,
                 "weekly_gain": round(weekly_gain, 2),
                 "season_value_gain": round(season_gain, 2),
                 "priority_score": round(score, 2),
+                "quant_priority_score": round(quant_priority, 2),
+                "breakout_probability": round(breakout, 4),
+                "bust_probability": round(bust, 4),
+                "usage_rate": round(usage, 4),
+                "efficiency_score": round(efficiency, 2),
+                "matchup_score": analytics["matchup_score"],
+                "volatility": analytics["volatility"],
+                "rarity_tier": analytics["rarity_tier"],
+                "trend_direction": analytics["trend_direction"],
+                "momentum_score": analytics["momentum_score"],
+                "quant": {
+                    **analytics,
+                    "breakout_probability": round(breakout, 4),
+                    "bust_probability": round(bust, 4),
+                    "usage_rate": round(usage, 4),
+                    "efficiency_score": round(efficiency, 2),
+                    "draft_value_score": round(draft_value, 2),
+                },
                 "reason": (
                     f"Add {add_name} for {candidate_week['points']:.1f} projected Week {week_number} points; "
                     + (f"drop {drop_name} for a {weekly_gain:+.1f}-point weekly change." if drop_name else "fills an empty roster position.")
                 ),
             }
         )
-    recommendations.sort(key=lambda item: item["priority_score"], reverse=True)
+    recommendations.sort(
+        key=lambda item: (
+            -item["quant_priority_score"],
+            -item["priority_score"],
+            str(item["add"]).casefold(),
+        )
+    )
     return recommendations[:8]
 
 
@@ -727,11 +961,20 @@ def recommend_trades(team: Any, week: int, player_pool: Any) -> list[dict[str, A
     for player in players:
         by_position.setdefault(player.get("position", ""), []).append(player)
 
+    trade_pool = _pool_players(player_pool)
+    combined_pool = [*players, *trade_pool]
+    quant_context = _quant_player_context(
+        combined_pool,
+        week=week_number,
+        scoring_mode=settings.scoring_mode,
+    )
+    trade_by_player = _quant_by_player(quant.compute_trade_value, combined_pool)
+
     remaining_value = {
         _player_key(player): _remaining_curve_value(player, week_number, settings.scoring_mode) for player in players
     }
     recommendations: list[dict[str, Any]] = []
-    for target in _pool_players(player_pool):
+    for target in trade_pool:
         if _player_key(target) in roster_keys or normalize_player_name(target.get("name")) in roster_names:
             continue
         position = str(target.get("position") or "").strip().upper()
@@ -750,6 +993,31 @@ def recommend_trades(team: Any, week: int, player_pool: Any) -> list[dict[str, A
             continue
         target_name = str(target.get("name") or target.get("player_name") or _player_key(target))
         score = rest_gain + max(0.0, weekly_gain) * 2.0 + max(0.0, season_gain) / 17.0
+        target_key = _player_key(target)
+        offer_key = _player_key(offer)
+        target_analytics = _quant_summary(target, quant_context)
+        offer_analytics = _quant_summary(offer, quant_context)
+        target_value = safe_float(
+            trade_by_player.get(target_key, {}).get(
+                "trade_value",
+                trade_by_player.get(target_key, {}).get("value_score"),
+            )
+        )
+        offer_value = safe_float(
+            trade_by_player.get(offer_key, {}).get(
+                "trade_value",
+                trade_by_player.get(offer_key, {}).get("value_score"),
+            )
+        )
+        quant_value_gain = target_value - offer_value
+        midpoint = max((target_value + offer_value) / 2.0, 1.0)
+        fairness = clamp(100.0 * (1.0 - abs(quant_value_gain) / midpoint), 0.0, 100.0)
+        matchup_gain = target_analytics["matchup_score"] - offer_analytics["matchup_score"]
+        quant_trade_score = (
+            0.45 * fairness
+            + 0.35 * clamp(50.0 + quant_value_gain, 0.0, 100.0)
+            + 0.20 * clamp(50.0 + matchup_gain, 0.0, 100.0)
+        )
         recommendations.append(
             {
                 "trade_for": target_name,
@@ -762,6 +1030,20 @@ def recommend_trades(team: Any, week: int, player_pool: Any) -> list[dict[str, A
                 "season_value_gain": round(season_gain, 2),
                 "confidence": target_week["confidence"],
                 "trade_score": round(score, 2),
+                "quant_trade_score": round(quant_trade_score, 2),
+                "quant_value_gain": round(quant_value_gain, 2),
+                "fairness_score": round(fairness, 2),
+                "matchup_score_gain": round(matchup_gain, 2),
+                "rarity_tier": target_analytics["rarity_tier"],
+                "trend_direction": target_analytics["trend_direction"],
+                "momentum_score": target_analytics["momentum_score"],
+                "volatility": target_analytics["volatility"],
+                "quant": {
+                    "target": {**target_analytics, "trade_value": round(target_value, 2)},
+                    "offer": {**offer_analytics, "trade_value": round(offer_value, 2)},
+                    "fairness_score": round(fairness, 2),
+                    "value_gain": round(quant_value_gain, 2),
+                },
                 "reason": (
                     f"Target {target_name} as a {position} upgrade over {offer.get('name')}: "
                     f"{weekly_gain:+.1f} points in Week {week_number} and {rest_gain:+.1f} projected points "
@@ -769,7 +1051,13 @@ def recommend_trades(team: Any, week: int, player_pool: Any) -> list[dict[str, A
                 ),
             }
         )
-    recommendations.sort(key=lambda item: item["trade_score"], reverse=True)
+    recommendations.sort(
+        key=lambda item: (
+            -item["quant_trade_score"],
+            -item["trade_score"],
+            str(item["trade_for"]).casefold(),
+        )
+    )
     return recommendations[:8]
 
 
@@ -792,6 +1080,7 @@ def recommend_lineup_swaps(team: Any, week: int) -> list[dict[str, Any]]:
     projection = weekly_team_projection(team, week_number)
     players, settings = _team_parts(team)
     by_name = {normalize_player_name(player["name"]): player for player in players}
+    quant_context = _quant_player_context(players, week=week_number, scoring_mode=settings.scoring_mode)
     recommended_starts = {normalize_player_name(player["name"]): player for player in projection["starters"]}
     current_starters = {normalize_player_name(player["name"]): player for player in players if _currently_starting(player)}
 
@@ -818,6 +1107,14 @@ def recommend_lineup_swaps(team: Any, week: int) -> list[dict[str, Any]]:
             _weekly_value(outgoing, week_number, settings.scoring_mode)["points"] if outgoing else 0.0
         )
         gain = incoming_value["points"] - outgoing_points
+        incoming_analytics = _quant_summary(incoming, quant_context)
+        outgoing_analytics = _quant_summary(outgoing, quant_context) if outgoing else {
+            "projected_points": 0.0,
+            "matchup_score": 50.0,
+        }
+        quant_gain = safe_float(incoming_analytics.get("projected_points")) - safe_float(
+            outgoing_analytics.get("projected_points")
+        )
         if outgoing_key:
             used_outgoing.add(outgoing_key)
         swaps.append(
@@ -826,7 +1123,22 @@ def recommend_lineup_swaps(team: Any, week: int) -> list[dict[str, Any]]:
                 "bench": outgoing.get("name") if outgoing else None,
                 "position": incoming.get("position"),
                 "projected_gain": round(gain, 2),
+                "quant_projected_gain": round(quant_gain, 2),
                 "confidence": incoming_value["confidence"],
+                "quant_confidence": incoming_analytics["confidence"],
+                "matchup_score_gain": round(
+                    safe_float(incoming_analytics.get("matchup_score"))
+                    - safe_float(outgoing_analytics.get("matchup_score")),
+                    2,
+                ),
+                "rarity_tier": incoming_analytics["rarity_tier"],
+                "trend_direction": incoming_analytics["trend_direction"],
+                "momentum_score": incoming_analytics["momentum_score"],
+                "volatility": incoming_analytics["volatility"],
+                "quant": {
+                    "start": incoming_analytics,
+                    "bench": outgoing_analytics,
+                },
                 "reason": (
                     f"Start {incoming.get('name')} over {outgoing.get('name')} for {gain:+.1f} projected points."
                     if outgoing
@@ -835,7 +1147,13 @@ def recommend_lineup_swaps(team: Any, week: int) -> list[dict[str, Any]]:
             }
         )
 
-    swaps.sort(key=lambda item: item["projected_gain"], reverse=True)
+    swaps.sort(
+        key=lambda item: (
+            -item["quant_projected_gain"],
+            -item["projected_gain"],
+            str(item["start"]).casefold(),
+        )
+    )
     return swaps
 
 
@@ -872,6 +1190,17 @@ def bench_vs_start_decision(player: Any, week: int) -> dict[str, Any]:
         decision = "sit"
         reason = f"Projects {value['points']:.1f} points, well below the {season_per_game:.1f}-point season pace."
 
+    quant_context = _quant_player_context([row], week=week_number, scoring_mode=mode)
+    analytics = _quant_summary(row, quant_context)
+    if matchup["opponent"] == "BYE" or status in INACTIVE_STATUSES:
+        quant_decision = "sit"
+    elif analytics["matchup_score"] >= 48.0 and analytics["confidence"] >= 0.45:
+        quant_decision = "start"
+    elif analytics["matchup_score"] >= 38.0:
+        quant_decision = "flex"
+    else:
+        quant_decision = "sit"
+
     return {
         "player": row.get("name") or row.get("player_name"),
         "position": str(row.get("position") or "").upper(),
@@ -881,12 +1210,22 @@ def bench_vs_start_decision(player: Any, week: int) -> dict[str, Any]:
         "confidence": value["confidence"],
         "opponent": matchup["opponent"],
         "reason": reason,
+        "quant_decision": quant_decision,
+        "quant_projected_points": analytics["projected_points"],
+        "quant_confidence": analytics["confidence"],
+        "matchup_score": analytics["matchup_score"],
+        "volatility": analytics["volatility"],
+        "rarity_tier": analytics["rarity_tier"],
+        "trend_direction": analytics["trend_direction"],
+        "momentum_score": analytics["momentum_score"],
+        "quant": analytics,
     }
 
 
 def team_health_status(team: Any) -> dict[str, Any]:
     """Summarize roster availability and injury risk on a 0-100 scale."""
     players, _settings = _team_parts(team)
+    quant_health = _quant_by_player(quant.compute_health_adjustments, players)
     issues: list[dict[str, Any]] = []
     deductions = 0.0
     weights = {
@@ -914,6 +1253,14 @@ def team_health_status(team: Any) -> dict[str, Any]:
         )
     divisor = max(1.0, len(players) / 8.0)
     score = round(clamp(100.0 - deductions / divisor, 0.0, 100.0), 1)
+    quant_multipliers = [
+        clamp(safe_float(quant_health.get(_player_key(player), {}).get("health_multiplier"), 1.0), 0.0, 1.0)
+        for player in players
+    ]
+    quant_health_score = round(
+        (sum(quant_multipliers) / len(quant_multipliers) * 100.0) if quant_multipliers else 100.0,
+        1,
+    )
     status_label = "healthy" if score >= 85 else ("watch" if score >= 60 else "critical")
     return {
         "status": status_label,
@@ -923,17 +1270,34 @@ def team_health_status(team: Any) -> dict[str, Any]:
             1 for player in players if str(player.get("injury_status") or "").upper() not in INACTIVE_STATUSES
         ),
         "issues": sorted(issues, key=lambda issue: issue["impact"], reverse=True),
+        "quant_health_score": quant_health_score,
+        "quant_players": quant_health,
     }
 
 
 def team_confidence_curve(team: Any) -> dict[int, dict[str, float]]:
     """Return the optimized team's points and weighted confidence for all 18 weeks."""
+    players, settings = _team_parts(team)
+    static_context = _quant_player_context(players, scoring_mode=settings.scoring_mode)
     curve: dict[int, dict[str, float]] = {}
     for week in WEEKS:
-        projection = weekly_team_projection(team, week)
+        week_context = _quant_player_context(
+            players,
+            week=week,
+            scoring_mode=settings.scoring_mode,
+            base_context=static_context,
+        )
+        projection = weekly_team_projection(team, week, _quant_context=week_context)
         curve[week] = {
             "points": projection["total_points"],
             "confidence": projection["confidence"],
+            "quant_points": projection["quant_total_points"],
+            "quant_confidence": projection["quant_confidence"],
+            "volatility": projection["team_volatility"],
+            "risk_adjusted_points": round(
+                projection["quant_total_points"] * (1.0 - 0.15 * projection["team_volatility"]),
+                2,
+            ),
         }
     return curve
 

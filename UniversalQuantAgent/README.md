@@ -21,9 +21,11 @@ UniversalQuantAgent/
 |   |-- fusion_model.py           # Multi-model projection fusion
 |   |-- reliability.py            # Quant Reliability Score
 |   |-- recommendations.py        # Reliability-aware prop rankings
-|   |-- sportsbook.py             # Five-book normalized prop ingestion
+|   |-- sportsbook_parser.py      # Offline market/name normalization (no network)
+|   |-- sportsbook_scraper_disabled.py  # Hard-disabled fetch stubs -- kept for reference only
 |   |-- minutes_model.py          # Explainable minutes projection
-|   |-- injury_model.py           # Public injury status normalization
+|   |-- injury_parser.py          # Offline injury normalization + injuries.json/upload loaders
+|   |-- injury_scraper_disabled.py      # Hard-disabled fetch stub -- kept for reference only
 |   |-- pace_model.py             # Matchup pace projection
 |   |-- matchup_model.py          # Player/opponent difficulty
 |   |-- props.py                  # Prop comparison and recommendations
@@ -66,15 +68,21 @@ recommendations = recommend_props(["points", "rebounds"], min_edge=1.5, min_conf
 
 Each comparison row preserves the established prop schema while its projection now comes from the fusion model. The result contains player, team, category, projection, minutes-adjusted projection, line, edge, confidence range, best sportsbook, lean, drivers, sportsbook, and timestamp. Reliability is included in the drivers without changing the contract. `edge` is fused projection minus sportsbook line.
 
-The sportsbook adapter attempts DraftKings, FanDuel, BetMGM, Caesars, and ESPN BET. Public pages are frequently geofenced or changed. The adapter first checks an optional configured feed and then tries accessible HTML; it returns an empty list when it cannot verify a real line and never fabricates data. Permitted public or partner feeds can be configured with:
+**Live sportsbook/injury fetching is permanently disabled.** The functions above
+(`fetch_all_sportsbook_props`, `fetch_daily_games`, `fetch_injury_report`, ...) now live in
+`modules/sportsbook_scraper_disabled.py` and `modules/injury_scraper_disabled.py` as hard-fail
+stubs -- calling any of them raises `RuntimeError` immediately rather than making a network
+request. This app does not scrape DraftKings, FanDuel, BetMGM, Caesars, ESPN BET, or any other
+sportsbook or odds site, and does not call any live injury endpoint. The `UQA_*_PROPS_URL`
+environment variables these functions used to read are no longer consulted.
 
-- `UQA_DRAFTKINGS_PROPS_URL`
-- `UQA_FANDUEL_PROPS_URL`
-- `UQA_BETMGM_PROPS_URL`
-- `UQA_CAESARS_PROPS_URL`
-- `UQA_ESPNBET_PROPS_URL`
-
-Only use endpoints whose terms and local rules permit your use.
+Their safe parsing/normalization logic (player/team/category normalization, JSON-payload market
+parsing) was preserved and now lives in `modules/sportsbook_parser.py` and
+`modules/injury_parser.py`, both fully offline. Pages that depended on the old live fetch (Daily
+Slate, Prop Analyzer, Prop Recommendations) will raise the same `RuntimeError` until they are
+wired to an offline odds source, the same way the injury-consuming modules
+(`context_engine.py`, `matchup_model.py`, `minutes_model.py`, `pace_model.py`) were rewired to
+`modules.injury_parser.load_injury_data_from_file` in this pass.
 
 ## Upgraded Player Analysis
 
@@ -198,15 +206,21 @@ The context engine measures role and rotation stability, usage, minutes and effi
 
 ```python
 from modules.minutes_model import project_minutes
-from modules.injury_model import get_player_availability
+from modules.injury_parser import get_player_availability, load_injury_data_from_file
 from modules.pace_model import project_pace
 from modules.matchup_model import project_matchup_difficulty
 
 minutes = project_minutes("Nikola Jokic", "BOS")
-availability = get_player_availability("Nikola Jokic")
+availability = get_player_availability("Nikola Jokic", load_injury_data_from_file())
 pace = project_pace("DEN", "BOS")
 matchup = project_matchup_difficulty("Nikola Jokic", "BOS")
 ```
+
+Injury data is offline-only: `load_injury_data_from_file()` reads `data/injuries.json` (empty by
+default -- populate it with real reported injuries, or use
+`modules.injury_parser.load_injury_data_from_user_upload` for a user-supplied file). No module in
+this app fetches injury or odds data from a live site; see
+`modules/sportsbook_scraper_disabled.py` and `modules/injury_scraper_disabled.py`.
 
 Minutes uses rolling minutes, role trend, schedule, rotation stability, injury status, and blowout risk. Pace blends both teams' season and recent rates. Matchup difficulty uses opponent defensive rating and available player matchup history. Missing injury records are clearly marked as an unconfirmed ACTIVE fallback.
 

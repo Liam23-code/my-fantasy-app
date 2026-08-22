@@ -8,7 +8,7 @@ import pandas as pd
 from modules.data_quality import (availability_flag, coerce_numeric,
                                   normalize_columns, safe_dict, safe_get, safe_list,
                                   safe_number, safe_scalar_to_dict, window_average)
-from modules.injury_model import get_player_availability
+from modules.injury_parser import get_player_availability, load_injury_data_from_file
 from modules.nba_cache import select_fallback_minutes
 from modules.matchup_model import project_matchup_difficulty
 from modules.minutes_model import project_minutes
@@ -86,7 +86,7 @@ def get_player_context(player_name: str, opponent_team: str,
     fatigue = round(b2b_points - normal_points, 2)
 
     team = _player_team(games)
-    availability = get_player_availability(resolved["full_name"])
+    availability = get_player_availability(resolved["full_name"], load_injury_data_from_file())
     try:
         minute_model = project_minutes(
             resolved["full_name"], opponent_team, season

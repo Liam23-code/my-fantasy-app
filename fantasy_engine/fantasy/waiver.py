@@ -22,7 +22,7 @@ from typing import Any
 from fantasy.adapter import normalize_projection
 from fantasy.draft import _position_need_multiplier, _replacement_levels
 from fantasy.models import LeagueSettings
-from fantasy.scoring import calculate_fantasy_points
+from fantasy.projections import projected_or_scored
 from fantasy.utils import clamp
 
 INACTIVE_STATUSES = {"OUT", "IR", "DOUBTFUL"}
@@ -112,7 +112,10 @@ def waiver_recommendations(
     scored: list[dict[str, Any]] = []
     for source in available_players:
         canonical = normalize_projection(source)
-        points = calculate_fantasy_points(canonical, mode=settings.scoring_mode, custom_rules=settings.custom_rules)["total_points"]
+        # Rest-of-season waiver value has to come off the forward projection:
+        # the whole reason a free agent is worth adding is what they will do,
+        # not what their prior-season box score already did.
+        points = projected_or_scored(canonical, settings)
         scored.append({**canonical, "points": round(points, 2)})
 
     replacement_levels = _replacement_levels(scored, settings, settings.n_teams)

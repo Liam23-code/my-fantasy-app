@@ -31,7 +31,53 @@ BASE_MULTIPLIERS: dict[str, float] = {
     "receiving_yards": 1.0 / 10.0,
     "receiving_tds": 6.0,
     "fumbles_lost": -2.0,
+    # Standard kicker scoring (mode-independent, like the yardage stats above
+    # -- PPR/half-PPR only ever change the reception multiplier). Points
+    # scale with attempt distance; nflverse already buckets makes this way.
+    "field_goals_0_19": 3.0,
+    "field_goals_20_29": 3.0,
+    "field_goals_30_39": 3.0,
+    "field_goals_40_49": 4.0,
+    "field_goals_50_59": 5.0,
+    "field_goals_60_plus": 5.0,
+    "extra_points_made": 1.0,
+    # Standard team defense/special-teams (DST) scoring. Turnovers and
+    # defensive/return touchdowns are per-unit like everything else above;
+    # points allowed is a banded score, not a per-unit rate, so
+    # fantasy.data_loader precomputes the correct band via
+    # points_allowed_score() and hands it in here as a single number scored
+    # 1-for-1 -- the multiply-and-sum engine below never needs to know about
+    # banding.
+    "def_sacks": 1.0,
+    "def_interceptions": 2.0,
+    "def_fumble_recoveries": 2.0,
+    "def_safeties": 2.0,
+    "def_touchdowns": 6.0,
+    "def_blocked_kicks": 2.0,
+    "points_allowed_score": 1.0,
 }
+
+#: Standard DST points-allowed bands: (inclusive upper bound, fantasy points).
+#: Checked in order, so list from fewest points allowed to most.
+DST_POINTS_ALLOWED_TIERS: tuple[tuple[float, float], ...] = (
+    (0.0, 10.0),
+    (6.0, 7.0),
+    (13.0, 4.0),
+    (20.0, 1.0),
+    (27.0, 0.0),
+    (34.0, -1.0),
+    (float("inf"), -4.0),
+)
+
+
+def points_allowed_score(points_allowed: Any) -> float:
+    """Band real points allowed into the standard DST points-allowed score."""
+    allowed = safe_float(points_allowed, 0.0)
+    for upper_bound, points in DST_POINTS_ALLOWED_TIERS:
+        if allowed <= upper_bound:
+            return points
+    return DST_POINTS_ALLOWED_TIERS[-1][1]  # pragma: no cover - inf tier always matches
+
 
 RECEPTION_MULTIPLIER_BY_MODE: dict[str, float] = {
     "standard": 0.0,

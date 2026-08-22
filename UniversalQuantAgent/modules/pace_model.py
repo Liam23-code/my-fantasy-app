@@ -12,7 +12,7 @@ from modules.data_quality import (
     safe_list,
     safe_number,
 )
-from modules.injury_model import fetch_injury_report
+from modules.injury_parser import load_injury_data_from_file
 from modules.nba_advanced import fetch_league_team_stats, find_team, latest_season
 from modules.nba_cache import collect_warnings
 
@@ -71,7 +71,7 @@ def project_pace(
     )
 
     try:
-        report = safe_list(fetch_injury_report())
+        report = safe_list(load_injury_data_from_file())
     except Exception:
         report = []
     team_codes = {first["abbreviation"], second["abbreviation"]}

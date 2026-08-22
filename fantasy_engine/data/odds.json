@@ -1,0 +1,1850 @@
+{
+  "games": {
+    "2026_01_ARI_LAC": {
+      "away_team": "ARI",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_ARI_LAC",
+      "home_team": "LAC",
+      "moneyline_away": 176,
+      "moneyline_home": -176,
+      "total_line": 45.62,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_ATL_PIT": {
+      "away_team": "ATL",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_ATL_PIT",
+      "home_team": "PIT",
+      "moneyline_away": 122,
+      "moneyline_home": -122,
+      "total_line": 45.23,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_BAL_IND": {
+      "away_team": "BAL",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_BAL_IND",
+      "home_team": "IND",
+      "moneyline_away": 110,
+      "moneyline_home": -110,
+      "total_line": 50.0,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_BUF_HOU": {
+      "away_team": "BUF",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_BUF_HOU",
+      "home_team": "HOU",
+      "moneyline_away": -102,
+      "moneyline_home": 102,
+      "total_line": 45.44,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_CHI_CAR": {
+      "away_team": "CHI",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_CHI_CAR",
+      "home_team": "CAR",
+      "moneyline_away": -139,
+      "moneyline_home": 139,
+      "total_line": 45.5,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_CLE_JAX": {
+      "away_team": "CLE",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_CLE_JAX",
+      "home_team": "JAX",
+      "moneyline_away": 231,
+      "moneyline_home": -231,
+      "total_line": 43.18,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_DAL_NYG": {
+      "away_team": "DAL",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_DAL_NYG",
+      "home_team": "NYG",
+      "moneyline_away": -107,
+      "moneyline_home": 107,
+      "total_line": 53.0,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_DEN_KC": {
+      "away_team": "DEN",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_DEN_KC",
+      "home_team": "KC",
+      "moneyline_away": -122,
+      "moneyline_home": 122,
+      "total_line": 41.23,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_GB_MIN": {
+      "away_team": "GB",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_GB_MIN",
+      "home_team": "MIN",
+      "moneyline_away": -107,
+      "moneyline_home": 107,
+      "total_line": 42.01,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_MIA_LV": {
+      "away_team": "MIA",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_MIA_LV",
+      "home_team": "LV",
+      "moneyline_away": -149,
+      "moneyline_home": 149,
+      "total_line": 42.47,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_NE_SEA": {
+      "away_team": "NE",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_NE_SEA",
+      "home_team": "SEA",
+      "moneyline_away": 108,
+      "moneyline_home": -108,
+      "total_line": 46.62,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_NO_DET": {
+      "away_team": "NO",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_NO_DET",
+      "home_team": "DET",
+      "moneyline_away": 166,
+      "moneyline_home": -166,
+      "total_line": 46.55,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_NYJ_TEN": {
+      "away_team": "NYJ",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_NYJ_TEN",
+      "home_team": "TEN",
+      "moneyline_away": 103,
+      "moneyline_home": -103,
+      "total_line": 46.03,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_SF_LA": {
+      "away_team": "SF",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_SF_LA",
+      "home_team": "LA",
+      "moneyline_away": 145,
+      "moneyline_home": -145,
+      "total_line": 49.17,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_TB_CIN": {
+      "away_team": "TB",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_TB_CIN",
+      "home_team": "CIN",
+      "moneyline_away": -118,
+      "moneyline_home": 118,
+      "total_line": 49.92,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    },
+    "2026_01_WAS_PHI": {
+      "away_team": "WAS",
+      "basis": "2026 real schedule, priced from 2025 real team scoring",
+      "game_id": "2026_01_WAS_PHI",
+      "home_team": "PHI",
+      "moneyline_away": 168,
+      "moneyline_home": -168,
+      "total_line": 44.44,
+      "total_over_price": -110.0,
+      "total_under_price": -110.0,
+      "week": 1
+    }
+  },
+  "generated_by": "betting.odds_generator",
+  "player_props": {
+    "00-0026498:passing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 2.5,
+      "market": "passing_tds",
+      "name": "Matthew Stafford",
+      "over_price": -110.0,
+      "player_id": "00-0026498",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0026498:passing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 276.5,
+      "market": "passing_yards",
+      "name": "Matthew Stafford",
+      "over_price": -110.0,
+      "player_id": "00-0026498",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0030506:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 50.5,
+      "market": "receiving_yards",
+      "name": "Travis Kelce",
+      "over_price": -110.0,
+      "player_id": "00-0030506",
+      "team": "KC",
+      "under_price": -110.0
+    },
+    "00-0030506:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Travis Kelce",
+      "over_price": -110.0,
+      "player_id": "00-0030506",
+      "team": "KC",
+      "under_price": -110.0
+    },
+    "00-0031381:receiving_yards": {
+      "basis": "2025 real per-game rate (14 games)",
+      "line": 56.5,
+      "market": "receiving_yards",
+      "name": "Davante Adams",
+      "over_price": -110.0,
+      "player_id": "00-0031381",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0031381:receptions": {
+      "basis": "2025 real per-game rate (14 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Davante Adams",
+      "over_price": -110.0,
+      "player_id": "00-0031381",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0032764:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 8.5,
+      "market": "receiving_yards",
+      "name": "Derrick Henry",
+      "over_price": -110.0,
+      "player_id": "00-0032764",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0032764:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "receptions",
+      "name": "Derrick Henry",
+      "over_price": -110.0,
+      "player_id": "00-0032764",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0032764:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Derrick Henry",
+      "over_price": -110.0,
+      "player_id": "00-0032764",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0032764:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 93.5,
+      "market": "rushing_yards",
+      "name": "Derrick Henry",
+      "over_price": -110.0,
+      "player_id": "00-0032764",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0033077:passing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Dak Prescott",
+      "over_price": -110.0,
+      "player_id": "00-0033077",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0033077:passing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 267.5,
+      "market": "passing_yards",
+      "name": "Dak Prescott",
+      "over_price": -110.0,
+      "player_id": "00-0033077",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0033077:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 10.5,
+      "market": "rushing_yards",
+      "name": "Dak Prescott",
+      "over_price": -110.0,
+      "player_id": "00-0033077",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0033090:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 45.5,
+      "market": "receiving_yards",
+      "name": "Hunter Henry",
+      "over_price": -110.0,
+      "player_id": "00-0033090",
+      "team": "NE",
+      "under_price": -110.0
+    },
+    "00-0033090:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 3.5,
+      "market": "receptions",
+      "name": "Hunter Henry",
+      "over_price": -110.0,
+      "player_id": "00-0033090",
+      "team": "NE",
+      "under_price": -110.0
+    },
+    "00-0033106:passing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 2.5,
+      "market": "passing_tds",
+      "name": "Jared Goff",
+      "over_price": -110.0,
+      "player_id": "00-0033106",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0033106:passing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 268.5,
+      "market": "passing_yards",
+      "name": "Jared Goff",
+      "over_price": -110.0,
+      "player_id": "00-0033106",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0033280:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 54.5,
+      "market": "receiving_yards",
+      "name": "Christian McCaffrey",
+      "over_price": -110.0,
+      "player_id": "00-0033280",
+      "team": "SF",
+      "under_price": -110.0
+    },
+    "00-0033280:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 6.5,
+      "market": "receptions",
+      "name": "Christian McCaffrey",
+      "over_price": -110.0,
+      "player_id": "00-0033280",
+      "team": "SF",
+      "under_price": -110.0
+    },
+    "00-0033280:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Christian McCaffrey",
+      "over_price": -110.0,
+      "player_id": "00-0033280",
+      "team": "SF",
+      "under_price": -110.0
+    },
+    "00-0033280:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 70.5,
+      "market": "rushing_yards",
+      "name": "Christian McCaffrey",
+      "over_price": -110.0,
+      "player_id": "00-0033280",
+      "team": "SF",
+      "under_price": -110.0
+    },
+    "00-0033288:receiving_yards": {
+      "basis": "2025 real per-game rate (11 games)",
+      "line": 57.5,
+      "market": "receiving_yards",
+      "name": "George Kittle",
+      "over_price": -110.0,
+      "player_id": "00-0033288",
+      "team": "SF",
+      "under_price": -110.0
+    },
+    "00-0033288:receptions": {
+      "basis": "2025 real per-game rate (11 games)",
+      "line": 5.5,
+      "market": "receptions",
+      "name": "George Kittle",
+      "over_price": -110.0,
+      "player_id": "00-0033288",
+      "team": "SF",
+      "under_price": -110.0
+    },
+    "00-0033873:passing_tds": {
+      "basis": "2025 real per-game rate (14 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Patrick Mahomes",
+      "over_price": -110.0,
+      "player_id": "00-0033873",
+      "team": "KC",
+      "under_price": -110.0
+    },
+    "00-0033873:passing_yards": {
+      "basis": "2025 real per-game rate (14 games)",
+      "line": 256.5,
+      "market": "passing_yards",
+      "name": "Patrick Mahomes",
+      "over_price": -110.0,
+      "player_id": "00-0033873",
+      "team": "KC",
+      "under_price": -110.0
+    },
+    "00-0033873:rushing_yards": {
+      "basis": "2025 real per-game rate (14 games)",
+      "line": 30.5,
+      "market": "rushing_yards",
+      "name": "Patrick Mahomes",
+      "over_price": -110.0,
+      "player_id": "00-0033873",
+      "team": "KC",
+      "under_price": -110.0
+    },
+    "00-0034351:receiving_yards": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 39.5,
+      "market": "receiving_yards",
+      "name": "Dallas Goedert",
+      "over_price": -110.0,
+      "player_id": "00-0034351",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0034351:receptions": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Dallas Goedert",
+      "over_price": -110.0,
+      "player_id": "00-0034351",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0034383:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 45.5,
+      "market": "receiving_yards",
+      "name": "Dalton Schultz",
+      "over_price": -110.0,
+      "player_id": "00-0034383",
+      "team": "HOU",
+      "under_price": -110.0
+    },
+    "00-0034383:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Dalton Schultz",
+      "over_price": -110.0,
+      "player_id": "00-0034383",
+      "team": "HOU",
+      "under_price": -110.0
+    },
+    "00-0034796:passing_tds": {
+      "basis": "2025 real per-game rate (13 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Lamar Jackson",
+      "over_price": -110.0,
+      "player_id": "00-0034796",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0034796:passing_yards": {
+      "basis": "2025 real per-game rate (13 games)",
+      "line": 196.5,
+      "market": "passing_yards",
+      "name": "Lamar Jackson",
+      "over_price": -110.0,
+      "player_id": "00-0034796",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0034796:rushing_yards": {
+      "basis": "2025 real per-game rate (13 games)",
+      "line": 26.5,
+      "market": "rushing_yards",
+      "name": "Lamar Jackson",
+      "over_price": -110.0,
+      "player_id": "00-0034796",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0034844:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 17.5,
+      "market": "receiving_yards",
+      "name": "Saquon Barkley",
+      "over_price": -110.0,
+      "player_id": "00-0034844",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0034844:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 2.5,
+      "market": "receptions",
+      "name": "Saquon Barkley",
+      "over_price": -110.0,
+      "player_id": "00-0034844",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0034844:rushing_tds": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Saquon Barkley",
+      "over_price": -110.0,
+      "player_id": "00-0034844",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0034844:rushing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 71.5,
+      "market": "rushing_yards",
+      "name": "Saquon Barkley",
+      "over_price": -110.0,
+      "player_id": "00-0034844",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0034855:passing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Baker Mayfield",
+      "over_price": -110.0,
+      "player_id": "00-0034855",
+      "team": "TB",
+      "under_price": -110.0
+    },
+    "00-0034855:passing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 217.5,
+      "market": "passing_yards",
+      "name": "Baker Mayfield",
+      "over_price": -110.0,
+      "player_id": "00-0034855",
+      "team": "TB",
+      "under_price": -110.0
+    },
+    "00-0034855:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 22.5,
+      "market": "rushing_yards",
+      "name": "Baker Mayfield",
+      "over_price": -110.0,
+      "player_id": "00-0034855",
+      "team": "TB",
+      "under_price": -110.0
+    },
+    "00-0034857:passing_tds": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Josh Allen",
+      "over_price": -110.0,
+      "player_id": "00-0034857",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0034857:passing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 229.5,
+      "market": "passing_yards",
+      "name": "Josh Allen",
+      "over_price": -110.0,
+      "player_id": "00-0034857",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0034857:rushing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 36.5,
+      "market": "rushing_yards",
+      "name": "Josh Allen",
+      "over_price": -110.0,
+      "player_id": "00-0034857",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0035676:receiving_yards": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 66.5,
+      "market": "receiving_yards",
+      "name": "A.J. Brown",
+      "over_price": -110.0,
+      "player_id": "00-0035676",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0035676:receptions": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 5.5,
+      "market": "receptions",
+      "name": "A.J. Brown",
+      "over_price": -110.0,
+      "player_id": "00-0035676",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0035700:receiving_yards": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 18.5,
+      "market": "receiving_yards",
+      "name": "Josh Jacobs",
+      "over_price": -110.0,
+      "player_id": "00-0035700",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0035700:receptions": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 2.5,
+      "market": "receptions",
+      "name": "Josh Jacobs",
+      "over_price": -110.0,
+      "player_id": "00-0035700",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0035700:rushing_tds": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Josh Jacobs",
+      "over_price": -110.0,
+      "player_id": "00-0035700",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0035700:rushing_yards": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 61.5,
+      "market": "rushing_yards",
+      "name": "Josh Jacobs",
+      "over_price": -110.0,
+      "player_id": "00-0035700",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0036040:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 52.5,
+      "market": "receiving_yards",
+      "name": "Juwan Johnson",
+      "over_price": -110.0,
+      "player_id": "00-0036040",
+      "team": "NO",
+      "under_price": -110.0
+    },
+    "00-0036040:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Juwan Johnson",
+      "over_price": -110.0,
+      "player_id": "00-0036040",
+      "team": "NO",
+      "under_price": -110.0
+    },
+    "00-0036223:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 22.5,
+      "market": "receiving_yards",
+      "name": "Jonathan Taylor",
+      "over_price": -110.0,
+      "player_id": "00-0036223",
+      "team": "IND",
+      "under_price": -110.0
+    },
+    "00-0036223:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 2.5,
+      "market": "receptions",
+      "name": "Jonathan Taylor",
+      "over_price": -110.0,
+      "player_id": "00-0036223",
+      "team": "IND",
+      "under_price": -110.0
+    },
+    "00-0036223:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 1.5,
+      "market": "rushing_tds",
+      "name": "Jonathan Taylor",
+      "over_price": -110.0,
+      "player_id": "00-0036223",
+      "team": "IND",
+      "under_price": -110.0
+    },
+    "00-0036223:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 93.5,
+      "market": "rushing_yards",
+      "name": "Jonathan Taylor",
+      "over_price": -110.0,
+      "player_id": "00-0036223",
+      "team": "IND",
+      "under_price": -110.0
+    },
+    "00-0036264:passing_tds": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Jordan Love",
+      "over_price": -110.0,
+      "player_id": "00-0036264",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0036264:passing_yards": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 225.5,
+      "market": "passing_yards",
+      "name": "Jordan Love",
+      "over_price": -110.0,
+      "player_id": "00-0036264",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0036264:rushing_yards": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 13.5,
+      "market": "rushing_yards",
+      "name": "Jordan Love",
+      "over_price": -110.0,
+      "player_id": "00-0036264",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0036275:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 18.5,
+      "market": "receiving_yards",
+      "name": "D'Andre Swift",
+      "over_price": -110.0,
+      "player_id": "00-0036275",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0036275:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 2.5,
+      "market": "receptions",
+      "name": "D'Andre Swift",
+      "over_price": -110.0,
+      "player_id": "00-0036275",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0036275:rushing_tds": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "D'Andre Swift",
+      "over_price": -110.0,
+      "player_id": "00-0036275",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0036275:rushing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 67.5,
+      "market": "rushing_yards",
+      "name": "D'Andre Swift",
+      "over_price": -110.0,
+      "player_id": "00-0036275",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0036322:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 61.5,
+      "market": "receiving_yards",
+      "name": "Justin Jefferson",
+      "over_price": -110.0,
+      "player_id": "00-0036322",
+      "team": "MIN",
+      "under_price": -110.0
+    },
+    "00-0036322:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Justin Jefferson",
+      "over_price": -110.0,
+      "player_id": "00-0036322",
+      "team": "MIN",
+      "under_price": -110.0
+    },
+    "00-0036355:passing_tds": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Justin Herbert",
+      "over_price": -110.0,
+      "player_id": "00-0036355",
+      "team": "LAC",
+      "under_price": -110.0
+    },
+    "00-0036355:passing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 232.5,
+      "market": "passing_yards",
+      "name": "Justin Herbert",
+      "over_price": -110.0,
+      "player_id": "00-0036355",
+      "team": "LAC",
+      "under_price": -110.0
+    },
+    "00-0036355:rushing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 31.5,
+      "market": "rushing_yards",
+      "name": "Justin Herbert",
+      "over_price": -110.0,
+      "player_id": "00-0036355",
+      "team": "LAC",
+      "under_price": -110.0
+    },
+    "00-0036358:receiving_yards": {
+      "basis": "2025 real per-game rate (13 games)",
+      "line": 82.5,
+      "market": "receiving_yards",
+      "name": "CeeDee Lamb",
+      "over_price": -110.0,
+      "player_id": "00-0036358",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0036358:receptions": {
+      "basis": "2025 real per-game rate (13 games)",
+      "line": 5.5,
+      "market": "receptions",
+      "name": "CeeDee Lamb",
+      "over_price": -110.0,
+      "player_id": "00-0036358",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0036389:passing_tds": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Jalen Hurts",
+      "over_price": -110.0,
+      "player_id": "00-0036389",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0036389:passing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 201.5,
+      "market": "passing_yards",
+      "name": "Jalen Hurts",
+      "over_price": -110.0,
+      "player_id": "00-0036389",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0036389:rushing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 26.5,
+      "market": "rushing_yards",
+      "name": "Jalen Hurts",
+      "over_price": -110.0,
+      "player_id": "00-0036389",
+      "team": "PHI",
+      "under_price": -110.0
+    },
+    "00-0036554:receiving_yards": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 74.5,
+      "market": "receiving_yards",
+      "name": "Nico Collins",
+      "over_price": -110.0,
+      "player_id": "00-0036554",
+      "team": "HOU",
+      "under_price": -110.0
+    },
+    "00-0036554:receptions": {
+      "basis": "2025 real per-game rate (15 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Nico Collins",
+      "over_price": -110.0,
+      "player_id": "00-0036554",
+      "team": "HOU",
+      "under_price": -110.0
+    },
+    "00-0036900:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 88.5,
+      "market": "receiving_yards",
+      "name": "Ja'Marr Chase",
+      "over_price": -110.0,
+      "player_id": "00-0036900",
+      "team": "CIN",
+      "under_price": -110.0
+    },
+    "00-0036900:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 7.5,
+      "market": "receptions",
+      "name": "Ja'Marr Chase",
+      "over_price": -110.0,
+      "player_id": "00-0036900",
+      "team": "CIN",
+      "under_price": -110.0
+    },
+    "00-0036963:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 82.5,
+      "market": "receiving_yards",
+      "name": "Amon-Ra St. Brown",
+      "over_price": -110.0,
+      "player_id": "00-0036963",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0036963:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 6.5,
+      "market": "receptions",
+      "name": "Amon-Ra St. Brown",
+      "over_price": -110.0,
+      "player_id": "00-0036963",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0036970:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 54.5,
+      "market": "receiving_yards",
+      "name": "Kyle Pitts",
+      "over_price": -110.0,
+      "player_id": "00-0036970",
+      "team": "ATL",
+      "under_price": -110.0
+    },
+    "00-0036970:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 5.5,
+      "market": "receptions",
+      "name": "Kyle Pitts",
+      "over_price": -110.0,
+      "player_id": "00-0036970",
+      "team": "ATL",
+      "under_price": -110.0
+    },
+    "00-0036971:passing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Trevor Lawrence",
+      "over_price": -110.0,
+      "player_id": "00-0036971",
+      "team": "JAX",
+      "under_price": -110.0
+    },
+    "00-0036971:passing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 235.5,
+      "market": "passing_yards",
+      "name": "Trevor Lawrence",
+      "over_price": -110.0,
+      "player_id": "00-0036971",
+      "team": "JAX",
+      "under_price": -110.0
+    },
+    "00-0036971:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 21.5,
+      "market": "rushing_yards",
+      "name": "Trevor Lawrence",
+      "over_price": -110.0,
+      "player_id": "00-0036971",
+      "team": "JAX",
+      "under_price": -110.0
+    },
+    "00-0036973:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 17.5,
+      "market": "receiving_yards",
+      "name": "Travis Etienne",
+      "over_price": -110.0,
+      "player_id": "00-0036973",
+      "team": "JAX",
+      "under_price": -110.0
+    },
+    "00-0036973:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 2.5,
+      "market": "receptions",
+      "name": "Travis Etienne",
+      "over_price": -110.0,
+      "player_id": "00-0036973",
+      "team": "JAX",
+      "under_price": -110.0
+    },
+    "00-0036973:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Travis Etienne",
+      "over_price": -110.0,
+      "player_id": "00-0036973",
+      "team": "JAX",
+      "under_price": -110.0
+    },
+    "00-0036973:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 65.5,
+      "market": "rushing_yards",
+      "name": "Travis Etienne",
+      "over_price": -110.0,
+      "player_id": "00-0036973",
+      "team": "JAX",
+      "under_price": -110.0
+    },
+    "00-0036997:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 8.5,
+      "market": "receiving_yards",
+      "name": "Javonte Williams",
+      "over_price": -110.0,
+      "player_id": "00-0036997",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0036997:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 2.5,
+      "market": "receptions",
+      "name": "Javonte Williams",
+      "over_price": -110.0,
+      "player_id": "00-0036997",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0036997:rushing_tds": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Javonte Williams",
+      "over_price": -110.0,
+      "player_id": "00-0036997",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0036997:rushing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 75.5,
+      "market": "rushing_yards",
+      "name": "Javonte Williams",
+      "over_price": -110.0,
+      "player_id": "00-0036997",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0037238:receiving_yards": {
+      "basis": "2025 real per-game rate (12 games)",
+      "line": 76.5,
+      "market": "receiving_yards",
+      "name": "Drake London",
+      "over_price": -110.0,
+      "player_id": "00-0037238",
+      "team": "ATL",
+      "under_price": -110.0
+    },
+    "00-0037238:receptions": {
+      "basis": "2025 real per-game rate (12 games)",
+      "line": 5.5,
+      "market": "receptions",
+      "name": "Drake London",
+      "over_price": -110.0,
+      "player_id": "00-0037238",
+      "team": "ATL",
+      "under_price": -110.0
+    },
+    "00-0037239:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 72.5,
+      "market": "receiving_yards",
+      "name": "Chris Olave",
+      "over_price": -110.0,
+      "player_id": "00-0037239",
+      "team": "NO",
+      "under_price": -110.0
+    },
+    "00-0037239:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 6.5,
+      "market": "receptions",
+      "name": "Chris Olave",
+      "over_price": -110.0,
+      "player_id": "00-0037239",
+      "team": "NO",
+      "under_price": -110.0
+    },
+    "00-0037240:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 65.5,
+      "market": "receiving_yards",
+      "name": "Jameson Williams",
+      "over_price": -110.0,
+      "player_id": "00-0037240",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0037240:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 3.5,
+      "market": "receptions",
+      "name": "Jameson Williams",
+      "over_price": -110.0,
+      "player_id": "00-0037240",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0037247:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 84.5,
+      "market": "receiving_yards",
+      "name": "George Pickens",
+      "over_price": -110.0,
+      "player_id": "00-0037247",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0037247:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 5.5,
+      "market": "receptions",
+      "name": "George Pickens",
+      "over_price": -110.0,
+      "player_id": "00-0037247",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0037248:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 17.5,
+      "market": "receiving_yards",
+      "name": "James Cook",
+      "over_price": -110.0,
+      "player_id": "00-0037248",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0037248:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 1.5,
+      "market": "receptions",
+      "name": "James Cook",
+      "over_price": -110.0,
+      "player_id": "00-0037248",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0037248:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "James Cook",
+      "over_price": -110.0,
+      "player_id": "00-0037248",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0037248:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 95.5,
+      "market": "rushing_yards",
+      "name": "James Cook",
+      "over_price": -110.0,
+      "player_id": "00-0037248",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0037744:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 72.5,
+      "market": "receiving_yards",
+      "name": "Trey McBride",
+      "over_price": -110.0,
+      "player_id": "00-0037744",
+      "team": "ARI",
+      "under_price": -110.0
+    },
+    "00-0037744:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 7.5,
+      "market": "receptions",
+      "name": "Trey McBride",
+      "over_price": -110.0,
+      "player_id": "00-0037744",
+      "team": "ARI",
+      "under_price": -110.0
+    },
+    "00-0037840:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 16.5,
+      "market": "receiving_yards",
+      "name": "Kyren Williams",
+      "over_price": -110.0,
+      "player_id": "00-0037840",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0037840:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 2.5,
+      "market": "receptions",
+      "name": "Kyren Williams",
+      "over_price": -110.0,
+      "player_id": "00-0037840",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0037840:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Kyren Williams",
+      "over_price": -110.0,
+      "player_id": "00-0037840",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0037840:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 73.5,
+      "market": "rushing_yards",
+      "name": "Kyren Williams",
+      "over_price": -110.0,
+      "player_id": "00-0037840",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0038041:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 35.5,
+      "market": "receiving_yards",
+      "name": "Jake Ferguson",
+      "over_price": -110.0,
+      "player_id": "00-0038041",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0038041:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Jake Ferguson",
+      "over_price": -110.0,
+      "player_id": "00-0038041",
+      "team": "DAL",
+      "under_price": -110.0
+    },
+    "00-0038542:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 48.5,
+      "market": "receiving_yards",
+      "name": "Bijan Robinson",
+      "over_price": -110.0,
+      "player_id": "00-0038542",
+      "team": "ATL",
+      "under_price": -110.0
+    },
+    "00-0038542:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Bijan Robinson",
+      "over_price": -110.0,
+      "player_id": "00-0038542",
+      "team": "ATL",
+      "under_price": -110.0
+    },
+    "00-0038542:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Bijan Robinson",
+      "over_price": -110.0,
+      "player_id": "00-0038542",
+      "team": "ATL",
+      "under_price": -110.0
+    },
+    "00-0038542:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 86.5,
+      "market": "rushing_yards",
+      "name": "Bijan Robinson",
+      "over_price": -110.0,
+      "player_id": "00-0038542",
+      "team": "ATL",
+      "under_price": -110.0
+    },
+    "00-0038543:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 105.5,
+      "market": "receiving_yards",
+      "name": "Jaxon Smith-Njigba",
+      "over_price": -110.0,
+      "player_id": "00-0038543",
+      "team": "SEA",
+      "under_price": -110.0
+    },
+    "00-0038543:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 6.5,
+      "market": "receptions",
+      "name": "Jaxon Smith-Njigba",
+      "over_price": -110.0,
+      "player_id": "00-0038543",
+      "team": "SEA",
+      "under_price": -110.0
+    },
+    "00-0038597:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 25.5,
+      "market": "receiving_yards",
+      "name": "Chase Brown",
+      "over_price": -110.0,
+      "player_id": "00-0038597",
+      "team": "CIN",
+      "under_price": -110.0
+    },
+    "00-0038597:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Chase Brown",
+      "over_price": -110.0,
+      "player_id": "00-0038597",
+      "team": "CIN",
+      "under_price": -110.0
+    },
+    "00-0038597:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Chase Brown",
+      "over_price": -110.0,
+      "player_id": "00-0038597",
+      "team": "CIN",
+      "under_price": -110.0
+    },
+    "00-0038597:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 59.5,
+      "market": "rushing_yards",
+      "name": "Chase Brown",
+      "over_price": -110.0,
+      "player_id": "00-0038597",
+      "team": "CIN",
+      "under_price": -110.0
+    },
+    "00-0038933:receiving_yards": {
+      "basis": "2025 real per-game rate (12 games)",
+      "line": 47.5,
+      "market": "receiving_yards",
+      "name": "Dalton Kincaid",
+      "over_price": -110.0,
+      "player_id": "00-0038933",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0038933:receptions": {
+      "basis": "2025 real per-game rate (12 games)",
+      "line": 3.5,
+      "market": "receptions",
+      "name": "Dalton Kincaid",
+      "over_price": -110.0,
+      "player_id": "00-0038933",
+      "team": "BUF",
+      "under_price": -110.0
+    },
+    "00-0038996:receiving_yards": {
+      "basis": "2025 real per-game rate (8 games)",
+      "line": 61.5,
+      "market": "receiving_yards",
+      "name": "Tucker Kraft",
+      "over_price": -110.0,
+      "player_id": "00-0038996",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0038996:receptions": {
+      "basis": "2025 real per-game rate (8 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Tucker Kraft",
+      "over_price": -110.0,
+      "player_id": "00-0038996",
+      "team": "GB",
+      "under_price": -110.0
+    },
+    "00-0039040:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 30.5,
+      "market": "receiving_yards",
+      "name": "De'Von Achane",
+      "over_price": -110.0,
+      "player_id": "00-0039040",
+      "team": "MIA",
+      "under_price": -110.0
+    },
+    "00-0039040:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "De'Von Achane",
+      "over_price": -110.0,
+      "player_id": "00-0039040",
+      "team": "MIA",
+      "under_price": -110.0
+    },
+    "00-0039040:rushing_tds": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "De'Von Achane",
+      "over_price": -110.0,
+      "player_id": "00-0039040",
+      "team": "MIA",
+      "under_price": -110.0
+    },
+    "00-0039040:rushing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 84.5,
+      "market": "rushing_yards",
+      "name": "De'Von Achane",
+      "over_price": -110.0,
+      "player_id": "00-0039040",
+      "team": "MIA",
+      "under_price": -110.0
+    },
+    "00-0039064:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 71.5,
+      "market": "receiving_yards",
+      "name": "Zay Flowers",
+      "over_price": -110.0,
+      "player_id": "00-0039064",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0039064:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 5.5,
+      "market": "receptions",
+      "name": "Zay Flowers",
+      "over_price": -110.0,
+      "player_id": "00-0039064",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0039064:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 3.5,
+      "market": "rushing_yards",
+      "name": "Zay Flowers",
+      "over_price": -110.0,
+      "player_id": "00-0039064",
+      "team": "BAL",
+      "under_price": -110.0
+    },
+    "00-0039075:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 107.5,
+      "market": "receiving_yards",
+      "name": "Puka Nacua",
+      "over_price": -110.0,
+      "player_id": "00-0039075",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0039075:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 8.5,
+      "market": "receptions",
+      "name": "Puka Nacua",
+      "over_price": -110.0,
+      "player_id": "00-0039075",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0039075:rushing_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 6.5,
+      "market": "rushing_yards",
+      "name": "Puka Nacua",
+      "over_price": -110.0,
+      "player_id": "00-0039075",
+      "team": "LA",
+      "under_price": -110.0
+    },
+    "00-0039139:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 36.5,
+      "market": "receiving_yards",
+      "name": "Jahmyr Gibbs",
+      "over_price": -110.0,
+      "player_id": "00-0039139",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0039139:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Jahmyr Gibbs",
+      "over_price": -110.0,
+      "player_id": "00-0039139",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0039139:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Jahmyr Gibbs",
+      "over_price": -110.0,
+      "player_id": "00-0039139",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0039139:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 71.5,
+      "market": "rushing_yards",
+      "name": "Jahmyr Gibbs",
+      "over_price": -110.0,
+      "player_id": "00-0039139",
+      "team": "DET",
+      "under_price": -110.0
+    },
+    "00-0039338:receiving_yards": {
+      "basis": "2025 real per-game rate (12 games)",
+      "line": 56.5,
+      "market": "receiving_yards",
+      "name": "Brock Bowers",
+      "over_price": -110.0,
+      "player_id": "00-0039338",
+      "team": "LV",
+      "under_price": -110.0
+    },
+    "00-0039338:receptions": {
+      "basis": "2025 real per-game rate (12 games)",
+      "line": 5.5,
+      "market": "receptions",
+      "name": "Brock Bowers",
+      "over_price": -110.0,
+      "player_id": "00-0039338",
+      "team": "LV",
+      "under_price": -110.0
+    },
+    "00-0039732:passing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Bo Nix",
+      "over_price": -110.0,
+      "player_id": "00-0039732",
+      "team": "DEN",
+      "under_price": -110.0
+    },
+    "00-0039732:passing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 231.5,
+      "market": "passing_yards",
+      "name": "Bo Nix",
+      "over_price": -110.0,
+      "player_id": "00-0039732",
+      "team": "DEN",
+      "under_price": -110.0
+    },
+    "00-0039732:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 20.5,
+      "market": "rushing_yards",
+      "name": "Bo Nix",
+      "over_price": -110.0,
+      "player_id": "00-0039732",
+      "team": "DEN",
+      "under_price": -110.0
+    },
+    "00-0039851:passing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Drake Maye",
+      "over_price": -110.0,
+      "player_id": "00-0039851",
+      "team": "NE",
+      "under_price": -110.0
+    },
+    "00-0039851:passing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 258.5,
+      "market": "passing_yards",
+      "name": "Drake Maye",
+      "over_price": -110.0,
+      "player_id": "00-0039851",
+      "team": "NE",
+      "under_price": -110.0
+    },
+    "00-0039851:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 26.5,
+      "market": "rushing_yards",
+      "name": "Drake Maye",
+      "over_price": -110.0,
+      "player_id": "00-0039851",
+      "team": "NE",
+      "under_price": -110.0
+    },
+    "00-0039918:passing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Caleb Williams",
+      "over_price": -110.0,
+      "player_id": "00-0039918",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0039918:passing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 231.5,
+      "market": "passing_yards",
+      "name": "Caleb Williams",
+      "over_price": -110.0,
+      "player_id": "00-0039918",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0039918:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 22.5,
+      "market": "rushing_yards",
+      "name": "Caleb Williams",
+      "over_price": -110.0,
+      "player_id": "00-0039918",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0040122:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 20.5,
+      "market": "receiving_yards",
+      "name": "Ashton Jeanty",
+      "over_price": -110.0,
+      "player_id": "00-0040122",
+      "team": "LV",
+      "under_price": -110.0
+    },
+    "00-0040122:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 3.5,
+      "market": "receptions",
+      "name": "Ashton Jeanty",
+      "over_price": -110.0,
+      "player_id": "00-0040122",
+      "team": "LV",
+      "under_price": -110.0
+    },
+    "00-0040122:rushing_tds": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 0.5,
+      "market": "rushing_tds",
+      "name": "Ashton Jeanty",
+      "over_price": -110.0,
+      "player_id": "00-0040122",
+      "team": "LV",
+      "under_price": -110.0
+    },
+    "00-0040122:rushing_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 57.5,
+      "market": "rushing_yards",
+      "name": "Ashton Jeanty",
+      "over_price": -110.0,
+      "player_id": "00-0040122",
+      "team": "LV",
+      "under_price": -110.0
+    },
+    "00-0040124:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 59.5,
+      "market": "receiving_yards",
+      "name": "Tetairoa McMillan",
+      "over_price": -110.0,
+      "player_id": "00-0040124",
+      "team": "CAR",
+      "under_price": -110.0
+    },
+    "00-0040124:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Tetairoa McMillan",
+      "over_price": -110.0,
+      "player_id": "00-0040124",
+      "team": "CAR",
+      "under_price": -110.0
+    },
+    "00-0040126:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 44.5,
+      "market": "receiving_yards",
+      "name": "Colston Loveland",
+      "over_price": -110.0,
+      "player_id": "00-0040126",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0040126:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 3.5,
+      "market": "receptions",
+      "name": "Colston Loveland",
+      "over_price": -110.0,
+      "player_id": "00-0040126",
+      "team": "CHI",
+      "under_price": -110.0
+    },
+    "00-0040128:receiving_yards": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 48.5,
+      "market": "receiving_yards",
+      "name": "Tyler Warren",
+      "over_price": -110.0,
+      "player_id": "00-0040128",
+      "team": "IND",
+      "under_price": -110.0
+    },
+    "00-0040128:receptions": {
+      "basis": "2025 real per-game rate (17 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Tyler Warren",
+      "over_price": -110.0,
+      "player_id": "00-0040128",
+      "team": "IND",
+      "under_price": -110.0
+    },
+    "00-0040663:receiving_yards": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 45.5,
+      "market": "receiving_yards",
+      "name": "Harold Fannin Jr.",
+      "over_price": -110.0,
+      "player_id": "00-0040663",
+      "team": "CLE",
+      "under_price": -110.0
+    },
+    "00-0040663:receptions": {
+      "basis": "2025 real per-game rate (16 games)",
+      "line": 4.5,
+      "market": "receptions",
+      "name": "Harold Fannin Jr.",
+      "over_price": -110.0,
+      "player_id": "00-0040663",
+      "team": "CLE",
+      "under_price": -110.0
+    },
+    "00-0040691:passing_tds": {
+      "basis": "2025 real per-game rate (14 games)",
+      "line": 1.5,
+      "market": "passing_tds",
+      "name": "Jaxson Dart",
+      "over_price": -110.0,
+      "player_id": "00-0040691",
+      "team": "NYG",
+      "under_price": -110.0
+    },
+    "00-0040691:passing_yards": {
+      "basis": "2025 real per-game rate (14 games)",
+      "line": 162.5,
+      "market": "passing_yards",
+      "name": "Jaxson Dart",
+      "over_price": -110.0,
+      "player_id": "00-0040691",
+      "team": "NYG",
+      "under_price": -110.0
+    },
+    "00-0040691:rushing_yards": {
+      "basis": "2025 real per-game rate (14 games)",
+      "line": 34.5,
+      "market": "rushing_yards",
+      "name": "Jaxson Dart",
+      "over_price": -110.0,
+      "player_id": "00-0040691",
+      "team": "NYG",
+      "under_price": -110.0
+    }
+  },
+  "source_season": 2025
+}

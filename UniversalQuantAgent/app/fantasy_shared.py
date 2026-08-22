@@ -39,6 +39,7 @@ from fantasy.data_loader import (
 )
 from fantasy.grader import letter_grade
 from fantasy.projections import load_forward_projections, project_forward, projection_season_label
+from quant.quant_engine import compute_breakout_probability
 
 SCORING_LABELS = {"PPR": "ppr", "Half-PPR": "half-ppr", "Standard": "standard"}
 
@@ -263,6 +264,36 @@ def league_setup(show_uploads: bool = True) -> dict[str, Any]:
     }
 
 
+def quant_breakout_by_player(players: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Breakout-probability rows from the Quant Engine, keyed by player id.
+
+    The Draft Room and Draft Assistant recommendation tables are built by
+    :mod:`fantasy.assistant`'s own backtest-validated VORP/ADP scoring, not
+    the Quant Engine -- that scoring stays as-is (see the module docstring
+    there for why). This adds Quant's independent breakout read as a second,
+    non-authoritative signal next to it, the same "preserve the primary
+    ranking, append a Quant column" pattern the Season Tools page already
+    uses for waiver and trade recommendations.
+    """
+    if not players:
+        return {}
+    by_player = compute_breakout_probability(players).get("by_player", {})
+    return {str(key): dict(value) for key, value in by_player.items()}
+
+
+def breakout_pill(entry: dict[str, Any]) -> str:
+    """Quant's breakout-probability read, banded so the color carries the meaning."""
+    probability = entry.get("quant_breakout_probability")
+    if probability is None:
+        return ""
+    probability = float(probability)
+    if probability >= 0.65:
+        return pill(f"🚀 Breakout {probability:.0%}", "success")
+    if probability >= 0.40:
+        return pill(f"Breakout {probability:.0%}", "neutral")
+    return ""
+
+
 def require_pool(setup: dict[str, Any], what: str) -> bool:
     """Render an empty state and return ``False`` when there is no pool to work with."""
     if setup["projections"]:
@@ -343,7 +374,7 @@ def _stat_row(stats: list[tuple[str, str]]) -> str:
 
 def player_card_html(entry: dict[str, Any], rank_label: str, taken_by: str | None = None) -> str:
     """One recommendation rendered as a premium card."""
-    pills = "".join([proximity_pill(entry), scarcity_pill(entry), need_pill(entry)])
+    pills = "".join([proximity_pill(entry), scarcity_pill(entry), need_pill(entry), breakout_pill(entry)])
     if taken_by:
         pills = pill(f"🔒 Taken by {taken_by}", "danger") + pills
     stats = [

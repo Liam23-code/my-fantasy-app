@@ -22,7 +22,7 @@ from typing import Any
 
 from fantasy.adapter import normalize_projection
 from fantasy.models import LeagueSettings, Roster, RosterPlayer
-from fantasy.scoring import calculate_fantasy_points
+from fantasy.projections import projected_or_scored
 
 try:
     import pulp
@@ -63,7 +63,13 @@ def _score_candidates(
     scored: dict[str, dict[str, Any]] = {}
     for player in players:
         canonical = by_id.get(player.player_id) or by_name.get(player.name.strip().lower())
-        points = calculate_fantasy_points(canonical, mode=settings.scoring_mode, custom_rules=settings.custom_rules)["total_points"] if canonical else 0.0
+        # Prefers a real projection over the raw stat line (see
+        # fantasy.projections.projected_or_scored). `week_projections` is named
+        # for what it should hold -- whatever cadence the caller supplies,
+        # weekly or season, is what the lineup is optimized on; what must not
+        # happen is optimizing on last season's box score while the draft board
+        # next to it shows a forward projection.
+        points = projected_or_scored(canonical, settings)
         scored[player.player_id] = {
             "player_id": player.player_id,
             "name": player.name,

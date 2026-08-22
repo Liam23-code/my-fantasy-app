@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from fantasy.models import LeagueSettings
 from fantasy.waiver import waiver_recommendations
 
@@ -200,3 +202,38 @@ def test_rationale_mentions_position_already_stocked():
     depth = next(p for p in ranked if p["name"] == "RB Depth")
     assert depth["need_multiplier"] < 1.0
     assert "position already well-stocked" in depth["rationale"]
+
+
+# --- basis: waiver value is forward-looking, not last season's box score ------
+
+FORWARD_SETTINGS = {
+    "n_teams": 1,
+    "scoring_mode": "ppr",
+    "roster_requirements": {"QB": 0, "RB": 2, "WR": 0, "TE": 0, "FLEX": 0, "DST": 0, "K": 0, "BENCH": 0},
+    "flex_eligible": [],
+}
+
+
+def test_waiver_value_comes_from_the_projection_not_the_prior_season_stat_line():
+    """Identical box scores, different projections -- the projection must decide."""
+    state = {"league_settings": FORWARD_SETTINGS, "my_roster": []}
+    players = [
+        _fa("fade", "Fading Vet", "RB", "rushing_yards", 200, projection=90.0, scoring_mode="ppr"),
+        _fa("bounce", "Bounce Back", "RB", "rushing_yards", 200, projection=260.0, scoring_mode="ppr"),
+        _rb_filler(),
+    ]
+    ranked = {row["name"]: row for row in waiver_recommendations(state, players)}
+    assert ranked["Bounce Back"]["waiver_rank"] < ranked["Fading Vet"]["waiver_rank"]
+    assert ranked["Bounce Back"]["replacement_value"] > ranked["Fading Vet"]["replacement_value"]
+
+
+def test_waiver_ignores_a_projection_baked_under_another_scoring_mode():
+    """Half-PPR numbers in a PPR league fall back to the stat line, so these tie."""
+    state = {"league_settings": FORWARD_SETTINGS, "my_roster": []}
+    players = [
+        _fa("a", "Player A", "RB", "rushing_yards", 200, projection=90.0, scoring_mode="half-ppr"),
+        _fa("b", "Player B", "RB", "rushing_yards", 200, projection=260.0, scoring_mode="half-ppr"),
+        _rb_filler(),
+    ]
+    ranked = {row["name"]: row for row in waiver_recommendations(state, players)}
+    assert ranked["Player A"]["composite_score"] == pytest.approx(ranked["Player B"]["composite_score"])

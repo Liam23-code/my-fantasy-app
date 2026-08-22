@@ -1,5 +1,6 @@
 """Offline contract tests for the strengthened quant pipeline."""
 from pathlib import Path
+import json
 import sys
 import tempfile
 import unittest
@@ -12,7 +13,7 @@ sys.path.insert(0,str(ROOT))
 
 from modules.data_quality import fuzzy_name_match, parse_minutes, rolling_average
 from modules.daily_slate import get_daily_slate
-from modules.injury_model import normalize_status
+from modules.injury_parser import normalize_status
 from modules.model_performance import get_model_performance_summary
 from modules.parlay import build_parlay
 from modules.props import compare_props
@@ -37,7 +38,7 @@ class PipelineContracts(unittest.TestCase):
 
     @patch("modules.props.get_reliability_score",return_value={"score":82.0,"rating":"high"})
     @patch("modules.props.fuse_projection")
-    @patch("modules.props.fetch_all_sportsbook_props")
+    @patch("modules.props.unified_props")
     def test_compare_props_schema(self,fetch_lines,fuse,_):
         fetch_lines.return_value = [self.line]
         fuse.return_value = self.fusion
@@ -78,8 +79,8 @@ class PipelineContracts(unittest.TestCase):
         self.assertEqual(result["categories"][0]["mae"],2.0)
 
     @patch("modules.daily_slate.fuse_projection")
-    @patch("modules.daily_slate.fetch_all_sportsbook_props")
-    @patch("modules.daily_slate.fetch_daily_games")
+    @patch("modules.daily_slate.unified_props")
+    @patch("modules.daily_slate.fetch_todays_games")
     def test_daily_slate_schema(self,games,props,fuse):
         games.return_value = [{"home_team":"DEN","away_team":"BOS","start_time":"now"}]
         props.return_value = [self.line]
@@ -166,7 +167,7 @@ class PipelineContracts(unittest.TestCase):
         self.assertEqual(safe_scalar_to_dict(42), {"value": 42})
 
     def test_injury_walker_handles_mixed_provider_types(self):
-        from modules.injury_model import _walk
+        from modules.injury_parser import walk_injury_records
 
         payload = {
             "displayName": "Denver Nuggets",
@@ -184,7 +185,7 @@ class PipelineContracts(unittest.TestCase):
             ],
         }
         results = []
-        _walk(payload, "", results)
+        walk_injury_records(payload, "", results)
         self.assertEqual(len(results), 1)
         self.assertEqual(
             set(results[0]), {"team", "player", "status", "details"}
@@ -193,11 +194,10 @@ class PipelineContracts(unittest.TestCase):
         self.assertEqual(results[0]["status"], "ACTIVE")
         self.assertIsInstance(results[0]["details"], dict)
 
-    @patch("modules.injury_model.requests.get")
-    def test_fetch_injury_report_enforces_clean_schema(self, request):
-        response = MagicMock()
-        response.raise_for_status.return_value = None
-        response.json.return_value = {
+    def test_load_injury_data_from_file_enforces_clean_schema(self):
+        from modules.injury_parser import load_injury_data_from_file
+
+        payload = {
             "displayName": "Boston Celtics",
             "injuries": [
                 {
@@ -208,16 +208,57 @@ class PipelineContracts(unittest.TestCase):
                 99,
             ],
         }
-        request.return_value = response
-        from modules.injury_model import fetch_injury_report
-
-        result = fetch_injury_report()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "injuries.json"
+            path.write_text(json.dumps(payload))
+            result = load_injury_data_from_file(path)
         self.assertEqual(len(result), 1)
-        self.assertEqual(
-            set(result[0]), {"team", "player", "status", "details"}
-        )
+        self.assertEqual(set(result[0]), {"team", "player", "status", "details"})
         self.assertEqual(result[0]["status"], "QUESTIONABLE")
         self.assertIsInstance(result[0]["details"], dict)
+
+    def test_load_injury_data_from_file_missing_path_returns_empty_not_error(self):
+        from modules.injury_parser import load_injury_data_from_file
+
+        self.assertEqual(load_injury_data_from_file("Z:/does/not/exist.json"), [])
+
+    def test_sportsbook_fetch_functions_are_hard_disabled(self):
+        from modules import sportsbook_scraper_disabled as sb
+
+        for fn in (
+            sb.fetch_draftkings_props,
+            sb.fetch_fanduel_props,
+            sb.fetch_betmgm_props,
+            sb.fetch_caesars_props,
+            sb.fetch_espnbet_props,
+            sb.fetch_all_sportsbook_props,
+            sb.fetch_daily_games,
+        ):
+            with self.assertRaises(RuntimeError):
+                fn()
+
+    def test_injury_fetch_functions_are_hard_disabled(self):
+        from modules import injury_scraper_disabled as inj
+
+        with self.assertRaises(RuntimeError):
+            inj.fetch_injury_report()
+        with self.assertRaises(RuntimeError):
+            inj.fetch_injury_data_online()
+
+    def test_no_network_libraries_imported_by_sportsbook_or_injury_modules(self):
+        import ast
+
+        for module_name in ("sportsbook_parser", "sportsbook_scraper_disabled", "injury_parser", "injury_scraper_disabled"):
+            source = (ROOT / "modules" / f"{module_name}.py").read_text(encoding="utf-8")
+            tree = ast.parse(source)
+            imported = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imported.update(alias.name.split(".")[0] for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    imported.add(node.module.split(".")[0])
+            banned = imported & {"requests", "aiohttp", "urllib3", "httpx", "selenium", "playwright", "bs4"}
+            self.assertEqual(banned, set(), msg=f"{module_name} imports network/scraping library: {banned}")
 
     def test_scalar_model_output_normalization(self):
         from modules.fusion_model import normalize_model_output
@@ -245,7 +286,7 @@ class PipelineContracts(unittest.TestCase):
         self.assertTrue({"value", "confidence", "details"}.issubset(result))
         self.assertIsInstance(result["details"], dict)
 
-    @patch("modules.pace_model.fetch_injury_report", return_value=[1, None, "bad"])
+    @patch("modules.pace_model.load_injury_data_from_file", return_value=[1, None, "bad"])
     @patch("modules.pace_model.fetch_league_team_stats")
     @patch("modules.pace_model.find_team")
     def test_pace_model_envelope(self, find_team, league_stats, _):
@@ -263,7 +304,7 @@ class PipelineContracts(unittest.TestCase):
         self.assertIsInstance(result["details"], dict)
 
     @patch(
-        "modules.matchup_model.fetch_injury_report",
+        "modules.matchup_model.load_injury_data_from_file",
         return_value=[3, {"team": "BOS", "status": 9}, {"team": "BOS", "status": "OUT"}],
     )
     @patch("modules.matchup_model._find_player", side_effect=ValueError("no log"))
