@@ -12,6 +12,16 @@ from __future__ import annotations
 import statistics
 from typing import Any
 
+from .cache_utils import ttl_cache
+
+#: A real NFL week's schedule and results don't change within a session --
+#: this is not on any live per-request path today (see the NBA side's
+#: modules/nba_schedule.py for the "changes every day" case that genuinely
+#: needs a short TTL); a long TTL here just avoids redundant nflreadpy
+#: calls if this function is called repeatedly (e.g. once per generated
+#: game row) within one generation run.
+_SCHEDULE_CACHE_SECONDS = 3600
+
 
 def _require_nflreadpy() -> Any:
     try:
@@ -21,6 +31,7 @@ def _require_nflreadpy() -> Any:
     return nflreadpy
 
 
+@ttl_cache(_SCHEDULE_CACHE_SECONDS)
 def team_scoring_by_week(season: int) -> dict[str, list[dict[str, Any]]]:
     """Real per-team-per-week points scored and allowed, from the schedule.
 

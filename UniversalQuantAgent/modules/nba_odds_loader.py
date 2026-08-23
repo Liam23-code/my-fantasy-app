@@ -21,10 +21,14 @@ import json
 from pathlib import Path
 from typing import Any
 
+from betting.cache_utils import ttl_cache
+
 from modules.sportsbook_parser import normalize_team_name
 
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data"
 DEFAULT_GAME_ODDS_PATH = DATA_ROOT / "nba_game_odds.json"
+
+_DEFAULT_FILE_CACHE_SECONDS = 300
 
 _HOME_TEAM_ALIASES = ("home_team", "home")
 _AWAY_TEAM_ALIASES = ("away_team", "away")
@@ -138,6 +142,7 @@ def _parse_delimited_text(text: str, *, source: str) -> dict[str, Any]:
     return _rows_from_dicts([dict(row) for row in reader], source=source)
 
 
+@ttl_cache(_DEFAULT_FILE_CACHE_SECONDS)
 def load_default_game_odds(path: str | Path | None = None) -> dict[str, Any]:
     """Load our default NBA game-odds file (default: ``data/nba_game_odds.json``).
 

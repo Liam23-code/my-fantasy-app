@@ -59,6 +59,34 @@ def test_favorite_and_total_over_same_game_is_correlated():
     assert findings[0]["kind"] == "favorite_and_game_total_over"
 
 
+def test_rb_rushing_volume_and_game_total_over_is_correlated():
+    volume = _leg(game_id="g1", player_id="p1", market="rushing_yards", side="over")
+    total = _leg(game_id="g1", market="total", side="over")
+    findings = detect_correlations([volume, total])
+    assert findings[0]["kind"] == "rb_volume_and_game_total"
+    assert findings[0]["direction"] == "positive"
+
+
+def test_rb_rushing_volume_and_game_total_finds_pattern_regardless_of_leg_order():
+    volume = _leg(game_id="g1", player_id="p1", market="rushing_yards", side="over")
+    total = _leg(game_id="g1", market="total", side="over")
+    assert detect_correlations([total, volume])[0]["kind"] == "rb_volume_and_game_total"
+
+
+def test_rb_rushing_under_and_total_over_is_not_correlated():
+    # Different directions -- the shared-game-script rationale only holds
+    # when both legs point the same way.
+    volume = _leg(game_id="g1", player_id="p1", market="rushing_yards", side="under")
+    total = _leg(game_id="g1", market="total", side="over")
+    assert detect_correlations([volume, total]) == []
+
+
+def test_rb_rushing_volume_different_games_is_not_correlated():
+    volume = _leg(game_id="g1", player_id="p1", market="rushing_yards", side="over")
+    total = _leg(game_id="g2", market="total", side="over")
+    assert detect_correlations([volume, total]) == []
+
+
 def test_unrelated_legs_are_not_correlated():
     a = _leg(team="KC", market="passing_yards", side="over")
     b = _leg(team="BUF", market="rushing_yards", side="under")

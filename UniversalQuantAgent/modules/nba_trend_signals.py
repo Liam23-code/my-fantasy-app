@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from betting.cache_utils import ttl_cache
+
 from modules.data_quality import safe_number
 from modules.nba_advanced import fetch_league_team_stats, find_team, latest_season
 
@@ -26,7 +28,13 @@ from modules.nba_advanced import fetch_league_team_stats, find_team, latest_seas
 _PACE_TREND_THRESHOLD = 1.0
 _USAGE_TREND_THRESHOLD_PCT = 1.5
 
+#: These are display overlays computed on demand for potentially many rows
+#: in a table (see the Betting Engine page) -- cache them so scrolling or
+#: re-rendering the same table doesn't re-issue a live call per row.
+_TREND_CACHE_SECONDS = 300
 
+
+@ttl_cache(_TREND_CACHE_SECONDS)
 def team_pace_trend(team: str, season: str | None = None) -> dict[str, Any]:
     """Real season vs. real last-10-games pace for one team, and the delta between them."""
     season = season or latest_season()
@@ -56,6 +64,7 @@ def team_pace_trend(team: str, season: str | None = None) -> dict[str, Any]:
     }
 
 
+@ttl_cache(_TREND_CACHE_SECONDS)
 def player_usage_trend(player_name: str, season: str | None = None) -> dict[str, Any]:
     """Real season vs. real last-10-games usage rate for one player, and the delta between them."""
     from nba_api.stats.endpoints import leaguedashplayerstats

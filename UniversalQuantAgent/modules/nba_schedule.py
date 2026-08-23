@@ -17,7 +17,14 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+from betting.cache_utils import ttl_cache
+
 from modules.sportsbook_parser import normalize_team_name
+
+#: Today's schedule can change within a session (a postponement, a
+#: same-day addition) but not every request needs a fresh live call --
+#: 60s balances freshness against hammering the live feed on every rerun.
+_SCHEDULE_CACHE_SECONDS = 60
 
 
 def _team_code(side: dict[str, Any]) -> str:
@@ -60,12 +67,17 @@ def _from_stats_scoreboard(game_date: date) -> list[dict[str, Any]]:
     return results
 
 
+@ttl_cache(_SCHEDULE_CACHE_SECONDS)
 def fetch_todays_games(game_date: date | None = None) -> list[dict[str, Any]]:
     """Real home/away matchups for ``game_date`` (default: today), via the NBA's live schedule feed.
 
     Returns ``[]`` on any failure (network unavailable, off-season, no
     games scheduled) rather than raising -- an empty slate is a normal
     state, not an error, matching the injury/odds loaders' convention.
+    Cached for :data:`_SCHEDULE_CACHE_SECONDS` -- every caller (this
+    module's own tests aside) shares one cache, so `daily_slate.py`,
+    `props.py`, `recommendations.py`, and the Streamlit page don't each
+    make their own live call within the same short window.
     """
     try:
         if game_date is None or game_date == date.today():

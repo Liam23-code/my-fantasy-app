@@ -101,6 +101,17 @@ def _pair_correlation(leg_a: dict[str, Any], leg_b: dict[str, Any]) -> dict[str,
     if same_game and market_b == "moneyline" and market_a == "total":
         return _pair_correlation(leg_b, leg_a)
 
+    if same_game and leg_a.get("side") == "over" and leg_b.get("side") == "over":
+        if market_a in _RUSH_VOLUME_MARKETS and market_b == "total":
+            return {
+                "kind": "rb_volume_and_game_total",
+                "direction": "positive",
+                "note": "a team leaning on the run typically reflects a positive, clock-controlling "
+                "game script, which correlates with the team -- and often the game -- going over its total",
+            }
+        if market_b in _RUSH_VOLUME_MARKETS and market_a == "total":
+            return _pair_correlation(leg_b, leg_a)
+
     return None
 
 

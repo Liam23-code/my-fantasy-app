@@ -6,6 +6,7 @@ from math import isfinite
 import json
 from pathlib import Path
 import re
+import threading
 import time
 from typing import Any, Callable
 
@@ -23,6 +24,18 @@ CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "nba_cache"
 _MEMORY_CACHE: dict[str, list[pd.DataFrame]] = {}
 _PROVIDER_UNAVAILABLE_UNTIL = 0.0
 _PROVIDER_COOLDOWN_SECONDS = 60.0
+
+#: Guards the two pieces of module-global mutable state above
+#: (_MEMORY_CACHE, _PROVIDER_UNAVAILABLE_UNTIL). Individual dict/variable
+#: operations are already atomic under CPython's GIL, but the
+#: check-then-set sequence on _PROVIDER_UNAVAILABLE_UNTIL is not -- without
+#: this lock, concurrent callers (see modules/parallel_utils.py, used by
+#: modules/recommendations.py's per-player fetch loop) could each observe
+#: "not cooling down" and duplicate a live-provider retry loop
+#: unnecessarily. The actual network call in the retry loop below stays
+#: outside the lock so concurrent fetches for different cache keys aren't
+#: serialized -- only the shared bookkeeping is.
+_STATE_LOCK = threading.Lock()
 
 
 def _key(value: str) -> str:
@@ -158,14 +171,16 @@ def fetch_nba_frames(
     """
     global _PROVIDER_UNAVAILABLE_UNTIL
     attempts = max(1, int(retries))
-    provider_is_cooling_down = time.monotonic() < _PROVIDER_UNAVAILABLE_UNTIL
+    with _STATE_LOCK:
+        provider_is_cooling_down = time.monotonic() < _PROVIDER_UNAVAILABLE_UNTIL
     if not provider_is_cooling_down:
         for attempt in range(attempts):
             try:
                 frames = [frame for frame in _frames(loader()) if not frame.empty]
                 if frames:
-                    _PROVIDER_UNAVAILABLE_UNTIL = 0.0
-                    _MEMORY_CACHE[cache_key] = _copy(frames)
+                    with _STATE_LOCK:
+                        _PROVIDER_UNAVAILABLE_UNTIL = 0.0
+                        _MEMORY_CACHE[cache_key] = _copy(frames)
                     _save(cache_key, frames)
                     return _mark(frames, "live")
             except Exception:
@@ -175,15 +190,18 @@ def fetch_nba_frames(
         # Avoid making every component in one fused projection wait through the
         # same provider outage. A later request automatically retries after the
         # short cooldown.
-        _PROVIDER_UNAVAILABLE_UNTIL = time.monotonic() + _PROVIDER_COOLDOWN_SECONDS
+        with _STATE_LOCK:
+            _PROVIDER_UNAVAILABLE_UNTIL = time.monotonic() + _PROVIDER_COOLDOWN_SECONDS
 
-    memory = _MEMORY_CACHE.get(cache_key, [])
+    with _STATE_LOCK:
+        memory = _MEMORY_CACHE.get(cache_key, [])
     if memory:
         return _mark(memory, "last_known_memory", FALLBACK_WARNING)
 
     disk = _load(cache_key)
     if disk:
-        _MEMORY_CACHE[cache_key] = _copy(disk)
+        with _STATE_LOCK:
+            _MEMORY_CACHE[cache_key] = _copy(disk)
         return _mark(disk, "historical_cache", FALLBACK_WARNING)
 
     fallback = _frames(fallback_factory()) if fallback_factory else []

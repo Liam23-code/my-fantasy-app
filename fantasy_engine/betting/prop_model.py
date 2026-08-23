@@ -17,6 +17,7 @@ from typing import Any
 from projections.projection_engine import compute_final_projection
 
 from .odds_math import edge_vs_fair, expected_value, remove_vig_two_way
+from .parallel_utils import parallel_ev_map
 
 #: stat market -> season-total field on a real player record (matches odds_generator).
 STAT_FIELDS: dict[str, str] = {
@@ -205,21 +206,31 @@ def evaluate_prop(player: dict[str, Any], prop_odds: dict[str, Any]) -> dict[str
     }
 
 
+def _evaluate_prop_or_none(args: tuple[dict[str, Any], dict[str, Any]]) -> dict[str, Any] | None:
+    player, prop = args
+    try:
+        return evaluate_prop(player, prop)
+    except ValueError:
+        return None
+
+
 def evaluate_props(players_by_id: dict[str, dict[str, Any]], odds: dict[str, Any]) -> list[dict[str, Any]]:
     """Evaluate every prop in a unified odds object against the matching real player.
 
     Silently skips a prop when its player isn't in ``players_by_id`` or its
     market isn't one we model (see :data:`STAT_FIELDS`) -- a partial pool or
-    an exotic market is not an error, just nothing to evaluate yet.
+    an exotic market is not an error, just nothing to evaluate yet. Each
+    prop's evaluation is pure, independent math with no I/O -- see
+    :mod:`betting.parallel_utils` for why this still uses a thread pool
+    (a real, tested parallel path) despite the limited GIL-bound benefit
+    for CPU-only work at today's row counts.
     """
-    rows: list[dict[str, Any]] = []
+    candidates = []
     for prop in (odds.get("player_props") or {}).values():
         player = players_by_id.get(str(prop.get("player_id")))
         if player is None or prop.get("market") not in STAT_FIELDS:
             continue
-        try:
-            rows.append(evaluate_prop(player, prop))
-        except ValueError:
-            continue
+        candidates.append((player, prop))
+    rows = [row for row in parallel_ev_map(_evaluate_prop_or_none, candidates) if row is not None]
     rows.sort(key=lambda row: -row["recommended_edge"])
     return rows

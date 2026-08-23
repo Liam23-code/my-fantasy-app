@@ -114,6 +114,11 @@ class NbaPropsLoaderTests(unittest.TestCase):
 
 
 class NbaScheduleTests(unittest.TestCase):
+    def setUp(self):
+        # fetch_todays_games is TTL-cached (see modules/nba_schedule.py); each
+        # test needs a clean cache or it may see a previous test's mocked result.
+        fetch_todays_games.cache_clear()
+
     def test_fetch_todays_games_returns_empty_list_when_provider_unavailable(self):
         with patch("modules.nba_schedule._from_live_scoreboard", side_effect=RuntimeError("network unavailable")):
             self.assertEqual(fetch_todays_games(), [])
@@ -154,6 +159,13 @@ class NbaScheduleTests(unittest.TestCase):
 
 
 class NbaPropsGeneratorTests(unittest.TestCase):
+    def setUp(self):
+        # _fetch_base_player_stats is TTL-cached (see modules/nba_props_generator.py);
+        # each test needs a clean cache or it may see a previous test's mocked frame.
+        from modules.nba_props_generator import _fetch_base_player_stats
+
+        _fetch_base_player_stats.cache_clear()
+
     def test_round_to_half_never_returns_a_whole_number(self):
         for value, expected in ((18.2, 18.5), (18.6, 18.5), (19.1, 19.5), (0.4, 0.5), (0.0, 0.5)):
             self.assertEqual(_round_to_half(value), expected)

@@ -131,6 +131,24 @@ def test_load_uploaded_odds_from_game_csv():
     assert game["total"]["line"] == 47.5
 
 
+def test_load_uploaded_odds_games_as_json_list_not_dict():
+    # {"games": [...]} (a bare list of row dicts) must parse the same way
+    # {"games": {game_id: row}} does -- a JSON object with a "games" key
+    # doesn't guarantee the uploader chose the dict-by-id shape.
+    payload = {"games": [{"home_team": "KC", "away_team": "BUF", "moneyline_home": -150, "moneyline_away": 130}]}
+    result = load_uploaded_odds(json.dumps(payload), file_format="json")
+    assert len(result["games"]) == 1
+    game = next(iter(result["games"].values()))
+    assert game["home_team"] == "KC"
+    assert game["moneyline"]["home"] == -150
+
+
+def test_load_uploaded_odds_games_list_with_no_market_data_is_skipped_not_an_error():
+    payload = {"games": [{"home_team": "KC", "away_team": "BUF"}]}  # no moneyline/spread/total
+    result = load_uploaded_odds(json.dumps(payload), file_format="json")
+    assert result["games"] == {}
+
+
 def test_load_uploaded_odds_invalid_json_raises():
     with pytest.raises(OddsLoadError):
         load_uploaded_odds("{not valid json", file_format="json")

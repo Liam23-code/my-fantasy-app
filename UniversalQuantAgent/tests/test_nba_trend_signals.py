@@ -15,6 +15,11 @@ from modules.nba_trend_signals import player_usage_trend, team_pace_trend
 
 
 class TeamPaceTrendTests(unittest.TestCase):
+    def setUp(self):
+        # team_pace_trend is TTL-cached (see modules/nba_trend_signals.py);
+        # several tests reuse the same team/season args with different mocks.
+        team_pace_trend.cache_clear()
+
     def test_accelerating_pace_detected(self):
         season_table = pd.DataFrame([{"TEAM_ID": 1610612743, "PACE": 98.0}])
         recent_table = pd.DataFrame([{"TEAM_ID": 1610612743, "PACE": 101.0}])
@@ -49,6 +54,9 @@ class TeamPaceTrendTests(unittest.TestCase):
 
 
 class PlayerUsageTrendTests(unittest.TestCase):
+    def setUp(self):
+        player_usage_trend.cache_clear()
+
     def test_falling_usage_detected(self):
         season_frame = pd.DataFrame([{"PLAYER_ID": 1, "USG_PCT": 0.30}])
         recent_frame = pd.DataFrame([{"PLAYER_ID": 1, "USG_PCT": 0.26}])

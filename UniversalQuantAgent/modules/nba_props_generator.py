@@ -20,8 +20,17 @@ import json
 from pathlib import Path
 from typing import Any
 
+from betting.cache_utils import ttl_cache
+
 from modules.nba_advanced import latest_season
 from modules.sportsbook_parser import normalize_player_name, normalize_team_name
+
+#: Real season stats don't change within a session (they're the completed
+#: prior season, or a slowly-accumulating current one) -- cache the raw
+#: league fetch so the generator and modules/nba_player_rate_table.py
+#: (which wants the same real per-player pool) don't each make their own
+#: live call within the same short window.
+_LEAGUE_STATS_CACHE_SECONDS = 300
 
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data"
 DEFAULT_PROPS_PATH = DATA_ROOT / "nba_props.json"
@@ -63,6 +72,24 @@ def _round_to_half(value: float) -> float:
     return round(value - 0.5) + 0.5
 
 
+@ttl_cache(_LEAGUE_STATS_CACHE_SECONDS)
+def _fetch_base_player_stats(season: str) -> Any:
+    """Real season-total per-player stats (points, rebounds, assists, 3PM, minutes, games played).
+
+    One live call to the NBA's own stats API, deduped so a player traded
+    mid-season is represented once by their combined "TOT" row (which
+    always has the highest GP for that player -- keeping max-GP-per-player
+    selects it automatically without needing to special-case the "TOT"
+    label). Shared by :func:`generate_default_props` and
+    :mod:`modules.nba_player_rate_table` so both don't each make their own
+    live call for the same real data.
+    """
+    from nba_api.stats.endpoints import leaguedashplayerstats
+
+    frame = leaguedashplayerstats.LeagueDashPlayerStats(season=season, timeout=30).get_data_frames()[0]
+    return frame.sort_values("GP", ascending=False).drop_duplicates(subset="PLAYER_ID", keep="first")
+
+
 def generate_default_props(season: str | None = None, *, pool_size: int = 175) -> list[dict[str, Any]]:
     """Real per-game-rate prop lines for the ``pool_size`` most-used real players.
 
@@ -71,16 +98,8 @@ def generate_default_props(season: str | None = None, *, pool_size: int = 175) -
     sportsbook-style half point. Makes one live call to the NBA's own stats
     API -- not a sportsbook, and nothing here is fabricated.
     """
-    from nba_api.stats.endpoints import leaguedashplayerstats
-
     season = season or latest_season()
-    frame = leaguedashplayerstats.LeagueDashPlayerStats(season=season, timeout=30).get_data_frames()[0]
-
-    # A player traded mid-season has one row per team plus a combined "TOT"
-    # row; the combined row always has the highest GP for that player, so
-    # keeping max-GP-per-player selects it automatically without needing to
-    # special-case the "TOT" label.
-    frame = frame.sort_values("GP", ascending=False).drop_duplicates(subset="PLAYER_ID", keep="first")
+    frame = _fetch_base_player_stats(season)
     frame = frame[(frame["GP"] >= _MIN_GAMES_PLAYED) & (frame["MIN"] / frame["GP"] >= _MIN_MINUTES_PER_GAME)]
     frame = frame.sort_values("MIN", ascending=False).head(pool_size)
 

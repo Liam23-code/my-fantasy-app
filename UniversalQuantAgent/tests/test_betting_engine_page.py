@@ -26,9 +26,9 @@ class BettingEnginePageContract(unittest.TestCase):
         self.assertEqual(raised, [], msg=f"page raised: {raised}")
         return app
 
-    def test_page_renders_with_three_tabs_and_no_exceptions(self):
+    def test_page_renders_with_five_tabs_and_no_exceptions(self):
         app = self._run()
-        self.assertEqual(len(app.tabs), 3)
+        self.assertEqual(len(app.tabs), 5)
 
     def test_player_props_table_has_real_rows(self):
         app = self._run()
@@ -50,6 +50,41 @@ class BettingEnginePageContract(unittest.TestCase):
         self.assertIn("Adjusted hit probability", metrics)
         self.assertIn("Adjusted EV / $100", metrics)
         self.assertIn("Confidence", metrics)
+
+    def test_player_comparison_tab_renders_a_valid_side_by_side_table(self):
+        app = self._run()
+        # Comparison table is the 3rd dataframe: props (0), money lines (1), comparison (2)
+        # -- the parlay tab's leg summary dataframe renders after it in script order.
+        comparison_tables = [df.value for df in app.dataframe if "Metric" in df.value.columns]
+        self.assertTrue(comparison_tables, "expected a comparison table with a 'Metric' column")
+        table = comparison_tables[0]
+        self.assertIn("Line", table["Metric"].values)
+        self.assertEqual(len(table.columns), 3)  # Metric + two selected props
+
+    def test_quick_add_button_populates_the_leg_picker(self):
+        app = self._run()
+        app.number_input(key="NFL_quick_add_n").set_value(4).run()
+        quick_add = next(b for b in app.button if b.label == "Quick-add")
+        quick_add.click().run()
+        self.assertEqual(len(app.exception), 0)
+        self.assertEqual(len(app.multiselect(key="NFL_parlay_leg_picker").value), 4)
+
+    def test_cross_sport_tab_load_button_does_not_raise(self):
+        # NBA has no real games most of the year (this test runs whenever CI
+        # runs it) -- when NBA has nothing to price, the tab correctly shows
+        # an empty state rather than a working leg picker. This test asserts
+        # the load-and-render path itself never raises, in either state;
+        # test_unified_parlay_engine.py covers the mixed-parlay math directly
+        # with real leg data, independent of live NBA schedule availability.
+        app = self._run()
+        load_button = next(b for b in app.button if "cross-sport parlay" in b.label.lower())
+        load_button.click().run()
+        self.assertEqual([str(e.value) for e in app.exception], [])
+        try:
+            picker = app.multiselect(key="cross_sport_leg_picker")
+        except KeyError:
+            return  # NBA had nothing to price today -- empty state rendered instead, which is correct
+        self.assertGreaterEqual(len(picker.options), 2)
 
     def test_no_scraping_or_network_imports_in_the_page_source(self):
         source = PAGE.read_text(encoding="utf-8")

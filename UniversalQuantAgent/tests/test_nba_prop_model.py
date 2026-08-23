@@ -58,6 +58,23 @@ class PricePropComparisonTests(unittest.TestCase):
         self.assertEqual(result["over_price"], -110.0)
         self.assertEqual(result["under_price"], -110.0)
 
+    def test_risk_tier_present_and_uses_shared_nfl_classification(self):
+        from betting.prop_model import _risk_tier
+
+        result = price_prop_comparison(_comparison_row(), {"over_price": -110.0, "under_price": -110.0})
+        self.assertIn(result["risk_tier"], {"low", "medium", "high"})
+        # Recompute the same cv this module would have used, and confirm it
+        # matches betting.prop_model's own classification for that cv.
+        row = _comparison_row()
+        stdev = (row["confidence_high"] - row["confidence_low"]) / (2 * 1.645)
+        cv = stdev / row["minutes_adjusted_projection"]
+        self.assertEqual(result["risk_tier"], _risk_tier(cv))
+
+    def test_wide_confidence_band_relative_to_projection_is_high_risk(self):
+        row = _comparison_row(minutes_adjusted_projection=5.0, confidence_low=0.0, confidence_high=15.0)
+        result = price_prop_comparison(row, {"over_price": -110.0, "under_price": -110.0})
+        self.assertEqual(result["risk_tier"], "high")
+
     def test_original_comparison_fields_pass_through(self):
         result = price_prop_comparison(_comparison_row(), {"over_price": -110.0, "under_price": -110.0})
         self.assertEqual(result["player"], "Nikola Jokic")

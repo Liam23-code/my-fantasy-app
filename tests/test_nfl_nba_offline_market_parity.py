@@ -170,6 +170,7 @@ class LiveScheduleIngestionParityTests(unittest.TestCase):
         self.assertEqual(result, [])
 
     def test_nba_fetch_todays_games_returns_empty_list_not_exception_when_provider_fails(self):
+        fetch_todays_games.cache_clear()  # TTL-cached; avoid a stale hit from another test module
         with patch("modules.nba_schedule._from_live_scoreboard", side_effect=RuntimeError("simulated: nba_api unreachable")):
             result = fetch_todays_games()
         self.assertEqual(result, [])

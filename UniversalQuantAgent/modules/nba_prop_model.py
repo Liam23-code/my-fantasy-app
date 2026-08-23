@@ -27,6 +27,8 @@ import math
 from typing import Any
 
 from betting.odds_math import edge_vs_fair, expected_value, remove_vig_two_way
+from betting.parallel_utils import parallel_ev_map
+from betting.prop_model import _risk_tier
 
 from modules.sportsbook_parser import normalize_player_name
 
@@ -78,6 +80,12 @@ def price_prop_comparison(comparison_row: dict[str, Any], prop_odds: dict[str, A
     ev_under = expected_value(probability_under, under_price)
     recommended_side = "over" if edge_over >= edge_under else "under"
 
+    # Unified risk tiering across both sports: the same coefficient-of-variation
+    # thresholds betting.prop_model uses for NFL, reused directly (see
+    # betting_engine.md) rather than a second, potentially-drifting copy.
+    cv = stdev / projection if projection > 0 else None
+    risk_tier = _risk_tier(cv)
+
     return {
         **comparison_row,
         "over_price": over_price,
@@ -86,6 +94,7 @@ def price_prop_comparison(comparison_row: dict[str, Any], prop_odds: dict[str, A
         "model_probability_under": round(probability_under, 4),
         "market_fair_probability_over": round(fair_over, 4),
         "market_fair_probability_under": round(fair_under, 4),
+        "risk_tier": risk_tier,
         "probability_edge_over": round(edge_over, 4),
         "probability_edge_under": round(edge_under, 4),
         "ev_over": round(ev_over, 2),
@@ -110,14 +119,17 @@ def price_aware_evaluations(
     roster name or an already-normalized one, since normalization is
     idempotent. A comparison row whose player+category isn't in
     ``props_by_key`` is skipped, not an error -- not every prop line
-    necessarily carries a real price yet.
+    necessarily carries a real price yet. Each row's pricing is pure,
+    independent math with no I/O -- see betting.parallel_utils for why
+    this still uses a thread pool despite the limited GIL-bound benefit
+    for CPU-only work at today's row counts.
     """
-    priced = []
+    candidates = []
     for row in comparison_rows:
         key = (normalize_player_name(row["player"]), row["category"])
         prop_odds = props_by_key.get(key)
-        if prop_odds is None:
-            continue
-        priced.append(price_prop_comparison(row, prop_odds))
+        if prop_odds is not None:
+            candidates.append((row, prop_odds))
+    priced = parallel_ev_map(lambda pair: price_prop_comparison(*pair), candidates)
     priced.sort(key=lambda row: -abs(row["recommended_priced_ev"]))
     return priced
