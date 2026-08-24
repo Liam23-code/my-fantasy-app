@@ -222,6 +222,17 @@ class PipelineContracts(unittest.TestCase):
 
         self.assertEqual(load_injury_data_from_file("Z:/does/not/exist.json"), [])
 
+    def test_injury_upload_reads_team_from_a_flat_record_not_only_a_parent_wrapper(self):
+        # A hand-built upload like [{"player":..., "team":..., "status":...}]
+        # has no ESPN-style wrapper node to inherit "team" from -- the
+        # record must supply its own.
+        from modules.injury_parser import load_injury_data_from_user_upload
+
+        payload = [{"player": "Test Player", "team": "Boston Celtics", "status": "OUT"}]
+        result = load_injury_data_from_user_upload(json.dumps(payload))
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["team"], "BOS")
+
     def test_sportsbook_fetch_functions_are_hard_disabled(self):
         from modules import sportsbook_scraper_disabled as sb
 

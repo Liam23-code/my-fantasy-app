@@ -33,6 +33,10 @@ from betting.odds_loader import load_uploaded_odds
 from modules.nba_odds_loader import load_uploaded_game_odds
 from modules.nba_props_loader import load_props_from_user_upload
 from modules.injury_parser import load_injury_data_from_user_upload
+from modules.cfb_odds_loader import load_uploaded_game_odds as cfb_load_uploaded_game_odds
+from modules.cfb_props_loader import load_props_from_user_upload as cfb_load_props_from_user_upload
+from modules.cbb_odds_loader import load_uploaded_game_odds as cbb_load_uploaded_game_odds
+from modules.cbb_props_loader import load_props_from_user_upload as cbb_load_props_from_user_upload
 
 _BANNED_LIBRARIES = {"requests", "httpx", "aiohttp", "urllib3", "selenium", "playwright", "bs4"}
 
@@ -60,9 +64,45 @@ _ALL_MARKET_PIPELINE_FILES = (
     NBA_ROOT / "modules" / "nba_trend_signals.py",
     NBA_ROOT / "modules" / "nba_player_rate_table.py",
     NBA_ROOT / "modules" / "unified_parlay_engine.py",
+    NBA_ROOT / "modules" / "unified_betting_contract.py",
     NBA_ROOT / "modules" / "async_upload.py",
     NBA_ROOT / "modules" / "parallel_utils.py",
     NBA_ROOT / "modules" / "injury_parser.py",
+    NBA_ROOT / "modules" / "college_sports_common.py",
+    NBA_ROOT / "modules" / "cfb_props_loader.py",
+    NBA_ROOT / "modules" / "cfb_odds_loader.py",
+    NBA_ROOT / "modules" / "cfb_injuries_loader.py",
+    NBA_ROOT / "modules" / "cfb_props_generator.py",
+    NBA_ROOT / "modules" / "cfb_team_model.py",
+    NBA_ROOT / "modules" / "cfb_prop_model.py",
+    NBA_ROOT / "modules" / "cfb_moneyline_model.py",
+    NBA_ROOT / "modules" / "cfb_parlay_engine.py",
+    NBA_ROOT / "modules" / "cbb_props_loader.py",
+    NBA_ROOT / "modules" / "cbb_odds_loader.py",
+    NBA_ROOT / "modules" / "cbb_injuries_loader.py",
+    NBA_ROOT / "modules" / "cbb_props_generator.py",
+    NBA_ROOT / "modules" / "cbb_team_model.py",
+    NBA_ROOT / "modules" / "cbb_prop_model.py",
+    NBA_ROOT / "modules" / "cbb_moneyline_model.py",
+    NBA_ROOT / "modules" / "cbb_parlay_engine.py",
+    NBA_ROOT / "modules" / "cbb_schedule.py",
+)
+
+#: CFB (modules.cfb_team_model / cfb_props_generator) and CBB
+#: (modules.cbb_team_model / cbb_schedule / cbb_props_generator) are
+#: deliberate, documented exceptions to the "no requests" rule above --
+#: real, legal, non-sportsbook JSON APIs (see offline_data_contract.md).
+#: The comprehensive sweep two classes down still runs against every file
+#: in _ALL_MARKET_PIPELINE_FILES; this narrower allowlist is only for the
+#: files where `requests` itself is expected to appear as an import.
+_FILES_ALLOWED_TO_IMPORT_REQUESTS = frozenset(
+    {
+        "cfb_team_model.py",
+        "cfb_props_generator.py",
+        "cbb_team_model.py",
+        "cbb_props_generator.py",
+        "cbb_schedule.py",
+    }
 )
 
 
@@ -119,6 +159,26 @@ class FailsClosedOnMalformedFieldsTests(unittest.TestCase):
         payload = [{"team": "DEN", "status": "OUT"}]  # no player identified
         self.assertEqual(load_injury_data_from_user_upload(json.dumps(payload)), [])
 
+    def test_cfb_props_upload_skips_row_missing_line(self):
+        text = json.dumps([{"player_name": "Test QB", "category": "passing_yards"}])
+        self.assertEqual(cfb_load_props_from_user_upload(text, file_format="json"), [])
+
+    def test_cfb_props_upload_skips_row_with_unrecognized_category(self):
+        text = json.dumps([{"player_name": "Test QB", "category": "not_a_real_stat", "line": 20.5}])
+        self.assertEqual(cfb_load_props_from_user_upload(text, file_format="json"), [])
+
+    def test_cfb_game_odds_upload_skips_row_with_teams_but_no_market_data(self):
+        result = cfb_load_uploaded_game_odds(json.dumps([{"home_team": "Ohio State", "away_team": "Michigan"}]), file_format="json")
+        self.assertEqual(result["games"], {})
+
+    def test_cbb_props_upload_skips_row_missing_line(self):
+        text = json.dumps([{"player_name": "Test Guard", "category": "points"}])
+        self.assertEqual(cbb_load_props_from_user_upload(text, file_format="json"), [])
+
+    def test_cbb_game_odds_upload_skips_row_with_teams_but_no_market_data(self):
+        result = cbb_load_uploaded_game_odds(json.dumps([{"home_team": "Duke", "away_team": "UNC"}]), file_format="json")
+        self.assertEqual(result["games"], {})
+
 
 class ProvenanceDisclosureTests(unittest.TestCase):
     """Every real row a default file ships discloses why it's real; an empty-by-design file says why it's empty."""
@@ -141,6 +201,25 @@ class ProvenanceDisclosureTests(unittest.TestCase):
         for row in rows:
             self.assertIn("basis", row)
             self.assertIn("real", row["basis"].lower())
+
+    def test_cbb_default_props_file_every_row_has_basis(self):
+        from modules.cbb_props_loader import load_props_from_file
+
+        rows = load_props_from_file()
+        self.assertGreater(len(rows), 0)
+        for row in rows:
+            self.assertIn("basis", row)
+            self.assertIn("real", row["basis"].lower())
+
+    def test_cfb_default_props_file_ships_empty_and_explains_the_api_key_requirement(self):
+        # No CFBD_API_KEY is available in this environment (see
+        # cfb_pipeline.md) -- the shipped file is empty by design, and must
+        # say why for a human reading data/cfb_props.json directly.
+        from modules.cfb_props_loader import load_props_from_file
+
+        self.assertEqual(load_props_from_file(), [])
+        payload = json.loads((NBA_ROOT / "data" / "cfb_props.json").read_text(encoding="utf-8"))
+        self.assertIn("CFBD_API_KEY", payload["note"])
 
     def test_nba_game_odds_file_ships_empty_and_explains_why(self):
         # No fixed default here by design (see nba_odds_loader.py's module
@@ -182,16 +261,64 @@ class UploadOverrideKeyingTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["line"], 25.5)
 
+    def test_cfb_props_upload_key_matches_player_and_category(self):
+        rows = cfb_load_props_from_user_upload(
+            json.dumps([{"player_name": "Test Passer", "team": "OSU", "category": "passing_yards", "line": 275.5}]), file_format="json"
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]["player_name"], rows[0]["category"]), ("Test Passer", "passing_yards"))
+
+    def test_cfb_game_odds_upload_key_is_matchup_pair(self):
+        from modules.cfb_odds_loader import index_by_matchup as cfb_index_by_matchup
+
+        result = cfb_load_uploaded_game_odds(
+            json.dumps([{"home_team": "OSU", "away_team": "MICH", "moneyline_home": -150, "moneyline_away": 130}]), file_format="json"
+        )
+        indexed = cfb_index_by_matchup(result)
+        self.assertIn(("OSU", "MICH"), indexed)
+
+    def test_cbb_props_upload_key_matches_player_and_category(self):
+        rows = cbb_load_props_from_user_upload(
+            json.dumps([{"player_name": "Test Guard", "team": "DUKE", "category": "points", "line": 18.5}]), file_format="json"
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]["player_name"], rows[0]["category"]), ("Test Guard", "points"))
+
+    def test_cbb_game_odds_upload_key_is_matchup_pair(self):
+        from modules.cbb_odds_loader import index_by_matchup as cbb_index_by_matchup
+
+        result = cbb_load_uploaded_game_odds(
+            json.dumps([{"home_team": "DUKE", "away_team": "UNC", "moneyline_home": -120, "moneyline_away": 100}]), file_format="json"
+        )
+        indexed = cbb_index_by_matchup(result)
+        self.assertIn(("DUKE", "UNC"), indexed)
+
 
 class ComprehensiveBannedImportSweepTests(unittest.TestCase):
     def test_no_market_pipeline_file_imports_a_banned_library(self):
         offenders = {}
         for path in _ALL_MARKET_PIPELINE_FILES:
             self.assertTrue(path.is_file(), f"expected file not found: {path}")
-            banned = _imported_top_level_modules(path) & _BANNED_LIBRARIES
+            allowed = {"requests"} if path.name in _FILES_ALLOWED_TO_IMPORT_REQUESTS else set()
+            banned = (_imported_top_level_modules(path) & _BANNED_LIBRARIES) - allowed
             if banned:
                 offenders[str(path)] = banned
         self.assertEqual(offenders, {}, f"banned network/scraping imports found: {offenders}")
+
+    def test_every_allowlisted_file_actually_uses_requests(self):
+        # Guards the allowlist itself from going stale -- a file listed as
+        # "needs requests" that doesn't actually import it either no longer
+        # needs the exception or was added by mistake.
+        for name in _FILES_ALLOWED_TO_IMPORT_REQUESTS:
+            path = next(p for p in _ALL_MARKET_PIPELINE_FILES if p.name == name)
+            self.assertIn("requests", _imported_top_level_modules(path), f"{name} is allowlisted for requests but doesn't import it")
+
+    def test_files_outside_the_allowlist_still_ban_requests(self):
+        # Confirms the allowlist narrows the exception to specific files
+        # rather than accidentally widening it to everything.
+        non_allowlisted = [p for p in _ALL_MARKET_PIPELINE_FILES if p.name not in _FILES_ALLOWED_TO_IMPORT_REQUESTS]
+        offenders = [str(p) for p in non_allowlisted if "requests" in _imported_top_level_modules(p)]
+        self.assertEqual(offenders, [])
 
 
 class NoLiveOddsIngestionTests(unittest.TestCase):

@@ -1,10 +1,9 @@
-"""Safe, offline injury-data parsing, normalization, and impact modeling.
+"""Safe, offline CBB injury-data loading -- our own file plus user uploads, never a live fetch.
 
-Every function here operates on data the caller already has -- a payload
-already loaded from ``injuries.json``, a user upload, or (historically) a
-live fetch. Nothing in this module makes a network request. The live-fetch
-half of the former ``modules/injury_model.py`` is now permanently disabled
-in :mod:`modules.injury_scraper_disabled`.
+Mirrors modules.injury_parser's loading functions exactly, substituting
+college team-name normalization for NBA's fixed 30-team alias table. The
+status/impact math has no sport in it at all -- imported directly from
+:mod:`modules.injury_parser` rather than duplicated.
 """
 from __future__ import annotations
 
@@ -15,93 +14,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from modules.data_quality import (
-    fuzzy_name_match,
-    safe_dict,
-    safe_get,
-    safe_list,
-    safe_scalar_to_dict,
-)
-from modules.sportsbook_parser import normalize_player_name, normalize_team_name
+from modules.college_sports_common import normalize_college_team_name, normalize_player_name
+from modules.data_quality import safe_dict, safe_get, safe_list, safe_scalar_to_dict
+from modules.injury_parser import normalize_status
 
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data"
-DEFAULT_INJURIES_PATH = DATA_ROOT / "injuries.json"
-
-#: status -> impact score, 100 meaning "cannot play". Snap-share/usage/
-#: volatility impact all key off this one severity read, so a caller only
-#: has to derive one number instead of three independent guesses.
-STATUS_IMPACT_SCORE: dict[str, float] = {
-    "OUT": 100.0,
-    "QUESTIONABLE": 55.0,
-    "PROBABLE": 20.0,
-    "ACTIVE": 0.0,
-}
-
-#: status -> expected fraction of normal snap share/usage a player who
-#: *does* suit up will see. A "questionable" player who plays is usually on
-#: a real but reduced workload; "probable" is close to a normal role.
-STATUS_SNAP_SHARE_MULTIPLIER: dict[str, float] = {
-    "OUT": 0.0,
-    "QUESTIONABLE": 0.75,
-    "PROBABLE": 0.92,
-    "ACTIVE": 1.0,
-}
-
-#: status -> added volatility (0-1) on top of a player's normal week-to-week
-#: variance -- an uncertain workload is itself a source of variance,
-#: independent of how big the workload turns out to be.
-STATUS_VOLATILITY_BUMP: dict[str, float] = {
-    "OUT": 0.0,  # not playing isn't "volatile", it's a known zero
-    "QUESTIONABLE": 0.30,
-    "PROBABLE": 0.10,
-    "ACTIVE": 0.0,
-}
-
-
-def normalize_status(value: Any) -> str:
-    """Collapse provider-specific injury labels into four stable values."""
-    if isinstance(value, dict):
-        value = safe_get(value, "description", safe_get(value, "value", ""))
-    text = str(value or "").upper()
-    if any(word in text for word in ("OUT", "SUSPENDED", "DOUBTFUL")):
-        return "OUT"
-    if any(word in text for word in ("QUESTIONABLE", "GAME-TIME", "DAY-TO-DAY")):
-        return "QUESTIONABLE"
-    if "PROBABLE" in text:
-        return "PROBABLE"
-    return "ACTIVE"
-
-
-def severity_impact_score(status: str) -> float:
-    """0-100 impact score for a normalized status, 100 meaning cannot play."""
-    return STATUS_IMPACT_SCORE.get(normalize_status(status), 45.0)
-
-
-def participation_probability(status: str) -> float:
-    """0-1 probability the player actually takes the field/court, from severity alone."""
-    return 1.0 - severity_impact_score(status) / 100.0
-
-
-def snap_share_impact(status: str, baseline_snap_share: float) -> float:
-    """Expected snap share given a real baseline and this injury status."""
-    multiplier = STATUS_SNAP_SHARE_MULTIPLIER.get(normalize_status(status), 0.85)
-    return max(0.0, min(1.0, float(baseline_snap_share) * multiplier))
-
-
-def usage_impact(status: str, baseline_usage_rate: float) -> float:
-    """Expected usage rate given a real baseline and this injury status (same multiplier as snap share)."""
-    multiplier = STATUS_SNAP_SHARE_MULTIPLIER.get(normalize_status(status), 0.85)
-    return max(0.0, min(1.0, float(baseline_usage_rate) * multiplier))
-
-
-def volatility_impact(status: str, baseline_volatility: float) -> float:
-    """Baseline week-to-week volatility (0-1), bumped for status-driven uncertainty."""
-    bump = STATUS_VOLATILITY_BUMP.get(normalize_status(status), 0.15)
-    return max(0.0, min(1.0, float(baseline_volatility) + bump))
+DEFAULT_INJURIES_PATH = DATA_ROOT / "cbb_injuries.json"
 
 
 def _text(value: Any, default: str = "") -> str:
-    """Convert a provider value to text without exposing container reprs."""
     if isinstance(value, dict):
         value = safe_get(value, "displayName") or safe_get(value, "description") or safe_get(value, "name") or safe_get(value, "value")
     if value is None or isinstance(value, (dict, list, tuple, set)):
@@ -113,7 +34,6 @@ def _text(value: Any, default: str = "") -> str:
 
 
 def _details(node: Any, *, source: str) -> dict[str, Any]:
-    """Build the stable details object used by every injury record."""
     payload = safe_dict(safe_get(node, "details"))
     description = (
         _text(safe_get(payload, "description"))
@@ -125,11 +45,7 @@ def _details(node: Any, *, source: str) -> dict[str, Any]:
 
 
 def walk_injury_records(node: Any, team: str, output: list[dict[str, Any]], *, source: str = "offline") -> None:
-    """Recursively parse an already-obtained, arbitrarily-nested injury payload.
-
-    ``node`` is data the caller already has in memory (loaded from
-    ``injuries.json`` or a user upload); this performs no I/O of its own.
-    """
+    """Recursively parse an already-obtained, arbitrarily-nested CBB injury payload."""
     if isinstance(node, list):
         for item in safe_list(node):
             walk_injury_records(item, team, output, source=source)
@@ -149,16 +65,13 @@ def walk_injury_records(node: Any, team: str, output: list[dict[str, Any]], *, s
         raw_status = safe_get(safe_scalar_to_dict(safe_get(node, "type")), "value")
 
     if name:
-        # A leaf record's own "team" field (a flat, hand-built upload like
-        # [{"player":..., "team":..., "status":...}]) takes priority over a
-        # team inherited from a parent wrapper node -- the nested
-        # ESPN-style shape (a team wrapper's "abbreviation"/"displayName"
-        # inherited down to its "injuries" children) never sets its own
-        # "team" field, so this doesn't change that shape's behavior.
+        # A leaf record's own "team" field takes priority over a team
+        # inherited from a parent wrapper node -- see
+        # modules/injury_parser.py's identical fix for why.
         own_team = _text(safe_get(node, "team"))
         output.append(
             {
-                "team": normalize_team_name(own_team or current_team or ""),
+                "team": normalize_college_team_name(own_team or current_team or ""),
                 "player": normalize_player_name(name),
                 "status": normalize_status(raw_status),
                 "details": _details(node, source=source),
@@ -171,14 +84,13 @@ def walk_injury_records(node: Any, team: str, output: list[dict[str, Any]], *, s
 
 
 def clean_injury_record(record: Any) -> dict[str, Any] | None:
-    """Validate one result before it crosses the ingestion boundary."""
     row = safe_dict(record)
     player = normalize_player_name(_text(safe_get(row, "player")))
     if not player:
         return None
     details = safe_dict(safe_get(row, "details"))
     return {
-        "team": normalize_team_name(_text(safe_get(row, "team"))),
+        "team": normalize_college_team_name(_text(safe_get(row, "team"))),
         "player": player,
         "status": normalize_status(safe_get(row, "status")),
         "details": {
@@ -199,11 +111,10 @@ def _dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def load_injury_data_from_file(path: str | Path | None = None) -> list[dict[str, Any]]:
-    """Load a real injury report from a local JSON file (default: ``data/injuries.json``).
+    """Load a real CBB injury report from a local JSON file (default: ``data/cbb_injuries.json``).
 
     A missing file is a normal "no injuries configured" state, not an
-    error -- returns ``[]`` rather than raising, matching the offline
-    betting engine's odds-loading convention.
+    error -- returns ``[]`` rather than raising.
     """
     target = Path(path) if path is not None else DEFAULT_INJURIES_PATH
     if not target.is_file():
@@ -218,12 +129,7 @@ def load_injury_data_from_file(path: str | Path | None = None) -> list[dict[str,
 
 
 def load_injury_data_from_user_upload(source: Any, *, file_format: str | None = None) -> list[dict[str, Any]]:
-    """Parse a user-uploaded injury file: JSON, CSV, or delimited text.
-
-    ``source`` may be a path, a file-like object (e.g. a Streamlit
-    ``UploadedFile``), or raw ``str``/``bytes`` content. Expected columns
-    for CSV/text: ``player, team, status`` (plus an optional ``description``).
-    """
+    """Parse a user-uploaded CBB injury file: JSON, CSV, or delimited text."""
     name = ""
     if isinstance(source, (str, Path)) and "\n" not in str(source) and not str(source).strip().startswith(("{", "[")):
         path = Path(source)
@@ -254,7 +160,8 @@ def load_injury_data_from_user_upload(source: Any, *, file_format: str | None = 
             return []
         walk_injury_records(payload, "", records, source="upload")
     else:
-        delimiter = "\t" if "\t" in text.splitlines()[0] else "|" if "|" in text.splitlines()[0] else ","
+        lines = text.splitlines()
+        delimiter = "\t" if lines and "\t" in lines[0] else "|" if lines and "|" in lines[0] else ","
         reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
         for row in reader:
             row = {str(key).strip().lower(): value for key, value in row.items()}
@@ -273,13 +180,10 @@ def load_injury_data_from_user_upload(source: Any, *, file_format: str | None = 
 
 
 def get_player_availability(player_name: str, records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Availability plus an impact score (100 = cannot play) for one player, from already-loaded records.
+    """Availability plus an impact score (100 = cannot play) for one player, from already-loaded records."""
+    from modules.data_quality import fuzzy_name_match
+    from modules.injury_parser import severity_impact_score
 
-    Pure lookup -- ``records`` must already be loaded (via
-    :func:`load_injury_data_from_file` or
-    :func:`load_injury_data_from_user_upload`); this makes no fetch of its
-    own.
-    """
     target = normalize_player_name(player_name)
     rows = [safe_dict(row) for row in safe_list(records) if isinstance(row, dict)]
     names = {_text(safe_get(row, "player")).lower(): row for row in rows if _text(safe_get(row, "player"))}

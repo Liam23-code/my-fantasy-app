@@ -30,6 +30,45 @@ class BettingEnginePageContract(unittest.TestCase):
         app = self._run()
         self.assertEqual(len(app.tabs), 5)
 
+    def test_sport_toggle_offers_all_four_sports(self):
+        app = self._run()
+        radio = app.radio(key="betting_engine_sport")
+        self.assertEqual(list(radio.options), ["NFL", "NBA", "CFB", "CBB"])
+
+    def test_cfb_branch_renders_with_no_exceptions(self):
+        app = self._run()
+        app.radio(key="betting_engine_sport").set_value("CFB").run()
+        self.assertEqual([str(e.value) for e in app.exception], [])
+        self.assertEqual(len(app.tabs), 5)
+
+    def test_cbb_branch_renders_with_real_props_and_no_exceptions(self):
+        app = self._run()
+        app.radio(key="betting_engine_sport").set_value("CBB").run()
+        self.assertEqual([str(e.value) for e in app.exception], [])
+        props_table = app.dataframe[0].value
+        self.assertFalse(props_table.empty)
+        for column in ("Player", "Category", "Line", "Edge", "Risk", "Basis"):
+            self.assertIn(column, props_table.columns)
+        self.assertTrue((props_table["Basis"].str.contains("real", case=False)).all())
+
+    def test_cfb_and_cbb_parlay_tabs_render_without_exceptions(self):
+        # CFB has no real props without a CFBD_API_KEY, so the parlay tab
+        # correctly shows an empty state -- this only asserts the render
+        # path itself never raises for either college sport.
+        for college_sport in ("CFB", "CBB"):
+            app = self._run()
+            app.radio(key="betting_engine_sport").set_value(college_sport).run()
+            self.assertEqual([str(e.value) for e in app.exception], [], msg=f"{college_sport} parlay tab raised")
+
+    def test_cfb_and_cbb_included_in_cross_sport_options(self):
+        app = self._run()
+        app.radio(key="betting_engine_sport").set_value("CBB").run()
+        load_button = next(b for b in app.button if "cross-sport parlay" in b.label.lower())
+        load_button.click().run()
+        self.assertEqual([str(e.value) for e in app.exception], [])
+        picker = app.multiselect(key="cross_sport_leg_picker")
+        self.assertTrue(any(option.startswith("CBB:") for option in picker.options))
+
     def test_player_props_table_has_real_rows(self):
         app = self._run()
         props_table = app.dataframe[0].value

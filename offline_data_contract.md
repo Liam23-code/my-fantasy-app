@@ -1,18 +1,18 @@
 # Offline data contract
 
-The single set of rules every data source in this repo follows, for both NFL and NBA. See [architecture.md](architecture.md) for how the modules that implement this contract fit together, and [module_docs.md](module_docs.md) / [betting_engine.md](betting_engine.md) / [nba_pipeline.md](nba_pipeline.md) for per-module detail.
+The single set of rules every data source in this repo follows, across NFL, NBA, CFB, and CBB. See [architecture.md](architecture.md) for how the modules that implement this contract fit together, and [module_docs.md](module_docs.md) / [betting_engine.md](betting_engine.md) / [nba_pipeline.md](nba_pipeline.md) / [cfb_pipeline.md](cfb_pipeline.md) / [cbb_pipeline.md](cbb_pipeline.md) for per-module detail.
 
 ## The rules
 
 1. **Sportsbook odds and injury data come from exactly two places: our own file, or a file the user uploads. Never a live sportsbook fetch.** No DraftKings, FanDuel, BetMGM, Caesars, ESPN BET, or any similar site, direct or scraped.
-2. **Live *game* data ingestion is allowed and used.** Real schedules, real box-score stats, real team scoring, real completed-game results. This is not "odds" — the providers (`nba_api`, `nflreadpy`) are public sports-stats APIs, not sportsbooks, and none of the modules that call them read a price field even when one happens to be present in the response (see "What's read, what's ignored" below).
+2. **Live *game* data ingestion is allowed and used.** Real schedules, real box-score stats, real team scoring, real completed-game results. This is not "odds" — the providers (`nba_api`, `nflreadpy`, the College Football Data API, ESPN's public site JSON API) are public sports-stats APIs, not sportsbooks, and none of the modules that call them read a price field even when one happens to be present in the response (see "What's read, what's ignored" below).
 3. **A missing or unconfigured data source is a normal state, not an error.** Every loader returns an empty result (`[]`, `{}`, `{"games": {}, ...}`) rather than raising when its default file doesn't exist yet, and every live-data function returns an empty result rather than raising when the provider is unreachable.
 4. **Every number presented as real discloses why it's real.** Anything derived from real historical data carries a `"basis"` string naming the season and sample size (e.g. `"2025-26 real per-game rate (79 games)"`). A number that can't yet be computed from real data (an early-season fallback constant) is also labeled as such, not silently blended in as if it were real.
 5. **An approximation is disclosed as an approximation.** Where a model treats an existing field as if it had a specific statistical meaning it wasn't rigorously built to have (e.g. `modules/nba_prop_model.py` treating `confidence_low`/`confidence_high` as an approximate 90% interval), that assumption is stated in the docstring, not asserted as fact.
 
 ## What counts as a violation
 
-- Any `import requests`, `httpx`, `aiohttp`, `urllib3`, `selenium`, `playwright`, or `bs4` outside `modules/sportsbook_scraper_disabled.py` / `modules/injury_scraper_disabled.py` (which exist specifically to *not* do this — every function in them is `raise RuntimeError(...)`).
+- Any `import requests`, `httpx`, `aiohttp`, `urllib3`, `selenium`, `playwright`, or `bs4` outside `modules/sportsbook_scraper_disabled.py` / `modules/injury_scraper_disabled.py` (which exist specifically to *not* do this — every function in them is `raise RuntimeError(...)`) or the narrow, explicit CFB/CBB exception described below.
 - A generator or loader that fabricates a number instead of computing it from a real source, or presents a fabricated number without disclosing that it isn't real.
 - A loader that raises on a missing/empty file instead of returning an empty result.
 - Reading a price/odds field off a live game-data feed that happens to carry one (see below).
@@ -23,6 +23,15 @@ Two live feeds used in this repo carry data beyond what this app reads from them
 
 - `nba_api.live.nba.endpoints.scoreboard.ScoreBoard` (used by `modules/nba_schedule.py`) includes a `pbOdds` field per game — a partner-sportsbook price. Only `homeTeam`/`awayTeam`/`gameTimeUTC` are read; `pbOdds` is never touched.
 - `nba_api` also ships a dedicated `nba_api.live.nba.endpoints.odds` client. It is never imported anywhere in this repo — reusing it would reintroduce exactly the sportsbook-odds ingestion this project removed.
+
+## The CFB/CBB exception: `requests` against a real, keyless-or-keyed stats API
+
+Neither college sport has an `nba_api`/`nflreadpy`-equivalent maintained Python package (see [college_sports_betting.md](college_sports_betting.md) for the full comparison of what was considered and rejected for each). Five specific files are allowed to `import requests` directly, against real public JSON stats APIs — never a sportsbook, never scraped HTML:
+
+- `modules/cfb_team_model.py`, `modules/cfb_props_generator.py` — the College Football Data API (`api.collegefootballdata.com`), gated on a `CFBD_API_KEY` environment variable this codebase cannot obtain on its own; every function fails closed to an empty/neutral result with no key set. See [cfb_pipeline.md](cfb_pipeline.md).
+- `modules/cbb_team_model.py`, `modules/cbb_props_generator.py`, `modules/cbb_schedule.py` — ESPN's public site JSON API (`site.api.espn.com`, `site.web.api.espn.com`), the same legal category as `nba_api`'s live scoreboard: real structured data from the league's own public feed, not HTML scraping (`cbbpy`, by contrast, scrapes ESPN's HTML via `beautifulsoup4`+`requests` and is not used here). See [cbb_pipeline.md](cbb_pipeline.md).
+
+This is enforced by an explicit allowlist, not left to convention: `tests/test_data_contract_hardening.py::_FILES_ALLOWED_TO_IMPORT_REQUESTS`. `ComprehensiveBannedImportSweepTests.test_no_market_pipeline_file_imports_a_banned_library` still fails the build if `requests` (or any other banned library) appears in any market-pipeline file *outside* this exact set — including a nested, in-function `import requests`, which an AST walk still catches. Two companion tests keep the allowlist honest: `test_every_allowlisted_file_actually_uses_requests` (nothing sits on the list without needing it) and `test_files_outside_the_allowlist_still_ban_requests` (the exception never silently widens to a new file).
 
 ## Enforcement
 

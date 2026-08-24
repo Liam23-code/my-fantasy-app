@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- this app does not fetch player prop lines from any sportsbook. Real per-game rates require a College Football Data API key (see modules/cfb_props_generator.py; set the CFBD_API_KEY environment variable and run `python -m modules.cfb_props_generator`, then re-verify the output against live data -- this generator was built without access to a live key and has not yet been run against real data). Until then, populate this file with real, legally-obtained lines, or upload a props file from the app.",
+  "props": []
+}

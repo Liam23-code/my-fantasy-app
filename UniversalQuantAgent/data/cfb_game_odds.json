@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- this app does not fetch game odds from any sportsbook. Real fair lines can be computed live once a College Football Data API key is configured (see modules/cfb_team_model.py; set the CFBD_API_KEY environment variable). Populate this file with real lines you have, or upload a game-odds file from the app; the fair line is always computed from real team scoring when a key is available.",
+  "games": []
+}

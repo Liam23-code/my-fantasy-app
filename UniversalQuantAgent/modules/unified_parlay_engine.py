@@ -1,93 +1,106 @@
-"""Cross-sport parlay support: NFL and NBA legs combined in one bet.
+"""Cross-sport parlay support: NFL, NBA, CFB, and CBB legs combined in one bet.
 
-Both sports' parlay engines already share the same leg shape and the same
+Every sport's parlay engine already shares the same leg shape and the same
 generic combinatorics (:mod:`betting.parlay_engine`'s
 ``parlay_decimal_odds``, ``correlation_adjusted_probability``,
 ``_parlay_ev``, ``_risk_tier`` -- reused directly here too, not
-duplicated). The only genuinely new piece a cross-sport parlay needs is
-routing: each sport's own correlation-pattern detector
-(:func:`betting.parlay_engine.detect_correlations`,
-:func:`modules.nba_parlay_engine.nba_detect_correlations`) must only ever
-run against leg pairs from *its own* sport -- an NFL quarterback and an
-NBA center are not correlated by any pattern either detector models, and
-running NFL's detector against an NBA leg (or vice versa) would either
-find nothing (harmless) or, worse, misfire on a coincidental field-name
-match (e.g. NBA's "points" market happening to share a string with some
-future NFL market). This module partitions legs by sport before handing
-each partition to its own detector, so that ambiguity never arises.
+duplicated). CFB's and CBB's own correlation detectors
+(``modules.cfb_parlay_engine.detect_correlations``,
+``modules.cbb_parlay_engine.detect_correlations``) are themselves
+re-exports of NFL's and NBA's respectively (see those modules'
+docstrings) -- football and basketball correlation patterns don't change
+between the pro and college game, so this module's dispatch table maps
+CFB/CBB to the same underlying detector functions NFL/NBA already use,
+not a fourth and fifth copy.
+
+The only genuinely new piece a cross-sport parlay needs is routing: each
+sport's own correlation-pattern detector must only ever run against leg
+pairs from *its own* sport -- an NFL quarterback and an NBA center (or a
+CFB and a CBB player) are not correlated by any pattern any detector
+models. This module partitions legs by sport before handing each
+partition to its own detector, so that ambiguity never arises.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from betting.parlay_engine import (
     _parlay_ev,
     _risk_tier,
     correlation_adjusted_probability,
-    detect_correlations as nfl_detect_correlations,
     make_leg as nfl_make_leg,
+    detect_correlations as nfl_detect_correlations,
     parlay_decimal_odds,
 )
 
+from modules.cbb_parlay_engine import make_leg as cbb_make_leg, detect_correlations as cbb_detect_correlations
+from modules.cfb_parlay_engine import make_leg as cfb_make_leg, detect_correlations as cfb_detect_correlations
 from modules.nba_parlay_engine import make_leg as nba_make_leg, nba_detect_correlations
 
-_VALID_SPORTS = frozenset({"NFL", "NBA"})
+_MAKE_LEG_BY_SPORT: dict[str, Callable[..., dict[str, Any]]] = {
+    "NFL": nfl_make_leg,
+    "NBA": nba_make_leg,
+    "CFB": cfb_make_leg,
+    "CBB": cbb_make_leg,
+}
+_DETECT_CORRELATIONS_BY_SPORT: dict[str, Callable[[list[dict[str, Any]]], list[dict[str, Any]]]] = {
+    "NFL": nfl_detect_correlations,
+    "NBA": nba_detect_correlations,
+    "CFB": cfb_detect_correlations,
+    "CBB": cbb_detect_correlations,
+}
+_VALID_SPORTS = frozenset(_MAKE_LEG_BY_SPORT)
 
 
 def make_unified_leg(sport: str, **kwargs: Any) -> dict[str, Any]:
-    """One parlay leg tagged with its sport -- NFL and NBA legs share the same underlying shape.
+    """One parlay leg tagged with its sport -- all four sports' legs share the same underlying shape.
 
-    ``sport`` must be ``"NFL"`` or ``"NBA"``; every other keyword is
-    forwarded to that sport's own ``make_leg`` (identical fields either
-    way -- see ``betting.parlay_engine.make_leg`` /
-    ``modules.nba_parlay_engine.make_leg``).
+    ``sport`` must be one of ``"NFL"``, ``"NBA"``, ``"CFB"``, ``"CBB"``;
+    every other keyword is forwarded to that sport's own ``make_leg``
+    (identical fields in every case).
     """
     if sport not in _VALID_SPORTS:
         raise ValueError(f"sport must be one of {sorted(_VALID_SPORTS)}, got {sport!r}")
-    leg = (nfl_make_leg if sport == "NFL" else nba_make_leg)(**kwargs)
+    leg = _MAKE_LEG_BY_SPORT[sport](**kwargs)
     return {**leg, "sport": sport}
 
 
 def detect_cross_sport_correlations(legs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Correlation findings across a mixed NFL+NBA leg list.
+    """Correlation findings across a mixed multi-sport leg list.
 
     Each sport's own pattern detector only ever runs against pairs drawn
-    from that same sport's legs. A cross-sport pair (one NFL leg, one NBA
-    leg) is never checked by either detector and so never produces a
-    finding -- correct, since the two events genuinely are independent;
-    such a pair simply combines via the naive (independent) probability
-    product downstream, with no positive or negative adjustment.
+    from that same sport's legs. A cross-sport pair is never checked by
+    any detector and so never produces a finding -- correct, since the two
+    events genuinely are independent; such a pair simply combines via the
+    naive (independent) probability product downstream, with no positive
+    or negative adjustment.
     """
-    nfl_indices = [i for i, leg in enumerate(legs) if leg.get("sport") == "NFL"]
-    nba_indices = [i for i, leg in enumerate(legs) if leg.get("sport") == "NBA"]
-
     findings: list[dict[str, Any]] = []
-    if len(nfl_indices) >= 2:
-        nfl_legs = [legs[i] for i in nfl_indices]
-        for finding in nfl_detect_correlations(nfl_legs):
+    for sport, detector in _DETECT_CORRELATIONS_BY_SPORT.items():
+        indices = [i for i, leg in enumerate(legs) if leg.get("sport") == sport]
+        if len(indices) < 2:
+            continue
+        sport_legs = [legs[i] for i in indices]
+        for finding in detector(sport_legs):
             local_a, local_b = finding["legs"]
-            findings.append({**finding, "legs": (nfl_indices[local_a], nfl_indices[local_b])})
-    if len(nba_indices) >= 2:
-        nba_legs = [legs[i] for i in nba_indices]
-        for finding in nba_detect_correlations(nba_legs):
-            local_a, local_b = finding["legs"]
-            findings.append({**finding, "legs": (nba_indices[local_a], nba_indices[local_b])})
+            findings.append({**finding, "legs": (indices[local_a], indices[local_b])})
     return findings
 
 
 def evaluate_cross_sport_parlay(legs: list[dict[str, Any]], *, stake: float = 100.0) -> dict[str, Any]:
-    """Full evaluation of a parlay mixing NFL and NBA legs.
+    """Full evaluation of a parlay mixing legs from any of the four sports.
 
-    Same output shape as either sport's own ``evaluate_parlay`` (with an
-    added ``"sports"`` field listing which sports are represented), built
-    from the same shared, generic building blocks -- no separate cross-sport
-    EV/risk math exists to drift out of sync with either sport's own engine.
+    Same output shape as any single sport's own ``evaluate_parlay`` (with
+    an added ``"sports"`` field listing which sports are represented),
+    built from the same shared, generic building blocks -- no separate
+    cross-sport EV/risk math exists to drift out of sync with any sport's
+    own engine.
     """
     if len(legs) < 2:
         raise ValueError("a parlay needs at least 2 legs")
     unknown = [leg.get("sport") for leg in legs if leg.get("sport") not in _VALID_SPORTS]
     if unknown:
-        raise ValueError("every leg must be tagged with sport='NFL' or sport='NBA' (see make_unified_leg)")
+        raise ValueError(f"every leg must be tagged with a sport in {sorted(_VALID_SPORTS)} (see make_unified_leg)")
 
     correlations = detect_cross_sport_correlations(legs)
     probability_result = correlation_adjusted_probability(legs, correlations=correlations)

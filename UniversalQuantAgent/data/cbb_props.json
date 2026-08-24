@@ -1,0 +1,4848 @@
+{
+  "generated_by": "modules.cbb_props_generator",
+  "note": "Real per-game rates from ESPN's public college-basketball stats API (see modules/cbb_props_generator.py) -- never a sportsbook. Upload a file from the app to override or add to these.",
+  "props": [
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Christian Alston",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Christian Alston",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Bradyn Hubbard",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Bradyn Hubbard",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Bradyn Hubbard",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Rich Smith",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Rich Smith",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Rich Smith",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Rich Smith",
+      "sportsbook": "default",
+      "team": "ACU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (14 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Riley Dering",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (14 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Riley Dering",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (14 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Riley Dering",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Ethan Greenberg",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Ethan Greenberg",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Ethan Greenberg",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Ethan Greenberg",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Lucas Hobin",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Lucas Hobin",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Lucas Hobin",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Kyle Marshall",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Kyle Marshall",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Kyle Marshall",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Kyle Marshall",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Kam Sanders",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Kam Sanders",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Kam Sanders",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 20.5,
+      "over_price": -110.0,
+      "player_name": "Kam Sanders",
+      "sportsbook": "default",
+      "team": "AF",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Cody Head",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Cody Head",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Cody Head",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Tavari Johnson",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Tavari Johnson",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Tavari Johnson",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Eric Mahaffey",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Eric Mahaffey",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Eric Mahaffey",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Eric Mahaffey",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Marvin Musiime-Kamali",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Sharron Young",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Sharron Young",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Sharron Young",
+      "sportsbook": "default",
+      "team": "AKR",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "points",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Kintavious Dozier",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Kintavious Dozier",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Kintavious Dozier",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Kintavious Dozier",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Pj Eason",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Pj Eason",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Pj Eason",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "James Flippin",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "James Flippin",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "James Flippin",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "James Flippin",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Gabe Kincy",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Gabe Kincy",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Gabe Kincy",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (16 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Sami Pissis",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (16 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Sami Pissis",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (16 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Sami Pissis",
+      "sportsbook": "default",
+      "team": "AAMU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Amari Allen",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Amari Allen",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Amari Allen",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 21.5,
+      "over_price": -110.0,
+      "player_name": "Amari Allen",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Jalil Bethea",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Jalil Bethea",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Jalil Bethea",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Jalil Bethea",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Taylor Bol Bowen",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Taylor Bol Bowen",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Keitenn Bristow",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Keitenn Bristow",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Keitenn Bristow",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Keitenn Bristow",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Aden Holloway",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Aden Holloway",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Aden Holloway",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "London Jemison",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "London Jemison",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "London Jemison",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Aiden Sherrell",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Aiden Sherrell",
+      "sportsbook": "default",
+      "team": "ALA",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (9 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Mario Andrews",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (9 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Mario Andrews",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Damarion Bonds",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Damarion Bonds",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Damarion Bonds",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Damarion Bonds",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Byrd",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Byrd",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Byrd",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Byrd",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "R'Chaun King",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "R'Chaun King",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "R'Chaun King",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Mack",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Mack",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Mason",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Mason",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Mason",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Trey Miller",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Trey Miller",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Trey Miller",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Trey Miller",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Micah Simpson",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Micah Simpson",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Micah Simpson",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Jerquarius Stanback",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Jerquarius Stanback",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 15.5,
+      "over_price": -110.0,
+      "player_name": "Jerquarius Stanback",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Jasteven Walker",
+      "sportsbook": "default",
+      "team": "ALST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Bryson Calamese",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Ray Glasgow",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Ray Glasgow",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Ray Glasgow",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Ray Glasgow",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (17 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Omari Hamilton",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (17 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Omari Hamilton",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (17 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Omari Hamilton",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (13 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Mike Jones",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (13 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Mike Jones",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (13 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Mike Jones",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Davian Williams",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Davian Williams",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Davian Williams",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Davian Williams",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Nick Woodard",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Nick Woodard",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Nick Woodard",
+      "sportsbook": "default",
+      "team": "ALCN",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 13.5,
+      "over_price": -110.0,
+      "player_name": "Madden Collins",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Madden Collins",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Madden Collins",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 20.5,
+      "over_price": -110.0,
+      "player_name": "Madden Collins",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Greg Jones",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "points",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Matt Mayock",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Matt Mayock",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Matt Mayock",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Matt Mayock",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Eric Michaels",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Eric Michaels",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Kade Sebastian",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Kade Sebastian",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Kade Sebastian",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Kade Sebastian",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Geoff Sprouse",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Geoff Sprouse",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Geoff Sprouse",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Geoff Sprouse",
+      "sportsbook": "default",
+      "team": "AMER",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Eren Banks",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Eren Banks",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Eren Banks",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Eren Banks",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Alonzo Dodd",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Alonzo Dodd",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Alonzo Dodd",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Kasen Jennings",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Kasen Jennings",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Kasen Jennings",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Kasen Jennings",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Michael Marcus .",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Chad Moodie",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Chad Moodie",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Chad Moodie",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Andrin Njock",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Andrin Njock",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Jalen Tot",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Jalen Tot",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Jalen Tot",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Luke Wilson",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Luke Wilson",
+      "sportsbook": "default",
+      "team": "APP",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 13.5,
+      "over_price": -110.0,
+      "player_name": "Massamba Diop",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Massamba Diop",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Massamba Diop",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 20.5,
+      "over_price": -110.0,
+      "player_name": "Massamba Diop",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Andrija Grbovic",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Andrija Grbovic",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Andrija Grbovic",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (24 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Adante' Holiman",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (24 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Adante' Holiman",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (24 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Adante' Holiman",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Noah Meeusen",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Noah Meeusen",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Noah Meeusen",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Noah Meeusen",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "points",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Allen Mukeba",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Allen Mukeba",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Allen Mukeba",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 18.5,
+      "over_price": -110.0,
+      "player_name": "Allen Mukeba",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Maurice Odum",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Maurice Odum",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Maurice Odum",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (11 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Santiago Trouet",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (11 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Santiago Trouet",
+      "sportsbook": "default",
+      "team": "ASU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Dwayne Aristode",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (39 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Ivan Kharchenkov",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (39 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Ivan Kharchenkov",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (39 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Ivan Kharchenkov",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (39 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Ivan Kharchenkov",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Motiejus Krivas",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Motiejus Krivas",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Motiejus Krivas",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (13 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Evan Nelson",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (13 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Evan Nelson",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (13 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Evan Nelson",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (13 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Evan Nelson",
+      "sportsbook": "default",
+      "team": "ARIZ",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "points",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Karter Knox",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Karter Knox",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Karter Knox",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Karter Knox",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Billy Richmond",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Billy Richmond",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Billy Richmond",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Billy Richmond",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "points",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "D.J. Wagner",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "D.J. Wagner",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 15.5,
+      "over_price": -110.0,
+      "player_name": "D.J. Wagner",
+      "sportsbook": "default",
+      "team": "ARK",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Tj Caldwell",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Tj Caldwell",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Tj Caldwell",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Chudi Dioramma",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Chudi Dioramma",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Chudi Dioramma",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Jalen Hampton",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Jalen Hampton",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Jalen Hampton",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Christian Harmon",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Christian Harmon",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Christian Harmon",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 18.5,
+      "over_price": -110.0,
+      "player_name": "Christian Harmon",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Matt Hayman",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Matt Hayman",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Matt Hayman",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Chandler Jackson",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Chandler Jackson",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Royal Blue Smith",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Royal Blue Smith",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Royal Blue Smith",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (18 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Fredy-Salam Sylla",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (18 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Fredy-Salam Sylla",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Aly Tounkara",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Aly Tounkara",
+      "sportsbook": "default",
+      "team": "ARST",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Kyle Brown",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Kyle Brown",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Kyle Brown",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Kyle Brown",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Milhan Charles",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Milhan Charles",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Milhan Charles",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 15.5,
+      "over_price": -110.0,
+      "player_name": "Milhan Charles",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (10 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Jai'Chaunn Hayes",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (10 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Jai'Chaunn Hayes",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (10 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Ramel Lloyd .",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (10 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Ramel Lloyd .",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Quion Williams",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Quion Williams",
+      "sportsbook": "default",
+      "team": "UAPB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Ryan Curry",
+      "sportsbook": "default",
+      "team": "ARMY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Ryan Curry",
+      "sportsbook": "default",
+      "team": "ARMY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Ryan Curry",
+      "sportsbook": "default",
+      "team": "ARMY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Ryan Curry",
+      "sportsbook": "default",
+      "team": "ARMY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Jackson Furman",
+      "sportsbook": "default",
+      "team": "ARMY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Jackson Furman",
+      "sportsbook": "default",
+      "team": "ARMY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Jackson Furman",
+      "sportsbook": "default",
+      "team": "ARMY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 13.5,
+      "over_price": -110.0,
+      "player_name": "Jackson Furman",
+      "sportsbook": "default",
+      "team": "ARMY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "points",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Elyjah Freeman",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Elyjah Freeman",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Elyjah Freeman",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 15.5,
+      "over_price": -110.0,
+      "player_name": "Elyjah Freeman",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (37 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Filip Jovic",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (37 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Filip Jovic",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (37 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Filip Jovic",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (20 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Kaden Magwood",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (20 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Kaden Magwood",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Kevin Overton",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Kevin Overton",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Kevin Overton",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 15.5,
+      "over_price": -110.0,
+      "player_name": "Kevin Overton",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Tahaad Pettiford",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Tahaad Pettiford",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Tahaad Pettiford",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Tahaad Pettiford",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Sebastian Williams-Adams",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Sebastian Williams-Adams",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Sebastian Williams-Adams",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Sebastian Williams-Adams",
+      "sportsbook": "default",
+      "team": "AUB",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 13.5,
+      "over_price": -110.0,
+      "player_name": "Zyree Collins",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Zyree Collins",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Zyree Collins",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 20.5,
+      "over_price": -110.0,
+      "player_name": "Zyree Collins",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Matt Enright",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Matt Enright",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Matt Enright",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Quan Lax",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Quan Lax",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Quan Lax",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Quan Lax",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Tate Mccubbin",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Tate Mccubbin",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 15.5,
+      "over_price": -110.0,
+      "player_name": "Tate Mccubbin",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 17.5,
+      "over_price": -110.0,
+      "player_name": "Collin Parker",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Collin Parker",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Collin Parker",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 26.5,
+      "over_price": -110.0,
+      "player_name": "Collin Parker",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Ja'Corey Robinson",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Ja'Corey Robinson",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Ja'Corey Robinson",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Ja'Corey Robinson",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (24 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Travis Torain",
+      "sportsbook": "default",
+      "team": "APSU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (20 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Abdullah Ahmed",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Dawson Baker",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Dawson Baker",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Dawson Baker",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Dawson Baker",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Kennard Davis .",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Kennard Davis .",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Kennard Davis .",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Aleksej Kostic",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Khadim Mboup",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Khadim Mboup",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Robert Wright",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Robert Wright",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "assists",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Robert Wright",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 17.5,
+      "over_price": -110.0,
+      "player_name": "Robert Wright",
+      "sportsbook": "default",
+      "team": "BYU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "points",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Devon Barnes",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Devon Barnes",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Devon Barnes",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 17.5,
+      "over_price": -110.0,
+      "player_name": "Devon Barnes",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Preston Copeland",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Preston Copeland",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Preston Copeland",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Cam Denson",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Cam Denson",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Cam Denson",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Davion Hill",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Davion Hill",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Davion Hill",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 20.5,
+      "over_price": -110.0,
+      "player_name": "Davion Hill",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 15.5,
+      "over_price": -110.0,
+      "player_name": "Fatt Hill",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Fatt Hill",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Fatt Hill",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 24.5,
+      "over_price": -110.0,
+      "player_name": "Fatt Hill",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Elmore James",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Elmore James",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Mason Jones",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Mason Jones",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Mason Jones",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Mason Jones",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Juwan Maxey",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Juwan Maxey",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Juwan Maxey",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Juwan Maxey",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Armoni Zeigler",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Armoni Zeigler",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Armoni Zeigler",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Armoni Zeigler",
+      "sportsbook": "default",
+      "team": "BALL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "points",
+      "line": 17.5,
+      "over_price": -110.0,
+      "player_name": "Obi Agbim",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Obi Agbim",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Obi Agbim",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 24.5,
+      "over_price": -110.0,
+      "player_name": "Obi Agbim",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Juslin Bodo Bodo",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Juslin Bodo Bodo",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (36 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Juslin Bodo Bodo",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (18 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "James Nnaji",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Caden Powell",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Michael Rataj",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Michael Rataj",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Michael Rataj",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Michael Rataj",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Dan Skillings .",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Dan Skillings .",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Dan Skillings .",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Jj White",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Jj White",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Jj White",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 16.5,
+      "over_price": -110.0,
+      "player_name": "Jj White",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (19 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Isaac Williams",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (19 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Isaac Williams",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (19 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Isaac Williams",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (19 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 17.5,
+      "over_price": -110.0,
+      "player_name": "Isaac Williams",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "points",
+      "line": 17.5,
+      "over_price": -110.0,
+      "player_name": "Tounde Yessoufou",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Tounde Yessoufou",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Tounde Yessoufou",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 25.5,
+      "over_price": -110.0,
+      "player_name": "Tounde Yessoufou",
+      "sportsbook": "default",
+      "team": "BAY",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Darrius Bolden",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Sam Donald",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Sam Donald",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Sam Donald",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Sam Donald",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Doyle",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Doyle",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Doyle",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Doyle",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Kenyon Goodin",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Kenyon Goodin",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Kenyon Goodin",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Kenyon Goodin",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Jack Karasinski",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Jack Karasinski",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Jack Karasinski",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Jacob Wassler",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Jacob Wassler",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Myles Watkins",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (30 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Myles Watkins",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (28 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Grant Whitaker",
+      "sportsbook": "default",
+      "team": "BELL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Eoin Dillon",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Eoin Dillon",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Eoin Dillon",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Eoin Dillon",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Jabez Jenkins",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Jabez Jenkins",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Jabez Jenkins",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Jabez Jenkins",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "points",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Sam Orme",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Sam Orme",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Sam Orme",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Sam Orme",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Brigham Rogers",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Brigham Rogers",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Brigham Rogers",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Brigham Rogers",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Drew Scharnowski",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Drew Scharnowski",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Drew Scharnowski",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (25 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Drew Scharnowski",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Jack Smiley",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "assists",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Jack Smiley",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 12.5,
+      "over_price": -110.0,
+      "player_name": "Jack Smiley",
+      "sportsbook": "default",
+      "team": "BEL",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Andrews",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Andrews",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (31 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Tyler Andrews",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Doctor Bradley",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Doctor Bradley",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Doctor Bradley",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "points",
+      "line": 15.5,
+      "over_price": -110.0,
+      "player_name": "Jakobi Heady",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Jakobi Heady",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Jakobi Heady",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 21.5,
+      "over_price": -110.0,
+      "player_name": "Jakobi Heady",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Quentin Heady",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Quentin Heady",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Jordan Johnson",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (27 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Jordan Johnson",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Arterio Morris",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (38 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Arterio Morris",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Reggie Ward .",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Reggie Ward .",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Reggie Ward .",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Seneca Willoughby",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (34 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Seneca Willoughby",
+      "sportsbook": "default",
+      "team": "BCU",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (16 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Evan Ashe",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (16 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Evan Ashe",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Jackson Benigni",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Jackson Benigni",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "assists",
+      "line": 0.5,
+      "over_price": -110.0,
+      "player_name": "Jackson Benigni",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (23 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 14.5,
+      "over_price": -110.0,
+      "player_name": "Jackson Benigni",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "points",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Zyier Beverly",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Zyier Beverly",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (29 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 17.5,
+      "over_price": -110.0,
+      "player_name": "Zyier Beverly",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (14 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Jake Blackburn",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (14 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Jake Blackburn",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "points",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Jeremiah Quigley",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Jeremiah Quigley",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "assists",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Jeremiah Quigley",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (33 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 17.5,
+      "over_price": -110.0,
+      "player_name": "Jeremiah Quigley",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Ryan Richardson",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Ryan Richardson",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Ryan Richardson",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Ryan Richardson",
+      "sportsbook": "default",
+      "team": "BING",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Spencer Ahrens",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Spencer Ahrens",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Spencer Ahrens",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (35 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Julian Bowie",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (37 games, ESPN season averages)",
+      "category": "points",
+      "line": 9.5,
+      "over_price": -110.0,
+      "player_name": "Javan Buchanan",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (37 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Javan Buchanan",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (37 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 13.5,
+      "over_price": -110.0,
+      "player_name": "Javan Buchanan",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Pearson Carmichael",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Pearson Carmichael",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (22 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 10.5,
+      "over_price": -110.0,
+      "player_name": "Pearson Carmichael",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 5.5,
+      "over_price": -110.0,
+      "player_name": "Drew Fielder",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 3.5,
+      "over_price": -110.0,
+      "player_name": "Drew Fielder",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 8.5,
+      "over_price": -110.0,
+      "player_name": "Drew Fielder",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (21 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 2.5,
+      "over_price": -110.0,
+      "player_name": "Rj Keene",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "points",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Aginaldo Neto",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "assists",
+      "line": 1.5,
+      "over_price": -110.0,
+      "player_name": "Aginaldo Neto",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (32 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 7.5,
+      "over_price": -110.0,
+      "player_name": "Aginaldo Neto",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (15 games, ESPN season averages)",
+      "category": "points",
+      "line": 6.5,
+      "over_price": -110.0,
+      "player_name": "Dominic Parolin",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (15 games, ESPN season averages)",
+      "category": "rebounds",
+      "line": 4.5,
+      "over_price": -110.0,
+      "player_name": "Dominic Parolin",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    },
+    {
+      "basis": "2026 real per-game rate (15 games, ESPN season averages)",
+      "category": "PRA",
+      "line": 11.5,
+      "over_price": -110.0,
+      "player_name": "Dominic Parolin",
+      "sportsbook": "default",
+      "team": "BOIS",
+      "under_price": -110.0
+    }
+  ],
+  "source_season": 2026,
+  "team_pool_size": 25
+}
