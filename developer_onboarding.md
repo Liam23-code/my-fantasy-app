@@ -5,8 +5,9 @@ Practical get-started guide. For *why* things are built the way they are, see [a
 ## Repo layout
 
 ```
-UniversalQuantAgent/   Streamlit app: NBA + NFL analysis, fantasy tools, the Betting Engine page
-  app/pages/30_Betting_Engine.py   the unified NFL+NBA betting UI
+UniversalQuantAgent/   Streamlit app: NBA + NFL analysis, fantasy tools, the betting pages
+  app/pages/30_NFL_Betting.py      one page per sport (30-33) + 34_Cross_Sport_Tools.py -- see ui_betting_tabs.md
+  app/betting_shared.py            shared loaders/renderers all five betting pages import from
   modules/nba_*.py                 NBA-specific betting/data modules
   modules/parallel_utils.py        thin re-export of betting.parallel_utils
   data/                            real default data files (odds/props/injuries) -- gitignored: only data/nba_cache/*

@@ -70,6 +70,10 @@ ESPN (per-team schedule, real completed games, bounded pool)
 - **`modules/cbb_parlay_engine.py`** — a thin re-export of `modules.nba_parlay_engine` (`make_leg`, `evaluate_parlay`, `nba_detect_correlations` as `detect_correlations`, …). Basketball correlation patterns (overlapping stat categories like `PRA`, teammate scoring stacks) are structurally the same real phenomenon in college basketball as in the NBA, so nothing new was written.
 - **`modules/cbb_odds_loader.py`** / **`modules/cbb_injuries_loader.py`** — default file + user upload, offline, merged by key. `data/cbb_game_odds.json` and `data/cbb_injuries.json` ship empty by design (no fixed daily schedule to pre-populate against, matching NBA's equivalent files).
 
+## Defensive difficulty (matchup-aware layer)
+
+`modules/cbb_defense_model.py`, added alongside the NBA-first matchup-aware engine (see [matchup_engine.md](matchup_engine.md)). Same shape as CFB's equivalent: a real percentile-ranked difficulty score over real `points_allowed_avg`, rather than a second ESPN fetch. Takes an already-fetched `averages` dict as an argument (from `build_team_scoring_averages`) instead of fetching again, since the per-team schedule calls are the expensive part and a caller almost always already paid it — the same reuse rationale `real_margin_and_total_volatility` already uses.
+
 ## What's *not* built (by design, not oversight)
 
 - **No live in-game tracking.** Same scope boundary as every other sport in this repo.

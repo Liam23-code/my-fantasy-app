@@ -62,6 +62,10 @@ Unlike NBA/CBB's daily-changing slate, CFB — like the NFL — plays a fixed we
 - **No live in-game tracking.** Same scope boundary as every other sport in this repo.
 - **No default `cfb_props.json` content yet.** Ships empty with a note, not a placeholder number — real content appears automatically the first time `CFBD_API_KEY` is set and the generator is re-run.
 
+## Defensive difficulty (matchup-aware layer)
+
+`modules/cfb_defense_model.py`, added alongside the NBA-first matchup-aware engine (see [matchup_engine.md](matchup_engine.md)). Rather than inventing a new, unverified CFBD endpoint call, it builds a real percentile-ranked difficulty score directly from the one real defensive signal this build already fetches and verifies: `team_scoring_averages`'s real `points_allowed_avg`. Gated on `CFBD_API_KEY` like every other CFB module — fails soft to a neutral `50.0` score with no key configured, never a fabricated percentile.
+
 ## Enforcement / next steps once a key exists
 
 1. Set `CFBD_API_KEY` and run `python -m modules.cfb_props_generator` — confirm real rows are written and every row's `"basis"` string looks right.

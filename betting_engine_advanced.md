@@ -50,4 +50,8 @@ result = evaluate_cross_sport_parlay(legs)
 # result["sports"] == ["NBA", "NFL"]; everything else matches either sport's own evaluate_parlay output shape
 ```
 
-The Betting Engine page's **Cross-Sport Parlay** tab lazy-loads whichever sport isn't already loaded for the current sport-toggle position (behind a button, not on every render -- see [ui_design.md](ui_design.md) and [performance_notes.md](performance_notes.md) for why eager-loading both sports on every render was rejected).
+The Cross-Sport Parlay tab (now on its own page, `34_Cross_Sport_Tools.py` -- see [ui_betting_tabs.md](ui_betting_tabs.md) for why the single betting page split into five) lazy-loads whichever sports are checked, behind a button, not on every render -- see [ui_design.md](ui_design.md) and [performance_notes.md](performance_notes.md) for why eager-loading on every render was rejected.
+
+## Matchup-aware context (new this cycle)
+
+A separate, additive layer on top of everything above -- real opponent-specific game history, real rim/perimeter defensive difficulty, real opponent-injury context, and real teammate on/off swings, composed into one small, bounded, disclosed adjustment applied to an already-priced NBA prop (then extended, with an honestly narrower real scope, to NFL/CFB/CBB). See [matchup_engine.md](matchup_engine.md) for the full design -- it does not change the correlation/risk-tier/cross-sport-parlay mechanics documented above at all; it only adjusts the *projection* an already-priced row started from, before any of this page's own math runs.

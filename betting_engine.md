@@ -1,6 +1,6 @@
 # Betting engine reference: odds loader, EV, confidence, parlay
 
-Covers all four sports' fair-line evaluation stack: what's genuinely shared (imported directly, not duplicated) versus what's sport-specific and why. See [offline_data_contract.md](offline_data_contract.md) for the data-sourcing rules this engine follows, [college_sports_betting.md](college_sports_betting.md) for CFB/CBB's own architecture overview (including why their real data sources needed a different answer than NFL/NBA's), and the [Betting Engine page](UniversalQuantAgent/app/pages/30_Betting_Engine.py) for the UI that surfaces all of this with a sport toggle.
+Covers all four sports' fair-line evaluation stack: what's genuinely shared (imported directly, not duplicated) versus what's sport-specific and why. See [offline_data_contract.md](offline_data_contract.md) for the data-sourcing rules this engine follows, [college_sports_betting.md](college_sports_betting.md) for CFB/CBB's own architecture overview (including why their real data sources needed a different answer than NFL/NBA's), [matchup_engine.md](matchup_engine.md) for the opponent-specific adjustment layer built on top of this one, and [ui_betting_tabs.md](ui_betting_tabs.md) for the five pages that surface all of this.
 
 ## Why NFL, NBA, CFB, and CBB aren't one codebase
 

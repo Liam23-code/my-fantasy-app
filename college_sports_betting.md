@@ -71,7 +71,7 @@ CFB and CBB don't compute an explicit 0–1 confidence score the way NFL/NBA's r
 
 ## Unified UI: the same three tabs, once per sport
 
-`app/pages/30_Betting_Engine.py`'s sport toggle now offers `["NFL", "NBA", "CFB", "CBB"]`. Because CFB and CBB's prop-model output schemas are structurally identical (both are the from-scratch Gaussian pattern, unlike NBA's richer wrapped model), they share one rendering branch in the Props and Money Lines tabs rather than duplicating NBA's UI code a third and fourth time — the UI-level reuse mirrors the module-level reuse decision above. Sport-specific overlays surface each sport's own real signal: CFB shows real pace/plays-per-game where available; CBB shows real minutes-based volatility.
+Each sport now has its own betting page (`32_CFB_Betting.py`, `33_CBB_Betting.py` — see [ui_betting_tabs.md](ui_betting_tabs.md) for why the original single sport-toggle page split into five). Because CFB and CBB's prop-model output schemas are structurally identical (both are the from-scratch Gaussian pattern, unlike NBA's richer wrapped model), `app/betting_shared.py` shares one rendering function (`render_college_props_tab`/`render_college_moneylines_tab`) between them rather than duplicating NBA's UI code a third and fourth time — the UI-level reuse mirrors the module-level reuse decision above. Sport-specific overlays surface each sport's own real signal: CFB shows real pace/plays-per-game where available; CBB shows real minutes-based volatility.
 
 ## Testing
 

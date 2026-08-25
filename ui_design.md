@@ -1,6 +1,6 @@
 # UI design: the unified Betting Engine page
 
-Covers `UniversalQuantAgent/app/pages/30_Betting_Engine.py`'s structure and the design decisions behind it. For the engine functions it calls, see [betting_engine.md](betting_engine.md) / [betting_engine_advanced.md](betting_engine_advanced.md).
+Covers the Streamlit design decisions behind the betting pages (`UniversalQuantAgent/app/betting_shared.py` and `app/pages/30-34_*.py` -- see [ui_betting_tabs.md](ui_betting_tabs.md) for why one page became five). For the engine functions they call, see [betting_engine.md](betting_engine.md) / [betting_engine_advanced.md](betting_engine_advanced.md).
 
 ## Layout
 

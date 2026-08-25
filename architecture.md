@@ -73,7 +73,7 @@ The three NBA pages that used to call the disabled scraper directly now call the
 - `modules/props.py` (`compare_props`) → `nba_props_loader.unified_props()`
 - `modules/recommendations.py` (`recommend_props`) → `nba_props_loader.unified_props()` + `nba_schedule.fetch_todays_games()`
 
-`app/pages/30_Betting_Engine.py` is the NFL-side equivalent UI: three tabs (Player Props, Money Lines, Parlays) over `betting.odds_loader.unified_odds()`, with a `st.file_uploader` for overriding the default file — the one UI surface in this repo where a user can currently supply their own odds file. Uploading props/injuries on the NBA pages or the injury pages is backend-ready (`nba_props_loader.load_props_from_user_upload`, `injury_parser.load_injury_data_from_user_upload`) but has no upload widget wired up yet, matching where `injuries.json` already stood before this change.
+`app/pages/30_NFL_Betting.py` (one of five betting pages now — see [ui_betting_tabs.md](ui_betting_tabs.md)) is the NFL-side equivalent UI: three tabs (Money Lines, Props, Parlays) over `betting.odds_loader.unified_odds()`, with a `st.file_uploader` for overriding the default file — the one UI surface in this repo where a user can currently supply their own odds file. Uploading props/injuries on the NBA pages or the injury pages is backend-ready (`nba_props_loader.load_props_from_user_upload`, `injury_parser.load_injury_data_from_user_upload`) but has no upload widget wired up yet, matching where `injuries.json` already stood before this change.
 
 ## Testing
 

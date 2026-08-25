@@ -2572,8 +2572,16 @@ def main() -> None:
         st.Page("pages/10_Parlay_Builder.py", title="Parlay Builder", icon=":material/account_tree:"),
         # Independent of the pages above: odds come only from our own
         # generated default file or a file you upload, never a live
-        # sportsbook/ESPN fetch. See fantasy_engine/betting/.
-        st.Page("pages/30_Betting_Engine.py", title="Betting Engine (Offline)", icon=":material/balance:"),
+        # sportsbook/ESPN fetch. See fantasy_engine/betting/. Split into
+        # one page per sport (see ui_betting_tabs.md) plus a shared
+        # cross-sport tools page for Player Comparison and mixed-sport
+        # parlays -- was one page (30_Betting_Engine.py) with a sport
+        # toggle; each sport now gets its own URL/tab set instead.
+        st.Page("pages/30_NFL_Betting.py", title="NFL Betting (Offline)", icon=":material/balance:"),
+        st.Page("pages/31_NBA_Betting.py", title="NBA Betting (Offline)", icon=":material/balance:"),
+        st.Page("pages/32_CFB_Betting.py", title="CFB Betting (Offline)", icon=":material/balance:"),
+        st.Page("pages/33_CBB_Betting.py", title="CBB Betting (Offline)", icon=":material/balance:"),
+        st.Page("pages/34_Cross_Sport_Tools.py", title="Cross-Sport Tools", icon=":material/hub:"),
     ]
     advanced_pages = [
         st.Page("pages/18_Similarity_Engine.py", title="Similarity Engine", icon=":material/group_work:"),
@@ -2589,7 +2597,9 @@ def main() -> None:
         st.Page("pages/24_NFL_Slate.py", title="Slate", icon=":material/view_week:"),
     ]
     finance_pages = [
-        st.Page("pages/6_Finance.py", title="Finance Dashboard", icon=":material/candlestick_chart:"),
+        # Finance Dashboard (pages/6_Finance.py) is intentionally not
+        # registered here -- hidden from navigation, module/tests/data
+        # untouched. Re-add its st.Page(...) entry to bring the tab back.
         st.Page("pages/7_Opportunities.py", title="Opportunities", icon=":material/insights:"),
     ]
     fantasy_pages = [
