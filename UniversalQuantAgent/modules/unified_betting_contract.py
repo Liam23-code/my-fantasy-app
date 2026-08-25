@@ -1,26 +1,34 @@
-"""Unified betting-engine contract: one dispatch interface over NFL, NBA, CFB, and CBB.
+"""Unified betting-engine contract: one dispatch interface over NFL, NBA, CFB, CBB, MLB, and NHL.
 
 "Shared contract, separate code" (see architecture.md / betting_engine.md):
 this module contains no betting logic of its own, only routing. Each
 sport's underlying implementation is untouched -- calling ``load_odds("NFL")``
 here does exactly what calling ``betting.odds_loader.unified_odds()``
 directly already did. What this module adds is a single, uniform call
-site and a uniform *output* shape across all four sports, so a caller
-(the unified UI, a future integration) doesn't need four different
-function names or four different result shapes to handle.
+site and a uniform *output* shape across all six sports, so a caller
+(the unified UI, a future integration) doesn't need six different
+function names or six different result shapes to handle.
 
-A uniform *output* shape does not mean a uniform *input* -- the four
-sports' own evaluators need genuinely different real context (NFL needs a
-real player pool; NBA needs already-computed matchup-adjusted comparison
-rows; CFB and CBB are self-contained). :func:`compute_ev` documents
-exactly what each sport needs via ``**context``, rather than hiding that
-real difference behind a fake one-size-fits-all signature.
+A uniform *output* shape does not mean a uniform *input* -- the sports'
+own evaluators need genuinely different real context (NFL needs a real
+player pool; NBA needs already-computed matchup-adjusted comparison rows;
+CFB, CBB, and NHL are self-contained; MLB optionally accepts a matchup
+multiplier). :func:`compute_ev` documents exactly what each sport needs
+via ``**context``, rather than hiding that real difference behind a fake
+one-size-fits-all signature.
+
+MLB and NHL's own richer matchup-engine layers (mlb_season_model.py, the
+five mlb_*_model.py matchup modules, mlb_fusion_model.py) are optional
+overlays, not part of this contract -- see mlb_pipeline.md. Both sports'
+default data files ship empty by design (no live/scraped source was
+integrated this cycle -- see offline_data_contract.md), the same
+documented "empty by design" precedent CFB's props already established.
 """
 from __future__ import annotations
 
 from typing import Any, Callable
 
-VALID_SPORTS = ("NFL", "NBA", "CFB", "CBB")
+VALID_SPORTS = ("NFL", "NBA", "CFB", "CBB", "MLB", "NHL")
 
 #: risk_tier -> a deterministic confidence proxy, for the sports (CFB, CBB)
 #: whose evaluate_prop doesn't compute an explicit 0-1 confidence score the
@@ -62,8 +70,18 @@ def load_odds(sport: str) -> dict[str, Any]:
         from modules.cfb_props_loader import unified_props
 
         return {"props": unified_props(), "games": unified_game_odds()["games"]}
-    from modules.cbb_odds_loader import unified_game_odds
-    from modules.cbb_props_loader import unified_props
+    if sport == "CBB":
+        from modules.cbb_odds_loader import unified_game_odds
+        from modules.cbb_props_loader import unified_props
+
+        return {"props": unified_props(), "games": unified_game_odds()["games"]}
+    if sport == "MLB":
+        from modules.mlb_odds_loader import unified_game_odds
+        from modules.mlb_props_loader import unified_props
+
+        return {"props": unified_props(), "games": unified_game_odds()["games"]}
+    from modules.nhl_odds_loader import unified_game_odds
+    from modules.nhl_props_loader import unified_props
 
     return {"props": unified_props(), "games": unified_game_odds()["games"]}
 
@@ -85,6 +103,12 @@ def compute_ev(sport: str, props: list[dict[str, Any]], **context: Any) -> list[
     * ``"CBB"`` -- ``minutes_by_player`` (``dict[str, float]``, optional):
       real per-player minutes/game, used to widen assumed variance for a
       low-minutes player (see modules.cbb_prop_model).
+    * ``"MLB"`` -- ``matchup_multipliers`` (``dict[str, float]``,
+      optional): a per-player composite adjustment multiplier, typically
+      from modules.mlb_fusion_model.fuse_projection's optional matchup
+      overlay (see modules.mlb_prop_model).
+    * ``"NHL"`` -- none. Each row already carries its own real per-game
+      rate as ``"line"``.
     """
     _check_sport(sport)
     if sport == "NFL":
@@ -102,9 +126,17 @@ def compute_ev(sport: str, props: list[dict[str, Any]], **context: Any) -> list[
         from modules.cfb_prop_model import evaluate_props
 
         return evaluate_props(props)
-    from modules.cbb_prop_model import evaluate_props
+    if sport == "CBB":
+        from modules.cbb_prop_model import evaluate_props
 
-    return evaluate_props(props, minutes_by_player=context.get("minutes_by_player"))
+        return evaluate_props(props, minutes_by_player=context.get("minutes_by_player"))
+    if sport == "MLB":
+        from modules.mlb_prop_model import evaluate_props
+
+        return evaluate_props(props, matchup_multipliers=context.get("matchup_multipliers"))
+    from modules.nhl_prop_model import evaluate_props
+
+    return evaluate_props(props)
 
 
 def compute_confidence(sport: str, priced_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -123,6 +155,8 @@ def compute_confidence(sport: str, priced_rows: list[dict[str, Any]]) -> list[di
         "NBA": lambda row: f"{row.get('player')} {row.get('category')}",
         "CFB": lambda row: f"{row.get('player_name')} {row.get('category')}",
         "CBB": lambda row: f"{row.get('player_name')} {row.get('category')}",
+        "MLB": lambda row: f"{row.get('player_name')} {row.get('category')}",
+        "NHL": lambda row: f"{row.get('player_name')} {row.get('category')}",
     }[sport]
 
     results = []
@@ -144,8 +178,9 @@ def build_parlays(sport: str, legs: list[dict[str, Any]], *, stake: float = 100.
 
     ``legs`` come from that sport's own ``make_leg`` (see
     ``betting.parlay_engine.make_leg`` / ``modules.nba_parlay_engine.make_leg`` /
-    ``modules.cfb_parlay_engine.make_leg`` / ``modules.cbb_parlay_engine.make_leg``
-    -- all four already share one leg shape). For a parlay mixing legs from
+    ``modules.cfb_parlay_engine.make_leg`` / ``modules.cbb_parlay_engine.make_leg`` /
+    ``modules.mlb_parlay_engine.make_leg`` / ``modules.nhl_parlay_engine.make_leg``
+    -- all six already share one leg shape). For a parlay mixing legs from
     more than one sport, use :func:`modules.unified_parlay_engine.evaluate_cross_sport_parlay`
     directly (its legs are tagged with ``sport`` via ``make_unified_leg`` and
     it is not sport-dispatched the way this function is).
@@ -163,6 +198,14 @@ def build_parlays(sport: str, legs: list[dict[str, Any]], *, stake: float = 100.
         from modules.cfb_parlay_engine import evaluate_parlay as evaluate
 
         return evaluate(legs, stake=stake)
-    from modules.cbb_parlay_engine import evaluate_parlay as evaluate
+    if sport == "CBB":
+        from modules.cbb_parlay_engine import evaluate_parlay as evaluate
+
+        return evaluate(legs, stake=stake)
+    if sport == "MLB":
+        from modules.mlb_parlay_engine import evaluate_parlay as evaluate
+
+        return evaluate(legs, stake=stake)
+    from modules.nhl_parlay_engine import evaluate_parlay as evaluate
 
     return evaluate(legs, stake=stake)

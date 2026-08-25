@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- unlike CFB/CBB (which have a documented, narrow exception to fetch real per-game rates from a real stats API; see offline_data_contract.md), no live or keyless MLB stats source was integrated this cycle, and this app never fetches odds from any sportsbook. Upload a props file from the MLB Betting page to populate this tab, or populate this file by hand with real per-game rates you have.",
+  "props": []
+}

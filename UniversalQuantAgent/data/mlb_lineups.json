@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- this app does not fetch starting lineups from any live source. Populate this file with real published lineups, or upload a lineups file from the MLB Betting page, to enable lineup-aware matchup modeling (modules/mlb_lineup_model.py, modules/mlb_batter_vs_pitcher.py).",
+  "lineups": []
+}

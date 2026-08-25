@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- this app does not fetch game odds from any sportsbook, and no live NHL schedule ingestion was added this cycle. Upload a game-odds file from the NHL Betting page, or populate this file with real lines you have; the fair line is always computed from the caller-supplied goaltending/offense/defense/special-teams context in modules/nhl_moneyline_model.py regardless.",
+  "games": []
+}

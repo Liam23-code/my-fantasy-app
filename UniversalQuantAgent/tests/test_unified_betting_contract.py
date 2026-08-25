@@ -12,13 +12,20 @@ from modules.unified_betting_contract import VALID_SPORTS, build_parlays, comput
 from modules.cfb_parlay_engine import make_leg as cfb_make_leg
 from modules.cbb_parlay_engine import make_leg as cbb_make_leg
 from betting.parlay_engine import make_leg as nfl_make_leg
+from modules.mlb_parlay_engine import make_leg as mlb_make_leg
 from modules.nba_parlay_engine import make_leg as nba_make_leg
+from modules.nhl_parlay_engine import make_leg as nhl_make_leg
+
+#: A sport name that will never be a real entry in VALID_SPORTS, used to
+#: probe the "unknown sport" rejection path. Not "MLB" -- MLB joined
+#: VALID_SPORTS this cycle and is a real, valid sport now.
+_UNKNOWN_SPORT = "XFL"
 
 
 class LoadOddsTests(unittest.TestCase):
     def test_rejects_unknown_sport(self):
         with self.assertRaises(ValueError):
-            load_odds("MLB")
+            load_odds(_UNKNOWN_SPORT)
 
     def test_every_sport_returns_the_same_top_level_shape(self):
         for sport in VALID_SPORTS:
@@ -28,17 +35,24 @@ class LoadOddsTests(unittest.TestCase):
             self.assertIsInstance(result["games"], dict)
 
     def test_nfl_and_nba_and_cbb_have_real_default_props(self):
-        # CFB's default is empty by design (no CFBD_API_KEY configured yet)
-        # -- see offline_data_contract.md; not asserted here.
+        # CFB's, MLB's, and NHL's defaults are empty by design (CFB gates
+        # on an unset CFBD_API_KEY; MLB/NHL have no live/keyless stats
+        # source integrated this cycle) -- see offline_data_contract.md
+        # and mlb_pipeline.md / nhl_pipeline.md; not asserted here.
         for sport in ("NFL", "NBA", "CBB"):
             result = load_odds(sport)
             self.assertGreater(len(result["props"]), 0, f"{sport} should have real default props")
+
+    def test_mlb_and_nhl_default_props_ship_empty_by_design(self):
+        for sport in ("MLB", "NHL"):
+            result = load_odds(sport)
+            self.assertEqual(result["props"], [], f"{sport} should ship no default props this cycle")
 
 
 class ComputeEvTests(unittest.TestCase):
     def test_rejects_unknown_sport(self):
         with self.assertRaises(ValueError):
-            compute_ev("MLB", [])
+            compute_ev(_UNKNOWN_SPORT, [])
 
     def test_nfl_requires_players_by_id_context(self):
         with self.assertRaises(KeyError):
@@ -61,11 +75,25 @@ class ComputeEvTests(unittest.TestCase):
         self.assertEqual(len(rows_no_context), 1)
         self.assertEqual(len(rows_with_context), 1)
 
+    def test_mlb_works_with_or_without_matchup_multipliers_context(self):
+        props = [{"player_name": "Test Batter", "team": "NYY", "category": "hits", "line": 1.5, "over_price": -110.0, "under_price": -110.0}]
+        rows_no_context = compute_ev("MLB", props)
+        rows_with_context = compute_ev("MLB", props, matchup_multipliers={"Test Batter": 1.1})
+        self.assertEqual(len(rows_no_context), 1)
+        self.assertEqual(len(rows_with_context), 1)
+        self.assertNotEqual(rows_no_context[0]["line"], rows_with_context[0]["line"])
+
+    def test_nhl_needs_no_extra_context(self):
+        props = [{"player_name": "Test Winger", "team": "TOR", "category": "shots", "line": 2.5, "over_price": -110.0, "under_price": -110.0}]
+        rows = compute_ev("NHL", props)
+        self.assertEqual(len(rows), 1)
+        self.assertIn("recommended_edge", rows[0])
+
 
 class ComputeConfidenceTests(unittest.TestCase):
     def test_rejects_unknown_sport(self):
         with self.assertRaises(ValueError):
-            compute_confidence("MLB", [])
+            compute_confidence(_UNKNOWN_SPORT, [])
 
     def test_every_sport_returns_the_same_row_shape(self):
         cfb_rows = compute_ev("CFB", [{"player_name": "A", "team": "OSU", "category": "passing_yards", "line": 275.5, "over_price": -110.0, "under_price": -110.0}])
@@ -84,7 +112,7 @@ class ComputeConfidenceTests(unittest.TestCase):
 class BuildParlaysTests(unittest.TestCase):
     def test_rejects_unknown_sport(self):
         with self.assertRaises(ValueError):
-            build_parlays("MLB", [])
+            build_parlays(_UNKNOWN_SPORT, [])
 
     def test_every_sport_returns_the_same_output_shape(self):
         expected_keys = {"legs", "num_legs", "decimal_odds", "payout_per_100_stake", "naive_hit_probability", "adjusted_hit_probability", "correlations_detected", "naive_ev", "adjusted_ev", "confidence", "risk_tier"}
@@ -93,6 +121,8 @@ class BuildParlaysTests(unittest.TestCase):
             "NBA": [nba_make_leg(description="a", model_probability=0.6, price=120.0), nba_make_leg(description="b", model_probability=0.6, price=120.0)],
             "CFB": [cfb_make_leg(description="a", model_probability=0.6, price=120.0), cfb_make_leg(description="b", model_probability=0.6, price=120.0)],
             "CBB": [cbb_make_leg(description="a", model_probability=0.6, price=120.0), cbb_make_leg(description="b", model_probability=0.6, price=120.0)],
+            "MLB": [mlb_make_leg(description="a", model_probability=0.6, price=120.0), mlb_make_leg(description="b", model_probability=0.6, price=120.0)],
+            "NHL": [nhl_make_leg(description="a", model_probability=0.6, price=120.0), nhl_make_leg(description="b", model_probability=0.6, price=120.0)],
         }
         for sport, legs in cases.items():
             result = build_parlays(sport, legs)

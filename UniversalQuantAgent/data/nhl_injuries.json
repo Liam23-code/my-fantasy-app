@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- this app does not fetch injury data from any live source. Populate this file with real reported injuries, or upload an injury file from the NHL Betting page, to enable injury-aware modeling.",
+  "injuries": []
+}

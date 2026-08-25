@@ -14,11 +14,12 @@ if _FANTASY_ENGINE_ROOT.is_dir() and str(_FANTASY_ENGINE_ROOT) not in sys.path:
     sys.path.insert(0, str(_FANTASY_ENGINE_ROOT))
 
 # Cross-Sport Tools: Player Comparison (same-sport, pick a sport via the
-# toggle) and Cross-Sport Parlay (mix legs from any of the four sports in
+# toggle) and Cross-Sport Parlay (mix legs from any of the six sports in
 # one parlay). Split out of the former single 30_Betting_Engine.py so each
-# of the four sport-specific betting pages (30-33) stays to exactly the
-# three tabs in ui_betting_tabs.md's spec -- these two tools apply across
-# sports, so they get their own page rather than being duplicated four times.
+# of the six sport-specific betting pages (30-33, 35-36) stays to exactly
+# the three tabs in ui_betting_tabs.md's spec -- these two tools apply
+# across sports, so they get their own page rather than being duplicated
+# six times.
 #
 # Nothing on this page ever fetches a sportsbook, and nothing here places
 # a bet.
@@ -28,7 +29,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from app.betting_shared import load_cbb_evaluations, load_cfb_evaluations, load_nba_evaluations, load_nfl_evaluations
+from app.betting_shared import load_cbb_evaluations, load_cfb_evaluations, load_mlb_evaluations, load_nba_evaluations, load_nfl_evaluations, load_nhl_evaluations
 from app.page_runtime import apply_global_theme, empty_state, page_header, section_header
 
 from modules.unified_parlay_engine import evaluate_cross_sport_parlay, make_unified_leg
@@ -37,7 +38,7 @@ apply_global_theme()
 
 page_header(
     "Cross-Sport Tools",
-    "Compare two priced props side by side, or build a parlay that mixes legs from any of the four "
+    "Compare two priced props side by side, or build a parlay that mixes legs from any of the six "
     "sports -- odds come only from our own default files or files you upload, never a sportsbook. "
     "Nothing on this page places a bet.",
     eyebrow="Betting · cross-sport",
@@ -50,7 +51,7 @@ comparison_tab, cross_sport_tab = st.tabs(["Player Comparison", "Cross-Sport Par
 # -----------------------------------------------------------------------
 with comparison_tab:
     section_header("Player Comparison", "Side-by-side edge, EV, and confidence for two priced props from one sport.")
-    sport = st.radio("Sport", ["NFL", "NBA", "CFB", "CBB"], horizontal=True, key="cross_sport_tools_compare_sport")
+    sport = st.radio("Sport", ["NFL", "NBA", "CFB", "CBB", "MLB", "NHL"], horizontal=True, key="cross_sport_tools_compare_sport")
 
     if sport == "NFL":
         rows_for_compare, _, _ = load_nfl_evaluations("compare_nfl_odds_upload")
@@ -73,8 +74,22 @@ with comparison_tab:
             ("Category", "category"), ("Line", "line"), ("Recommended side", "recommended_side"),
             ("Edge", "recommended_edge"), ("EV / $100", "recommended_ev"), ("Risk", "risk_tier"), ("Basis", "basis"),
         ]
-    else:
+    elif sport == "CBB":
         rows_for_compare, _, _ = load_cbb_evaluations("compare_cbb_props_upload", "compare_cbb_odds_upload")
+        label_fn = lambda row: f"{row['player_name']} {row['category']} {row['line']}"
+        metrics = [
+            ("Category", "category"), ("Line", "line"), ("Recommended side", "recommended_side"),
+            ("Edge", "recommended_edge"), ("EV / $100", "recommended_ev"), ("Risk", "risk_tier"), ("Basis", "basis"),
+        ]
+    elif sport == "MLB":
+        rows_for_compare, _, _ = load_mlb_evaluations("compare_mlb_props_upload", "compare_mlb_odds_upload")
+        label_fn = lambda row: f"{row['player_name']} {row['category']} {row['line']}"
+        metrics = [
+            ("Category", "category"), ("Line", "line"), ("Recommended side", "recommended_side"),
+            ("Edge", "recommended_edge"), ("EV / $100", "recommended_ev"), ("Risk", "risk_tier"), ("Basis", "basis"),
+        ]
+    else:
+        rows_for_compare, _, _ = load_nhl_evaluations("compare_nhl_props_upload", "compare_nhl_odds_upload")
         label_fn = lambda row: f"{row['player_name']} {row['category']} {row['line']}"
         metrics = [
             ("Category", "category"), ("Line", "line"), ("Recommended side", "recommended_side"),
@@ -105,14 +120,14 @@ with comparison_tab:
 with cross_sport_tab:
     section_header(
         "Cross-Sport Parlay",
-        "Combine legs from any of the four sports in one parlay. Each sport's own correlation patterns "
+        "Combine legs from any of the six sports in one parlay. Each sport's own correlation patterns "
         "are still detected within that sport's legs; legs from different sports are never treated as "
         "correlated with each other.",
     )
     st.caption("Pick which sports to load below -- each is loaded fresh here (this page doesn't reuse the sport pages' cache keys).")
 
-    load_cols = st.columns(4)
-    sports_to_load = [s for s, col in zip(("NFL", "NBA", "CFB", "CBB"), load_cols) if col.checkbox(s, value=True, key=f"cross_sport_include_{s}")]
+    load_cols = st.columns(6)
+    sports_to_load = [s for s, col in zip(("NFL", "NBA", "CFB", "CBB", "MLB", "NHL"), load_cols) if col.checkbox(s, value=True, key=f"cross_sport_include_{s}")]
 
     if st.button("Load selected sports for a cross-sport parlay", key="cross_sport_load_button"):
         with st.spinner("Loading selected sports..."):
@@ -125,6 +140,10 @@ with cross_sport_tab:
                 loaded["CFB"] = load_cfb_evaluations("cross_sport_cfb_props_upload", "cross_sport_cfb_odds_upload", season=2025, week=1)[0]
             if "CBB" in sports_to_load:
                 loaded["CBB"] = load_cbb_evaluations("cross_sport_cbb_props_upload", "cross_sport_cbb_odds_upload")[0]
+            if "MLB" in sports_to_load:
+                loaded["MLB"] = load_mlb_evaluations("cross_sport_mlb_props_upload", "cross_sport_mlb_odds_upload")[0]
+            if "NHL" in sports_to_load:
+                loaded["NHL"] = load_nhl_evaluations("cross_sport_nhl_props_upload", "cross_sport_nhl_odds_upload")[0]
         st.session_state["cross_sport_loaded"] = loaded
 
     loaded = st.session_state.get("cross_sport_loaded") or {}
@@ -141,6 +160,8 @@ with cross_sport_tab:
             "NBA": lambda row: f"NBA: {row['player']} {row['category']} {row['recommended_priced_side']} {row['sportsbook_line']}",
             "CFB": lambda row: f"CFB: {row['player_name']} {row['category']} {row['recommended_side']} {row['line']}",
             "CBB": lambda row: f"CBB: {row['player_name']} {row['category']} {row['recommended_side']} {row['line']}",
+            "MLB": lambda row: f"MLB: {row['player_name']} {row['category']} {row['recommended_side']} {row['line']}",
+            "NHL": lambda row: f"NHL: {row['player_name']} {row['category']} {row['recommended_side']} {row['line']}",
         }
         combined_options: dict[str, tuple[str, dict[str, Any]]] = {}
         for sport_key, rows in loaded.items():

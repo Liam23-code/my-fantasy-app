@@ -1,4 +1,4 @@
-"""Offline contract tests for the cross-sport (NFL + NBA) parlay engine."""
+"""Offline contract tests for the cross-sport (NFL + NBA + CFB + CBB + MLB + NHL) parlay engine."""
 from __future__ import annotations
 
 import sys
@@ -39,14 +39,28 @@ def _cbb_leg(**overrides):
     return make_unified_leg("CBB", **base)
 
 
+def _mlb_leg(**overrides):
+    base = dict(description="mlb leg", model_probability=0.55, price=-110.0, player_id="p1", team="NYY", game_id="g1", market="hits", side="over", confidence=0.7)
+    base.update(overrides)
+    return make_unified_leg("MLB", **base)
+
+
+def _nhl_leg(**overrides):
+    base = dict(description="nhl leg", model_probability=0.55, price=-110.0, player_id="p1", team="TOR", market="shots", side="over", confidence=0.7)
+    base.update(overrides)
+    return make_unified_leg("NHL", **base)
+
+
 class MakeUnifiedLegTests(unittest.TestCase):
     def test_tags_the_leg_with_its_sport(self):
         leg = _nfl_leg()
         self.assertEqual(leg["sport"], "NFL")
 
     def test_rejects_an_unknown_sport(self):
+        # Not "MLB" -- MLB joined the six supported sports this cycle and
+        # is a real, valid sport now.
         with self.assertRaises(ValueError):
-            make_unified_leg("MLB", description="x", model_probability=0.5, price=-110.0)
+            make_unified_leg("XFL", description="x", model_probability=0.5, price=-110.0)
 
 
 class DetectCrossSportCorrelationsTests(unittest.TestCase):
@@ -91,11 +105,34 @@ class DetectCrossSportCorrelationsTests(unittest.TestCase):
         kinds = {finding["kind"] for finding in findings}
         self.assertEqual(kinds, {"qb_pass_catcher_stack", "overlapping_stat_categories"})
 
-    def test_all_four_sports_pairwise_never_cross_correlated(self):
-        legs = [_nfl_leg(), _nba_leg(), _cfb_leg(), _cbb_leg()]
+    def test_all_six_sports_pairwise_never_cross_correlated(self):
+        legs = [_nfl_leg(), _nba_leg(), _cfb_leg(), _cbb_leg(), _mlb_leg(), _nhl_leg()]
         # Each sport appears only once -- no same-sport pair exists, so no
         # detector has >= 2 legs to check; nothing should ever fire.
         self.assertEqual(detect_cross_sport_correlations(legs), [])
+
+    def test_mlb_pattern_fires_within_the_mlb_subset(self):
+        hr = _mlb_leg(player_id="p1", team="NYY", game_id="g1", market="home_runs", side="over")
+        tb = _mlb_leg(player_id="p1", team="NYY", game_id="g1", market="total_bases", side="over")
+        nhl_leg = _nhl_leg()
+        findings = detect_cross_sport_correlations([hr, tb, nhl_leg])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["kind"], "hr_and_total_bases")
+        self.assertEqual(findings[0]["legs"], (0, 1))
+
+    def test_nhl_pattern_fires_within_the_nhl_subset(self):
+        goals = _nhl_leg(player_id="p1", team="TOR", market="goals", side="over")
+        assists = _nhl_leg(player_id="p1", team="TOR", market="assists", side="over")
+        mlb_leg = _mlb_leg()
+        findings = detect_cross_sport_correlations([goals, assists, mlb_leg])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["kind"], "goals_and_assists")
+        self.assertEqual(findings[0]["legs"], (0, 1))
+
+    def test_an_mlb_leg_and_an_nhl_leg_are_never_correlated(self):
+        mlb_leg = _mlb_leg(market="hits", side="over")
+        nhl_leg = _nhl_leg(market="shots", side="over")
+        self.assertEqual(detect_cross_sport_correlations([mlb_leg, nhl_leg]), [])
 
 
 class EvaluateCrossSportParlayTests(unittest.TestCase):
@@ -104,7 +141,8 @@ class EvaluateCrossSportParlayTests(unittest.TestCase):
             evaluate_cross_sport_parlay([_nfl_leg()])
 
     def test_rejects_a_leg_missing_a_valid_sport_tag(self):
-        legs = [_nfl_leg(), {**_nba_leg(), "sport": "MLB"}]
+        # Not "MLB" -- see MakeUnifiedLegTests.test_rejects_an_unknown_sport.
+        legs = [_nfl_leg(), {**_nba_leg(), "sport": "XFL"}]
         with self.assertRaises(ValueError):
             evaluate_cross_sport_parlay(legs)
 
@@ -115,10 +153,10 @@ class EvaluateCrossSportParlayTests(unittest.TestCase):
         self.assertIn("adjusted_hit_probability", result)
         self.assertIn("risk_tier", result)
 
-    def test_all_four_sports_in_one_parlay(self):
-        result = evaluate_cross_sport_parlay([_nfl_leg(), _nba_leg(), _cfb_leg(), _cbb_leg()])
-        self.assertEqual(result["sports"], ["CBB", "CFB", "NBA", "NFL"])
-        self.assertEqual(result["num_legs"], 4)
+    def test_all_six_sports_in_one_parlay(self):
+        result = evaluate_cross_sport_parlay([_nfl_leg(), _nba_leg(), _cfb_leg(), _cbb_leg(), _mlb_leg(), _nhl_leg()])
+        self.assertEqual(result["sports"], ["CBB", "CFB", "MLB", "NBA", "NFL", "NHL"])
+        self.assertEqual(result["num_legs"], 6)
 
     def test_uncorrelated_cross_sport_legs_naive_equals_adjusted(self):
         result = evaluate_cross_sport_parlay([_nfl_leg(), _nba_leg()])

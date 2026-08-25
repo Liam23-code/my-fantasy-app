@@ -14,7 +14,7 @@ if _FANTASY_ENGINE_ROOT.is_dir() and str(_FANTASY_ENGINE_ROOT) not in sys.path:
     sys.path.insert(0, str(_FANTASY_ENGINE_ROOT))
 
 # CFB Betting: offline, deterministic fair-line analysis -- Money Lines,
-# Props, Parlays -- for College Football only. One of four sport-specific
+# Props, Parlays -- for College Football only. One of six sport-specific
 # betting pages split out of the former single 30_Betting_Engine.py (see
 # ui_betting_tabs.md). Player Comparison and Cross-Sport Parlay live on
 # the separate 34_Cross_Sport_Tools.py page.

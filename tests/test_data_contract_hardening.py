@@ -37,6 +37,10 @@ from modules.cfb_odds_loader import load_uploaded_game_odds as cfb_load_uploaded
 from modules.cfb_props_loader import load_props_from_user_upload as cfb_load_props_from_user_upload
 from modules.cbb_odds_loader import load_uploaded_game_odds as cbb_load_uploaded_game_odds
 from modules.cbb_props_loader import load_props_from_user_upload as cbb_load_props_from_user_upload
+from modules.mlb_odds_loader import load_uploaded_game_odds as mlb_load_uploaded_game_odds
+from modules.mlb_props_loader import load_props_from_user_upload as mlb_load_props_from_user_upload
+from modules.nhl_odds_loader import load_uploaded_game_odds as nhl_load_uploaded_game_odds
+from modules.nhl_props_loader import load_props_from_user_upload as nhl_load_props_from_user_upload
 
 _BANNED_LIBRARIES = {"requests", "httpx", "aiohttp", "urllib3", "selenium", "playwright", "bs4"}
 
@@ -86,6 +90,28 @@ _ALL_MARKET_PIPELINE_FILES = (
     NBA_ROOT / "modules" / "cbb_moneyline_model.py",
     NBA_ROOT / "modules" / "cbb_parlay_engine.py",
     NBA_ROOT / "modules" / "cbb_schedule.py",
+    NBA_ROOT / "modules" / "mlb_common.py",
+    NBA_ROOT / "modules" / "mlb_season_model.py",
+    NBA_ROOT / "modules" / "mlb_batter_vs_pitcher.py",
+    NBA_ROOT / "modules" / "mlb_ballpark_model.py",
+    NBA_ROOT / "modules" / "mlb_lineup_model.py",
+    NBA_ROOT / "modules" / "mlb_bullpen_model.py",
+    NBA_ROOT / "modules" / "mlb_defense_model.py",
+    NBA_ROOT / "modules" / "mlb_fusion_model.py",
+    NBA_ROOT / "modules" / "mlb_prop_model.py",
+    NBA_ROOT / "modules" / "mlb_moneyline_model.py",
+    NBA_ROOT / "modules" / "mlb_parlay_engine.py",
+    NBA_ROOT / "modules" / "mlb_props_loader.py",
+    NBA_ROOT / "modules" / "mlb_odds_loader.py",
+    NBA_ROOT / "modules" / "mlb_injuries_loader.py",
+    NBA_ROOT / "modules" / "mlb_lineups_loader.py",
+    NBA_ROOT / "modules" / "nhl_common.py",
+    NBA_ROOT / "modules" / "nhl_props_loader.py",
+    NBA_ROOT / "modules" / "nhl_odds_loader.py",
+    NBA_ROOT / "modules" / "nhl_injuries_loader.py",
+    NBA_ROOT / "modules" / "nhl_prop_model.py",
+    NBA_ROOT / "modules" / "nhl_moneyline_model.py",
+    NBA_ROOT / "modules" / "nhl_parlay_engine.py",
 )
 
 #: CFB (modules.cfb_team_model / cfb_props_generator) and CBB
@@ -179,6 +205,30 @@ class FailsClosedOnMalformedFieldsTests(unittest.TestCase):
         result = cbb_load_uploaded_game_odds(json.dumps([{"home_team": "Duke", "away_team": "UNC"}]), file_format="json")
         self.assertEqual(result["games"], {})
 
+    def test_mlb_props_upload_skips_row_missing_line(self):
+        text = json.dumps([{"player_name": "Test Batter", "category": "hits"}])
+        self.assertEqual(mlb_load_props_from_user_upload(text, file_format="json"), [])
+
+    def test_mlb_props_upload_skips_row_with_unrecognized_category(self):
+        text = json.dumps([{"player_name": "Test Batter", "category": "not_a_real_stat", "line": 1.5}])
+        self.assertEqual(mlb_load_props_from_user_upload(text, file_format="json"), [])
+
+    def test_mlb_game_odds_upload_skips_row_with_teams_but_no_market_data(self):
+        result = mlb_load_uploaded_game_odds(json.dumps([{"home_team": "Yankees", "away_team": "Boston Red Sox"}]), file_format="json")
+        self.assertEqual(result["games"], {})
+
+    def test_nhl_props_upload_skips_row_missing_line(self):
+        text = json.dumps([{"player_name": "Test Winger", "category": "goals"}])
+        self.assertEqual(nhl_load_props_from_user_upload(text, file_format="json"), [])
+
+    def test_nhl_props_upload_skips_row_with_unrecognized_category(self):
+        text = json.dumps([{"player_name": "Test Winger", "category": "not_a_real_stat", "line": 1.5}])
+        self.assertEqual(nhl_load_props_from_user_upload(text, file_format="json"), [])
+
+    def test_nhl_game_odds_upload_skips_row_with_teams_but_no_market_data(self):
+        result = nhl_load_uploaded_game_odds(json.dumps([{"home_team": "Toronto Maple Leafs", "away_team": "Montreal Canadiens"}]), file_format="json")
+        self.assertEqual(result["games"], {})
+
 
 class ProvenanceDisclosureTests(unittest.TestCase):
     """Every real row a default file ships discloses why it's real; an empty-by-design file says why it's empty."""
@@ -236,6 +286,23 @@ class ProvenanceDisclosureTests(unittest.TestCase):
         self.assertIn("note", payload)
         self.assertTrue(payload["note"])
 
+    def test_mlb_default_files_ship_empty_and_explain_why(self):
+        # No live/keyless MLB stats source was integrated this cycle (see
+        # mlb_pipeline.md) -- every default file is empty by design, the
+        # same documented precedent CFB's props file already established.
+        for filename, key in (("mlb_props.json", "props"), ("mlb_game_odds.json", "games"), ("mlb_injuries.json", "injuries"), ("mlb_lineups.json", "lineups")):
+            payload = json.loads((NBA_ROOT / "data" / filename).read_text(encoding="utf-8"))
+            self.assertEqual(payload[key], [], f"{filename} should ship empty")
+            self.assertIn("note", payload)
+            self.assertTrue(payload["note"])
+
+    def test_nhl_default_files_ship_empty_and_explain_why(self):
+        for filename, key in (("nhl_props.json", "props"), ("nhl_game_odds.json", "games"), ("nhl_injuries.json", "injuries")):
+            payload = json.loads((NBA_ROOT / "data" / filename).read_text(encoding="utf-8"))
+            self.assertEqual(payload[key], [], f"{filename} should ship empty")
+            self.assertIn("note", payload)
+            self.assertTrue(payload["note"])
+
 
 class UploadOverrideKeyingTests(unittest.TestCase):
     """An upload never adds a stray, un-keyed entry -- every normalized row round-trips through the same key scheme the default file uses."""
@@ -292,6 +359,38 @@ class UploadOverrideKeyingTests(unittest.TestCase):
         )
         indexed = cbb_index_by_matchup(result)
         self.assertIn(("DUKE", "UNC"), indexed)
+
+    def test_mlb_props_upload_key_matches_player_and_category(self):
+        rows = mlb_load_props_from_user_upload(
+            json.dumps([{"player_name": "Test Batter", "team": "NYY", "category": "hits", "line": 1.5}]), file_format="json"
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]["player_name"], rows[0]["category"]), ("Test Batter", "hits"))
+
+    def test_mlb_game_odds_upload_key_is_matchup_pair(self):
+        from modules.mlb_odds_loader import index_by_matchup as mlb_index_by_matchup
+
+        result = mlb_load_uploaded_game_odds(
+            json.dumps([{"home_team": "Yankees", "away_team": "Boston Red Sox", "moneyline_home": -150, "moneyline_away": 130}]), file_format="json"
+        )
+        indexed = mlb_index_by_matchup(result)
+        self.assertIn(("NYY", "BOS"), indexed)
+
+    def test_nhl_props_upload_key_matches_player_and_category(self):
+        rows = nhl_load_props_from_user_upload(
+            json.dumps([{"player_name": "Test Winger", "team": "TOR", "category": "goals", "line": 0.5}]), file_format="json"
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]["player_name"], rows[0]["category"]), ("Test Winger", "goals"))
+
+    def test_nhl_game_odds_upload_key_is_matchup_pair(self):
+        from modules.nhl_odds_loader import index_by_matchup as nhl_index_by_matchup
+
+        result = nhl_load_uploaded_game_odds(
+            json.dumps([{"home_team": "Toronto Maple Leafs", "away_team": "Montreal Canadiens", "moneyline_home": -150, "moneyline_away": 130}]), file_format="json"
+        )
+        indexed = nhl_index_by_matchup(result)
+        self.assertIn(("TOR", "MTL"), indexed)
 
 
 class ComprehensiveBannedImportSweepTests(unittest.TestCase):

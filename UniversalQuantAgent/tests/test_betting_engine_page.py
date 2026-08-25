@@ -1,10 +1,13 @@
-"""Offline rendering contract for the five betting pages (30-34).
+"""Offline rendering contract for the NFL/NBA/CFB/CBB betting pages (30-33) and Cross-Sport Tools (34).
 
 Same pattern as tests/test_fantasy_pages.py: runs each real Streamlit
 script through AppTest so a broken import, a widget key collision, or a
 crash on real data is caught here instead of in the browser. The single
 30_Betting_Engine.py page (with a sport toggle) was split into one page
 per sport plus a shared cross-sport tools page -- see ui_betting_tabs.md.
+MLB (35) and NHL (36) have their own UI test file --
+tests/test_mlb_nhl_betting_pages.py -- since both ship no default data
+and need different empty-state assertions than the four sports here.
 """
 
 import sys
@@ -135,10 +138,10 @@ class CrossSportToolsPageTests(unittest.TestCase):
         app = _run("34_Cross_Sport_Tools.py")
         self.assertEqual(len(app.tabs), 2)
 
-    def test_sport_toggle_offers_all_four_sports_for_comparison(self):
+    def test_sport_toggle_offers_all_six_sports_for_comparison(self):
         app = _run("34_Cross_Sport_Tools.py")
         radio = app.radio(key="cross_sport_tools_compare_sport")
-        self.assertEqual(list(radio.options), ["NFL", "NBA", "CFB", "CBB"])
+        self.assertEqual(list(radio.options), ["NFL", "NBA", "CFB", "CBB", "MLB", "NHL"])
 
     def test_player_comparison_tab_renders_a_valid_side_by_side_table(self):
         app = _run("34_Cross_Sport_Tools.py")
@@ -153,6 +156,15 @@ class CrossSportToolsPageTests(unittest.TestCase):
             app = _run("34_Cross_Sport_Tools.py")
             app.radio(key="cross_sport_tools_compare_sport").set_value(college_sport).run()
             self.assertEqual([str(e.value) for e in app.exception], [], msg=f"{college_sport} comparison raised")
+
+    def test_mlb_and_nhl_comparison_shows_the_disclosed_empty_state_without_exceptions(self):
+        # Both ship no default props this cycle -- switching to them with
+        # nothing uploaded is a normal "not enough props to compare" state,
+        # not a crash.
+        for sport in ("MLB", "NHL"):
+            app = _run("34_Cross_Sport_Tools.py")
+            app.radio(key="cross_sport_tools_compare_sport").set_value(sport).run()
+            self.assertEqual([str(e.value) for e in app.exception], [], msg=f"{sport} comparison raised")
 
     def test_cross_sport_tab_load_button_does_not_raise(self):
         # NBA has no real games most of the year (this test runs whenever CI

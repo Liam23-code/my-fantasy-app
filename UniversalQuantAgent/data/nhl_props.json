@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- no live or keyless NHL stats source was integrated this cycle, and this app never fetches odds from any sportsbook. Upload a props file from the NHL Betting page to populate this tab, or populate this file by hand with real per-game rates you have.",
+  "props": []
+}

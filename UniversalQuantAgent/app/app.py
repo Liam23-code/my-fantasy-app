@@ -2582,6 +2582,12 @@ def main() -> None:
         st.Page("pages/32_CFB_Betting.py", title="CFB Betting (Offline)", icon=":material/balance:"),
         st.Page("pages/33_CBB_Betting.py", title="CBB Betting (Offline)", icon=":material/balance:"),
         st.Page("pages/34_Cross_Sport_Tools.py", title="Cross-Sport Tools", icon=":material/hub:"),
+        # MLB (flagship) and NHL (lightweight) added a cycle later -- both
+        # ship no default data (see mlb_pipeline.md / nhl_pipeline.md), so
+        # every tab works from an uploaded file only until a real source
+        # is integrated.
+        st.Page("pages/35_MLB_Betting.py", title="MLB Betting (Offline)", icon=":material/balance:"),
+        st.Page("pages/36_NHL_Betting.py", title="NHL Betting (Offline)", icon=":material/balance:"),
     ]
     advanced_pages = [
         st.Page("pages/18_Similarity_Engine.py", title="Similarity Engine", icon=":material/group_work:"),

@@ -1,0 +1,4 @@
+{
+  "note": "Empty by default -- this app does not fetch game odds from any sportsbook, and no live MLB schedule ingestion was added this cycle. Upload a game-odds file from the MLB Betting page, or populate this file with real lines you have; the fair line is always computed from the caller-supplied pitcher/bullpen/park/defense/lineup context in modules/mlb_moneyline_model.py regardless.",
+  "games": []
+}

@@ -1,4 +1,4 @@
-"""Cross-sport parlay support: NFL, NBA, CFB, and CBB legs combined in one bet.
+"""Cross-sport parlay support: NFL, NBA, CFB, CBB, MLB, and NHL legs combined in one bet.
 
 Every sport's parlay engine already shares the same leg shape and the same
 generic combinatorics (:mod:`betting.parlay_engine`'s
@@ -11,12 +11,15 @@ re-exports of NFL's and NBA's respectively (see those modules'
 docstrings) -- football and basketball correlation patterns don't change
 between the pro and college game, so this module's dispatch table maps
 CFB/CBB to the same underlying detector functions NFL/NBA already use,
-not a fourth and fifth copy.
+not a fourth and fifth copy. MLB and NHL each needed genuinely new
+correlation-pattern code instead (baseball and hockey correlations are
+real, different phenomena -- see modules.mlb_parlay_engine and
+modules.nhl_parlay_engine's own docstrings).
 
 The only genuinely new piece a cross-sport parlay needs is routing: each
 sport's own correlation-pattern detector must only ever run against leg
-pairs from *its own* sport -- an NFL quarterback and an NBA center (or a
-CFB and a CBB player) are not correlated by any pattern any detector
+pairs from *its own* sport -- an NFL quarterback and an NBA center (or an
+MLB and an NHL player) are not correlated by any pattern any detector
 models. This module partitions legs by sport before handing each
 partition to its own detector, so that ambiguity never arises.
 """
@@ -35,29 +38,35 @@ from betting.parlay_engine import (
 
 from modules.cbb_parlay_engine import make_leg as cbb_make_leg, detect_correlations as cbb_detect_correlations
 from modules.cfb_parlay_engine import make_leg as cfb_make_leg, detect_correlations as cfb_detect_correlations
+from modules.mlb_parlay_engine import make_leg as mlb_make_leg, mlb_detect_correlations
 from modules.nba_parlay_engine import make_leg as nba_make_leg, nba_detect_correlations
+from modules.nhl_parlay_engine import make_leg as nhl_make_leg, nhl_detect_correlations
 
 _MAKE_LEG_BY_SPORT: dict[str, Callable[..., dict[str, Any]]] = {
     "NFL": nfl_make_leg,
     "NBA": nba_make_leg,
     "CFB": cfb_make_leg,
     "CBB": cbb_make_leg,
+    "MLB": mlb_make_leg,
+    "NHL": nhl_make_leg,
 }
 _DETECT_CORRELATIONS_BY_SPORT: dict[str, Callable[[list[dict[str, Any]]], list[dict[str, Any]]]] = {
     "NFL": nfl_detect_correlations,
     "NBA": nba_detect_correlations,
     "CFB": cfb_detect_correlations,
     "CBB": cbb_detect_correlations,
+    "MLB": mlb_detect_correlations,
+    "NHL": nhl_detect_correlations,
 }
 _VALID_SPORTS = frozenset(_MAKE_LEG_BY_SPORT)
 
 
 def make_unified_leg(sport: str, **kwargs: Any) -> dict[str, Any]:
-    """One parlay leg tagged with its sport -- all four sports' legs share the same underlying shape.
+    """One parlay leg tagged with its sport -- all six sports' legs share the same underlying shape.
 
-    ``sport`` must be one of ``"NFL"``, ``"NBA"``, ``"CFB"``, ``"CBB"``;
-    every other keyword is forwarded to that sport's own ``make_leg``
-    (identical fields in every case).
+    ``sport`` must be one of ``"NFL"``, ``"NBA"``, ``"CFB"``, ``"CBB"``,
+    ``"MLB"``, ``"NHL"``; every other keyword is forwarded to that
+    sport's own ``make_leg`` (identical fields in every case).
     """
     if sport not in _VALID_SPORTS:
         raise ValueError(f"sport must be one of {sorted(_VALID_SPORTS)}, got {sport!r}")
@@ -88,7 +97,7 @@ def detect_cross_sport_correlations(legs: list[dict[str, Any]]) -> list[dict[str
 
 
 def evaluate_cross_sport_parlay(legs: list[dict[str, Any]], *, stake: float = 100.0) -> dict[str, Any]:
-    """Full evaluation of a parlay mixing legs from any of the four sports.
+    """Full evaluation of a parlay mixing legs from any of the six sports.
 
     Same output shape as any single sport's own ``evaluate_parlay`` (with
     an added ``"sports"`` field listing which sports are represented),
