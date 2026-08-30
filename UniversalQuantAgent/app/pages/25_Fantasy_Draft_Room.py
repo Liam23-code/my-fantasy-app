@@ -100,6 +100,7 @@ if require_pool(setup, "run a draft"):
             if new_state:
                 st.session_state["fantasy_live_draft"] = new_state
                 st.session_state["fantasy_live_draft_narrated"] = 0
+                st.session_state["fantasy_grade_history"] = []
                 st.rerun()
 
     live = st.session_state.get("fantasy_live_draft")
@@ -171,6 +172,22 @@ if require_pool(setup, "run a draft"):
             ),
         )
 
+        # Swing the last pick produced. History is keyed by total picks made,
+        # so expanding a panel or nudging the seed -- reruns with no new pick --
+        # never fabricates a delta, and the last real swing stays on screen
+        # until the next pick actually lands.
+        grade_score = float(report["overall"]["score"]) if report else None
+        grade_delta = None
+        if grade_score is not None:
+            grade_history = st.session_state.setdefault("fantasy_grade_history", [])
+            picks_made = len(live["picks"])
+            if not grade_history or grade_history[-1][0] != picks_made:
+                if grade_history:
+                    grade_delta = round(grade_score - grade_history[-1][1], 1) or 0.0
+                grade_history.append((picks_made, grade_score))
+            elif len(grade_history) >= 2:
+                grade_delta = round(grade_history[-1][1] - grade_history[-2][1], 1) or 0.0
+
         if live["is_complete"]:
             st.success("Draft complete.")
             st.divider()
@@ -181,6 +198,13 @@ if require_pool(setup, "run a draft"):
             with st.container(border=True):
                 st.markdown("### Team grade")
                 if report:
+                    if grade_score is not None:
+                        st.metric(
+                            "Overall grade",
+                            f"{grade_score:.1f} / 100 · {report['overall']['grade']}",
+                            delta=grade_delta,
+                            help="Change since your last pick — the room's picks in between count too.",
+                        )
                     render_grade_panel(report, detailed=False)
 
             # ---------------------------------------------------------------
@@ -204,7 +228,7 @@ if require_pool(setup, "run a draft"):
                     league_settings,
                     current_pick_overall=context["overall_pick"],
                     picks_until_next=context["picks_until_next"],
-                    limit=9,
+                    limit=15,
                 ),
             )
 

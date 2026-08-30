@@ -15,10 +15,23 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-# Streamlit executes this file from app/. Add the project root for domain imports.
+# Streamlit executes this file from app/, so that directory lands on
+# ``sys.path[0]``. When the launch working directory is ``UniversalQuantAgent/app``
+# itself, ``import app`` then resolves to *this* file as a top-level module rather
+# than the real ``app`` package, and the ``from app.style import ...`` line below
+# fails with "No module named 'app.style'; 'app' is not a package". Harden the
+# import path before that first ``from app...`` import: force the project root to
+# the front of ``sys.path`` and drop any shadowed non-package ``app`` entry.
+# The Streamlit pages under app/pages/ carry the same guard; see
+# docs/local_launch.md and run_local.py.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+_PROJECT_ROOT_STR = str(PROJECT_ROOT)
+while _PROJECT_ROOT_STR in sys.path:
+    sys.path.remove(_PROJECT_ROOT_STR)
+sys.path.insert(0, _PROJECT_ROOT_STR)
+_shadowed_app = sys.modules.get("app")
+if _shadowed_app is not None and not hasattr(_shadowed_app, "__path__"):
+    del sys.modules["app"]
 
 import pandas as pd
 import plotly.express as px
