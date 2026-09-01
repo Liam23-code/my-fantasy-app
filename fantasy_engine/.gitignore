@@ -11,5 +11,8 @@ data/snapshots/*
 !data/snapshots/.gitkeep
 data/user_teams/*
 !data/user_teams/.gitkeep
+# Live player-status overlay -- fetched client-side, recreated on demand
+# (fantasy.online.player_status_fetcher). Engines tolerate its absence.
+data/player_status.json
 examples/cheatsheet_output.csv
 build/

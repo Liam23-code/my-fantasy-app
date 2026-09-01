@@ -44,6 +44,7 @@ import statistics
 from collections.abc import Mapping
 from typing import Any
 
+from fantasy import player_status as _status
 from fantasy.assistant import POSITION_SCARCITY_BIAS, replacement_levels
 from fantasy.models import LeagueSettings
 from fantasy.projections import projected_points
@@ -785,6 +786,19 @@ def grade_team(
     grades out at the league average's floor with every slot flagged unfilled.
     """
     settings = _coerce_settings(scoring_model)
+
+    # Live player-status overlay (no-op until the status file is refreshed).
+    # An OUT / HOLDOUT / SUSPENDED player cannot be started, so the room
+    # ignores them entirely; DOUBTFUL / QUESTIONABLE stay on the roster with a
+    # canonical ``injury_status`` and lift the risk component through the
+    # existing RISK_INJURY_PENALTY.
+    roster_size = len(roster or [])
+    if _status.has_status_data():
+        roster = _status.overlay_pool_status(
+            [player for player in (roster or []) if not _status.is_unavailable(player)]
+        )
+        board = _status.overlay_pool_status([player for player in (board or []) if not _status.is_out(player)])
+
     universe = build_universe(roster, board, all_rosters)
 
     # The live panel calls this after every pick; while a draft is in progress
@@ -827,7 +841,7 @@ def grade_team(
             "picks_with_adp": sum(1 for entry in pick_entries if entry["value_picks"] is not None),
         },
         "picks": pick_entries,
-        "roster_size": len(roster or []),
+        "roster_size": roster_size,
         "graded_at_pick": max(
             (safe_float(entry["overall_pick"]) for entry in pick_entries if entry["overall_pick"]),
             default=None,

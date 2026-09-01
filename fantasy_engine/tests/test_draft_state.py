@@ -57,6 +57,7 @@ def test_neutral_snapshot_has_every_key_a_recommender_reads():
         "run_pressure",
         "late_round_ok_positions",
         "rounds_remaining",
+        "status_by_id",
     }
     assert state["active_run"] is None
     assert state["run_pressure"] == {}

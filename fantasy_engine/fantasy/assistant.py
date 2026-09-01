@@ -70,6 +70,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from fantasy import player_status as _status
 from fantasy.data_loader import drop_synthetic, validate_players
 from fantasy.models import LeagueSettings, roster_cap_reached, roster_min_required
 from fantasy.scoring import calculate_fantasy_points
@@ -1243,6 +1244,17 @@ def get_best_pick_for_round(
             if not pool:
                 return []
 
+    # Live player-status overlay (fantasy.online.player_status_fetcher). A
+    # no-op until the user has refreshed the status file: OUT players drop off
+    # the board entirely, HOLDOUT/SUSPENDED get a zeroed projection (so VORP
+    # sinks them), and DOUBTFUL/QUESTIONABLE flow through the existing
+    # injury-risk multiplier via a canonical ``injury_status``.
+    if _status.has_status_data():
+        pool = [player for player in pool if not _status.is_out(player)]
+        if not pool:
+            return []
+        pool = _status.overlay_pool_status(pool)
+
     round_number = int(current_round or 0)
     position_span = max(
         1, len({str(p.get("position", "")).strip().upper() for p in pool if p.get("position")})
@@ -1358,6 +1370,7 @@ def get_best_pick_for_round(
             "round_band_multiplier": round_band_multiplier,
             "dropoff": round(dropoff, 2),
             "position_pressure_now": round(pressure_now, 3),
+            "status": _status.live_status(player),
         }
         entry["rationale"] = _round_pick_rationale(entry, current_pick_overall)
         # Sort key kept out of the returned dict -- it's an internal ordering

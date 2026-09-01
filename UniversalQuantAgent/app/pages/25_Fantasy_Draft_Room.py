@@ -55,6 +55,8 @@ from fantasy.live_draft import (
     user_turn_context,
 )
 from fantasy.my_team_manager import create_new_team_save
+from fantasy.online.player_status_fetcher import refresh_player_status
+from fantasy.player_status import flagged_count, status_last_updated
 from fantasy.projections import projection_season_label
 
 apply_global_theme()
@@ -78,6 +80,35 @@ if require_pool(setup, "run a draft"):
         "own pick each round and every recommendation after it updates off exactly what you chose, not a "
         "pre-planned script.",
     )
+
+    # --- Live player-status overlay -------------------------------------------
+    # The only place the app touches the network, and only on this click.
+    # Writes fantasy_engine/data/player_status.json; every engine keeps reading
+    # local files. OUT players drop out of recommendations, HOLDOUT/SUSPENDED
+    # are zeroed, DOUBTFUL/QUESTIONABLE are downweighted, and a badge shows on
+    # each card.
+    status_info_col, status_button_col = st.columns([3, 1])
+    _status_updated = status_last_updated()
+    with status_info_col:
+        if _status_updated:
+            st.caption(
+                f"Player status overlay · {flagged_count()} player(s) flagged · "
+                f"updated {_status_updated.replace('T', ' ').replace('Z', ' UTC')}"
+            )
+        else:
+            st.caption(
+                "Player status overlay not loaded — recommendations use the projection pool's own "
+                "injury flags. Refresh to pull live OUT / doubtful / holdout / suspended status."
+            )
+    with status_button_col:
+        st.markdown('<div style="height:.2rem"></div>', unsafe_allow_html=True)
+        if st.button("Refresh Player Status", key="fantasy_refresh_player_status", width="stretch"):
+            result = run_analysis("player status refresh", lambda: refresh_player_status())
+            if result and result.get("ok"):
+                st.success(f"Updated {result['count']} player status flag(s) from {result['source']}.")
+                st.rerun()
+            elif result is not None:
+                st.warning(result.get("error") or "Could not refresh player status — kept the existing data.")
 
     live = st.session_state.get("fantasy_live_draft")
     start_col, seed_col = st.columns([2, 1])

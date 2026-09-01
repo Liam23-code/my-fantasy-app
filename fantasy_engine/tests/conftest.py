@@ -12,6 +12,22 @@ from __future__ import annotations
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolated_player_status(tmp_path_factory, monkeypatch):
+    """Point ``fantasy.player_status`` at an empty per-test file so the engine
+    suite never depends on whatever a local ``player_status.json`` happens to
+    hold (a user may have hit the Refresh button). Tests that exercise the
+    overlay re-point it at their own temp file on top of this."""
+    from fantasy import player_status
+
+    empty = tmp_path_factory.mktemp("player_status") / "player_status.json"
+    empty.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(player_status, "STATUS_PATH", empty)
+    player_status.clear_cache()
+    yield
+    player_status.clear_cache()
+
+
 @pytest.fixture
 def lamar_jackson_projection() -> dict:
     """Rushing QB: real rushing/passing TD volume, zero receiving."""

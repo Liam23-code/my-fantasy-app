@@ -353,6 +353,25 @@ def need_pill(entry: dict[str, Any]) -> str:
     return ""
 
 
+#: Live availability -> (badge text, pill tone). HEALTHY / missing shows nothing.
+_STATUS_BADGES: dict[str, tuple[str, str]] = {
+    "OUT": ("🚑 OUT", "danger"),
+    "HOLDOUT": ("💼 Holdout", "danger"),
+    "SUSPENDED": ("🚫 Suspended", "danger"),
+    "DOUBTFUL": ("⚠️ Doubtful", "warning"),
+    "QUESTIONABLE": ("❓ Questionable", "warning"),
+}
+
+
+def status_pill(entry: dict[str, Any]) -> str:
+    """A player-availability badge from the live status overlay, or ``""``."""
+    badge = _STATUS_BADGES.get(str(entry.get("status") or "").strip().upper())
+    if not badge:
+        return ""
+    text, tone = badge
+    return pill(text, tone)
+
+
 def timing_pill(overall_pick: Any, adp: Any) -> str:
     """Steal / reach / on-time, from the gap between a pick number and its ADP."""
     if adp is None or overall_pick is None:
@@ -374,7 +393,9 @@ def _stat_row(stats: list[tuple[str, str]]) -> str:
 
 def player_card_html(entry: dict[str, Any], rank_label: str, taken_by: str | None = None) -> str:
     """One recommendation rendered as a premium card."""
-    pills = "".join([proximity_pill(entry), scarcity_pill(entry), need_pill(entry), breakout_pill(entry)])
+    pills = "".join(
+        [status_pill(entry), proximity_pill(entry), scarcity_pill(entry), need_pill(entry), breakout_pill(entry)]
+    )
     if taken_by:
         pills = pill(f"🔒 Taken by {taken_by}", "danger") + pills
     stats = [

@@ -28,6 +28,7 @@ from collections import Counter
 from math import ceil
 from typing import Any
 
+from fantasy import player_status as _status
 from fantasy.models import LeagueSettings, roster_cap_reached
 
 #: Streamer positions -- one starter, no FLEX outlet, so a second one is close
@@ -79,6 +80,7 @@ def neutral_state() -> dict[str, Any]:
         "run_pressure": {},
         "late_round_ok_positions": set(),
         "rounds_remaining": None,
+        "status_by_id": {},
     }
 
 
@@ -220,8 +222,23 @@ def build_draft_state(
     settings = _coerce_settings(league_settings)
     teams = int(n_teams or settings.n_teams or 12)
 
+    # Live player-status overlay (no-op until the status file is refreshed).
+    # An unavailable player is not a real option, so drop-off and scarcity are
+    # measured over who can actually be drafted; ``status_by_id`` carries every
+    # not-HEALTHY flag through for a UI badge.
+    status_by_id: dict[str, str] = {}
+    scoreable_board = board
+    if _status.has_status_data():
+        scoreable_board = [player for player in board if not _status.is_unavailable(player)]
+        for player in board:
+            flag = _status.live_status(player)
+            if flag != _status.HEALTHY:
+                pid = str(player.get("player_id") or player.get("id") or "")
+                if pid:
+                    status_by_id[pid] = flag
+
     needs = roster_needs(my_roster, settings)
-    dropoff_by_pos = positional_dropoff(board, settings)
+    dropoff_by_pos = positional_dropoff(scoreable_board, settings)
     active_run, run_pressure = trailing_run(picks)
 
     rounds_remaining: int | None = None
@@ -237,6 +254,7 @@ def build_draft_state(
         "run_pressure": run_pressure,
         "late_round_ok_positions": late_round_streamer_flags(needs, rounds_remaining),
         "rounds_remaining": rounds_remaining,
+        "status_by_id": status_by_id,
     }
 
 
