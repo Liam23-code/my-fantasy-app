@@ -79,12 +79,30 @@ def _group(report, position):
 
 
 def test_letter_grade_covers_the_whole_scale():
+    # Anchored so a league-average team (component scores near 50) is a C,
+    # not an F -- see fantasy.grader._LETTER_GRADES.
     assert letter_grade(100.0) == "A+"
-    assert letter_grade(93.0) == "A"
-    assert letter_grade(83.0) == "B"
-    assert letter_grade(73.0) == "C"
-    assert letter_grade(63.0) == "D"
+    assert letter_grade(90.0) == "A+"
+    assert letter_grade(83.0) == "A"
+    assert letter_grade(65.0) == "B"
+    assert letter_grade(50.0) == "C"
+    assert letter_grade(46.0) == "C"
+    assert letter_grade(30.0) == "D"
     assert letter_grade(12.0) == "F"
+
+
+def test_an_average_team_grades_around_the_middle_not_the_bottom():
+    """A roster that exactly matches its league's average starter at every
+    position, with every slot filled, should read as a C -- not an F."""
+    board = [
+        _p("qb2", "QB", 300), _p("qb3", "QB", 300),
+        _p("rb2", "RB", 200), _p("rb3", "RB", 200),
+        _p("wr2", "WR", 190), _p("wr3", "WR", 190),
+    ]
+    roster = [_p("qb1", "QB", 300), _p("rb1", "RB", 200), _p("wr1", "WR", 190)]
+    overall = grade_overall_team(roster, board, SETTINGS)
+    assert 40.0 <= overall["score"] <= 65.0
+    assert overall["grade"][0] in {"C", "B"}
 
 
 # --- league average -----------------------------------------------------------

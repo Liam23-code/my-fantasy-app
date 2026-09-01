@@ -95,24 +95,29 @@ RISK_UNFILLED_SLOT_PENALTY = 12.0
 #: Used to convert "picks of ADP value" into points for best/worst pick.
 VALUE_CURVE_ROUNDS = 8
 
+#: Letter bands anchored to what the 0-100 scores here actually *mean*: every
+#: component is centred so that a genuinely league-average team lands near 50
+#: (see :func:`_bounded_score` and :func:`_risk_profile_score`). An average
+#: team is a C, not an F; a team a full :data:`GRADE_SPREAD_FRACTION` above its
+#: league across the board is a B; two of those, an A.
 _LETTER_GRADES: tuple[tuple[float, str], ...] = (
-    (97.0, "A+"),
-    (93.0, "A"),
-    (90.0, "A-"),
-    (87.0, "B+"),
-    (83.0, "B"),
-    (80.0, "B-"),
-    (77.0, "C+"),
-    (73.0, "C"),
-    (70.0, "C-"),
-    (67.0, "D+"),
-    (63.0, "D"),
-    (60.0, "D-"),
+    (90.0, "A+"),
+    (83.0, "A"),
+    (78.0, "A-"),
+    (72.0, "B+"),
+    (65.0, "B"),
+    (59.0, "B-"),
+    (53.0, "C+"),
+    (46.0, "C"),
+    (41.0, "C-"),
+    (35.0, "D+"),
+    (30.0, "D"),
+    (25.0, "D-"),
 )
 
 
 def letter_grade(score: float) -> str:
-    """Map a 0-100 score onto a conventional letter grade."""
+    """Map a 0-100 score onto a letter grade, anchored so ~50 is a C."""
     for threshold, letter in _LETTER_GRADES:
         if score >= threshold:
             return letter
@@ -207,6 +212,32 @@ def _flex_eligible(settings: LeagueSettings) -> list[str]:
     return [str(position).strip().upper() for position in settings.flex_eligible]
 
 
+def _unfilled_starting_slots(roster: list[dict[str, Any]] | None, settings: LeagueSettings) -> int:
+    """How many starting-lineup slots (dedicated + FLEX) the roster has not filled.
+
+    Drives the mid-draft grading accommodations: they stay on while any slot is
+    still open -- K and DST included -- and switch off one slot at a time as
+    those slots fill, so the grade never lurches when the roster count happens
+    to cross the starting-lineup size while streamer slots are still empty.
+    """
+    counts: dict[str, int] = {}
+    for player in roster or []:
+        position = _position_of(player)
+        if position:
+            counts[position] = counts.get(position, 0) + 1
+
+    eligible = set(_flex_eligible(settings))
+    unfilled = 0
+    flex_surplus = 0
+    for position, required in _dedicated_slots(settings).items():
+        have = counts.get(position, 0)
+        unfilled += max(0, required - have)
+        if position in eligible:
+            flex_surplus += max(0, have - required)
+    unfilled += max(0, _flex_slots(settings) - flex_surplus)
+    return unfilled
+
+
 def _sorted_points(
     players: list[dict[str, Any]],
     settings: LeagueSettings,
@@ -235,6 +266,8 @@ def league_average_starters(
     position: str,
     universe: list[dict[str, Any]],
     scoring_model: Any = None,
+    *,
+    slots_override: int | None = None,
 ) -> float:
     """Projected points the *average* team in this league starts at ``position``.
 
@@ -242,13 +275,18 @@ def league_average_starters(
     measured after every dedicated starting slot at those positions has been
     filled league-wide -- the same accounting
     :func:`fantasy.draft._replacement_levels` uses for replacement level.
+
+    ``slots_override`` measures the average over only the top ``N`` starters
+    instead of the league's full requirement -- used mid-draft to compare a
+    half-filled group against a like-sized slice of the average team rather
+    than against slots the roster has not reached yet.
     """
     settings = _coerce_settings(scoring_model)
     position = str(position).strip().upper()
     n_teams = max(1, int(settings.n_teams))
 
     if position == "FLEX":
-        flex_slots = _flex_slots(settings)
+        flex_slots = _flex_slots(settings) if slots_override is None else int(slots_override)
         if flex_slots <= 0:
             return 0.0
         dedicated = _dedicated_slots(settings)
@@ -260,7 +298,7 @@ def league_average_starters(
         pool.sort(reverse=True)
         return round(sum(_average_team_block(pool, k, n_teams) for k in range(flex_slots)), 2)
 
-    slots = _dedicated_slots(settings).get(position, 0)
+    slots = _dedicated_slots(settings).get(position, 0) if slots_override is None else int(slots_override)
     if slots <= 0:
         return 0.0
     ordered = _sorted_points(universe, settings, position)
@@ -327,6 +365,8 @@ def grade_position_group(
     picks: list[dict[str, Any]] | None = None,
     all_rosters: dict[str, list[dict[str, Any]]] | None = None,
     universe: list[dict[str, Any]] | None = None,
+    *,
+    filled_slot_basis: bool = False,
 ) -> dict[str, Any]:
     """Grade one position group 0-100 against this league's average team.
 
@@ -376,7 +416,32 @@ def grade_position_group(
 
     starters = _my_starters(position, roster, settings)
     starter_points = round(sum(_points_of(player, settings) for player in starters), 2)
-    average_points = league_average_starters(position, pool, settings)
+    # Mid-draft, a group with some -- but not all -- of its starting slots
+    # filled is measured against a like-sized slice of the average team, so a
+    # one-of-two WR room is not scored as if its WR2 slot were a zero. A group
+    # with *no* starters yet (K/DST before the streamer rounds) is a neutral 50
+    # -- "still to draft", not a failure -- so it never drags the live panel's
+    # positional chart or its weakest-group callout.
+    if filled_slot_basis and not starters:
+        average_points = league_average_starters(position, pool, settings)
+        return {
+            "position": position,
+            "applicable": True,
+            "score": 50.0,
+            "grade": letter_grade(50.0),
+            "starter_slots": slots,
+            "starters": [],
+            "starter_points": 0.0,
+            "league_average_points": average_points,
+            "points_vs_average": round(0.0 - average_points, 2),
+            "depth": depth,
+            "unfilled_slots": slots,
+            "scarcity_weight": round(POSITION_SCARCITY_BIAS.get(position, 1.0), 2),
+            "adp_value_picks": 0.0,
+            "rationale": f"0/{slots} starting {position} slot(s) filled -- still to draft.",
+        }
+    basis_slots = len(starters) if (filled_slot_basis and 0 < len(starters) < slots) else None
+    average_points = league_average_starters(position, pool, settings, slots_override=basis_slots)
     delta = round(starter_points - average_points, 2)
 
     spread = max(1.0, GRADE_SPREAD_FRACTION * average_points)
@@ -453,10 +518,21 @@ def _risk_profile_score(
     roster: list[dict[str, Any]] | None,
     position_grades: list[dict[str, Any]],
     settings: LeagueSettings,
+    *,
+    suppress_unfilled: bool = False,
 ) -> tuple[float, list[str]]:
-    """0-100 risk score: injury exposure, boom/bust variance, and empty slots."""
+    """0-100 risk score, centred on 50 = ordinary risk.
+
+    A clean roster -- no injury designations, normal variance, every slot it
+    is *expected* to have filled -- sits at 50, the same neutral point the
+    other three components use, rather than a lone 100 that dragged the whole
+    scale off centre. Injuries, boom/bust variance and (unless
+    ``suppress_unfilled``) unfilled starting slots push it down from there.
+    ``suppress_unfilled`` is set mid-draft, when empty slots are draft
+    progress rather than a roster hole.
+    """
     players = list(roster or [])
-    score = 100.0
+    score = 50.0
     notes: list[str] = []
 
     injured = 0
@@ -480,9 +556,11 @@ def _risk_profile_score(
             notes.append(f"boom/bust roster (mean ceiling-floor spread {mean_volatility:.2f}x projection)")
 
     unfilled = sum(int(group.get("unfilled_slots", 0) or 0) for group in position_grades)
-    if unfilled:
+    if unfilled and not suppress_unfilled:
         score -= RISK_UNFILLED_SLOT_PENALTY * unfilled
         notes.append(f"{unfilled} starting slot(s) unfilled")
+    elif unfilled:
+        notes.append(f"{unfilled} starting slot(s) still to draft")
 
     if not notes:
         notes.append("no injury designations, normal variance, every starting slot filled")
@@ -520,20 +598,48 @@ def grade_overall_team(
     """
     settings = _coerce_settings(scoring_model)
     pool = universe if universe is not None else build_universe(roster, board, all_rosters)
+
+    # Mid-draft a roster is half-built by construction: most starting slots are
+    # still empty. Grading it against a *full* league starting lineup buries the
+    # score at F for most of the draft -- noise, not signal. So whenever a live
+    # draft is in progress (``picks`` supplied) and any starting slot is still
+    # open (K and DST included), score only the slots actually filled and treat
+    # the empty ones as draft progress. Keyed on unfilled slots, not roster
+    # count, so the grade never lurches when the count crosses the starting-
+    # lineup size while streamer slots are still to draft. A complete lineup, or
+    # a direct call with no ``picks`` at all, is graded exactly as before.
+    mid_draft = picks is not None and _unfilled_starting_slots(roster, settings) > 0
+
     groups = (
         position_grades
         if position_grades is not None
-        else [grade_position_group(position, roster, board, settings, picks=picks, universe=pool) for position in _graded_positions(settings)]
+        else [
+            grade_position_group(
+                position, roster, board, settings, picks=picks, universe=pool, filled_slot_basis=mid_draft
+            )
+            for position in _graded_positions(settings)
+        ]
     )
     applicable = [group for group in groups if group.get("applicable")]
+    scored_groups = [group for group in applicable if group.get("starters")] if mid_draft else applicable
 
     starter_points = round(sum(group["starter_points"] for group in applicable), 2)
     average_points = round(sum(group["league_average_points"] for group in applicable), 2)
-    spread = max(1.0, GRADE_SPREAD_FRACTION * average_points)
-    points_score = _bounded_score((starter_points - average_points) / spread)
+    basis_starter_points = round(sum(group["starter_points"] for group in scored_groups), 2)
+    basis_average_points = round(sum(group["league_average_points"] for group in scored_groups), 2)
+    spread = max(1.0, GRADE_SPREAD_FRACTION * basis_average_points)
+    points_score = _bounded_score((basis_starter_points - basis_average_points) / spread)
 
-    if applicable:
-        scores = [group["score"] for group in applicable]
+    # Report the point totals / delta / rationale over the same basis the score
+    # uses, so a fine mid-draft team never shows a "C" beside a caption claiming
+    # it is hundreds of points below average (that gap is almost entirely the
+    # streamer slots it has not reached yet).
+    reported_average_points = basis_average_points if mid_draft else average_points
+    reported_delta = round(basis_starter_points - basis_average_points, 2) if mid_draft else round(starter_points - average_points, 2)
+
+    balance_groups = scored_groups if mid_draft else applicable
+    if balance_groups:
+        scores = [group["score"] for group in balance_groups]
         balance_score = round(0.5 * statistics.mean(scores) + 0.5 * min(scores), 1)
     else:
         balance_score = 50.0
@@ -541,7 +647,7 @@ def grade_overall_team(
     total_adp_value = _adp_value_picks(picks) if picks else 0.0
     value_score = _bounded_score(total_adp_value / max(1.0, settings.n_teams * ADP_VALUE_ROUNDS_SCALE))
 
-    risk_score, risk_notes = _risk_profile_score(roster, groups, settings)
+    risk_score, risk_notes = _risk_profile_score(roster, groups, settings, suppress_unfilled=mid_draft)
 
     components = {
         "projected_points": points_score,
@@ -557,13 +663,13 @@ def grade_overall_team(
         "components": components,
         "weights": dict(OVERALL_WEIGHTS),
         "starter_points": starter_points,
-        "league_average_points": average_points,
-        "points_vs_average": round(starter_points - average_points, 2),
+        "league_average_points": reported_average_points,
+        "points_vs_average": reported_delta,
         "adp_value_picks": total_adp_value,
         "risk_notes": risk_notes,
         "rationale": (
-            f"{starter_points:,.0f} projected starting points vs a {average_points:,.0f}-pt league "
-            f"average ({starter_points - average_points:+,.0f}); balance {balance_score:.0f}/100, "
+            f"{basis_starter_points:,.0f} projected starting points vs a {reported_average_points:,.0f}-pt league "
+            f"average ({reported_delta:+,.0f}){' (filled slots)' if mid_draft else ''}; balance {balance_score:.0f}/100, "
             f"ADP value {total_adp_value:+.0f} picks, risk {risk_score:.0f}/100"
         ),
     }
@@ -674,13 +780,29 @@ def grade_team(
 
     Returns ``{"overall", "positions", "best_pick", "worst_pick",
     "value_vs_adp", "picks", "roster_size", "graded_at_pick"}``. An empty
-    roster is a normal state, not an error -- it grades out at the league
-    average's floor with every slot flagged unfilled.
+    roster is a normal state, not an error: with ``picks`` supplied (a live
+    draft that has not started) it grades a neutral ~50; with ``picks=None`` it
+    grades out at the league average's floor with every slot flagged unfilled.
     """
     settings = _coerce_settings(scoring_model)
     universe = build_universe(roster, board, all_rosters)
 
-    positions = [grade_position_group(position, roster, board, settings, picks=picks, universe=universe) for position in _graded_positions(settings)]
+    # The live panel calls this after every pick; while a draft is in progress
+    # (``picks`` supplied) and any starting slot is still open (K and DST
+    # included) the roster is graded on the slots it *has* filled, so the score
+    # climbs with the draft instead of sitting at F until it is over. Keyed on
+    # unfilled slots, not roster count, so it never lurches when the count
+    # crosses the starting-lineup size. Before the first pick this makes an
+    # empty live roster read as a neutral ~50/C rather than F; a direct call
+    # with ``picks=None`` keeps the legacy full-lineup grading.
+    mid_draft = picks is not None and _unfilled_starting_slots(roster, settings) > 0
+
+    positions = [
+        grade_position_group(
+            position, roster, board, settings, picks=picks, universe=universe, filled_slot_basis=mid_draft
+        )
+        for position in _graded_positions(settings)
+    ]
     overall = grade_overall_team(
         roster,
         board,

@@ -598,3 +598,55 @@ def test_get_best_pick_for_round_rationale_mentions_adp_and_value():
     entry = get_best_pick_for_round(3, [], _cross_position_pool(), BEST_PICK_SETTINGS, current_pick_overall=30)[0]
     assert "ADP" in entry["rationale"]
     assert "replacement" in entry["rationale"]
+
+
+# --- round-awareness helpers -----------------------------------------------
+
+
+def test_streamer_round_multiplier_ramps_and_boosts_when_late():
+    from fantasy.assistant import _streamer_round_multiplier
+
+    # Non-streamer positions are never touched.
+    assert _streamer_round_multiplier("RB", 2, False) == 1.0
+    # K is heavily damped early, eases up, and is neutral once the ramp ends.
+    assert _streamer_round_multiplier("K", 3, False) < 0.3
+    assert _streamer_round_multiplier("K", 12, False) < _streamer_round_multiplier("K", 13, False)
+    assert _streamer_round_multiplier("K", 13, False) == 1.0
+    # Once draft_state says it's finally late enough, a mild boost applies.
+    assert _streamer_round_multiplier("K", 3, True) > 1.0
+    assert _streamer_round_multiplier("DST", 4, True) > 1.0
+
+
+def test_depth_qb_multiplier_only_bites_a_second_qb_in_a_one_qb_league():
+    from fantasy.assistant import _coerce_settings, _depth_qb_multiplier
+
+    one_qb = _coerce_settings(BEST_PICK_SETTINGS)  # QB: 1
+    assert _depth_qb_multiplier("QB", 3, {}, one_qb) == 1.0  # no QB yet -> untouched
+    assert _depth_qb_multiplier("QB", 3, {"QB": 1}, one_qb) < 1.0  # early 2nd QB -> damped
+    assert _depth_qb_multiplier("QB", 12, {"QB": 1}, one_qb) == 1.0  # late -> fine
+    assert _depth_qb_multiplier("RB", 3, {"QB": 1}, one_qb) == 1.0  # not a QB -> untouched
+
+
+def test_will_last_demotion_is_sign_safe_for_below_replacement_players():
+    """Two same-position candidates below replacement, tied on sort keys 1 and 2:
+    the one the market says will still be there next turn must still sort LAST,
+    not get promoted by a naive multiply-a-negative."""
+    te_settings = {
+        "n_teams": 2,
+        "scoring_mode": "ppr",
+        "roster_requirements": {"QB": 1, "RB": 1, "WR": 1, "TE": 1, "FLEX": 0, "DST": 0, "K": 0, "BENCH": 5},
+        "flex_eligible": [],
+    }
+    pool = [
+        _p("TE Grab", "TE", 120.0, adp=45.0),   # survives_by < 0 -> will_last 1.0
+        _p("TE Waits", "TE", 118.0, adp=95.0),  # ADP well past next pick -> will_last < 1
+    ] + [_p(f"TErepl{i}", "TE", 240.0 - i, adp=float(5 + i)) for i in range(6)]  # 2 starters -> replacement ~238
+    picks = get_best_pick_for_round(
+        6, [], pool, te_settings, current_pick_overall=60, picks_until_next=15, limit=20
+    )
+    order = [entry["name"] for entry in picks]
+    grab = next(e for e in picks if e["name"] == "TE Grab")
+    waits = next(e for e in picks if e["name"] == "TE Waits")
+    assert grab["vorp"] < 0 and waits["vorp"] < 0  # scenario really is below replacement
+    assert waits["will_last"] < grab["will_last"] == 1.0  # the demotion fired on TE Waits
+    assert order.index("TE Grab") < order.index("TE Waits")  # and it ranked him LATER, not earlier

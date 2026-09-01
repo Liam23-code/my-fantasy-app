@@ -67,12 +67,13 @@ Risk, byes, and stacking (the user's edge over :mod:`fantasy.room_brain`)
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from fantasy.data_loader import drop_synthetic, validate_players
 from fantasy.models import LeagueSettings, roster_cap_reached, roster_min_required
 from fantasy.scoring import calculate_fantasy_points
-from fantasy.utils import normalize_player_name, safe_float
+from fantasy.utils import clamp, normalize_player_name, safe_float
 from fantasy.weekly_projections import build_weekly_projection, weekly_matchups
 
 #: How much each signal moves the final score. VORP dominates on purpose:
@@ -108,6 +109,77 @@ POSITION_SCARCITY_BIAS: dict[str, float] = {
     "K": 0.80,
     "DST": 0.80,
 }
+
+#: Tunable strengths for the round-awareness terms :func:`get_best_pick_for_round`
+#: folds into sort key 3 (``scoring_value``). These are the *only* weighted knobs
+#: on that function -- positional *need* and *scarcity* are structural (need acts
+#: through ``_need_multiplier``/``starter_saturation_penalty`` on the score,
+#: scarcity is sort key #2) and are not tunable here.
+#:
+#: This is NOT a "reproduces the previous release" default set. With
+#: ``round_value`` at 1.0 the will-last demotion is **active by default** for any
+#: caller that passes ``adp`` + ``current_pick_overall`` + ``picks_until_next``
+#: (it does not need a ``draft_state``), and the K/DST + early-2nd-QB round band
+#: is active whenever ``current_round`` is non-zero -- both change the key-3
+#: value and the tie-broken order versus prior releases. Pass
+#: ``weights={"round_value": 0.0}`` to turn the will-last demotion off. Only
+#: ``dropoff`` and ``pressure`` are dormant by default: they need a
+#: ``draft_state`` *and* a non-zero weight (the live Draft Room passes both).
+POSITIONAL_WEIGHTS: dict[str, float] = {
+    "round_value": 1.0,
+    "dropoff": 0.0,
+    "pressure": 0.0,
+}
+
+#: Soft per-round multiplier on a streamer's score in
+#: :func:`get_best_pick_for_round`, so a K or DST never tops the live board in
+#: the early rounds even when the pool carries no ADP for them to sort on. A
+#: multiplier, never a filter -- an empty-roster team that truly wants a kicker
+#: in round 3 can still draft one off the board. Flipped to a mild boost once
+#: ``draft_state`` reports the position in ``late_round_ok_positions`` (see
+#: :func:`fantasy.draft_state.late_round_streamer_flags`).
+_STREAMER_ROUND_RAMP: dict[str, tuple[tuple[int, float], ...]] = {
+    "K": ((9, 0.15), (11, 0.45), (12, 0.80)),
+    "DST": ((8, 0.20), (10, 0.50), (12, 0.85)),
+}
+_STREAMER_LATE_BOOST = 1.15
+
+#: Depth-QB damping in a single-QB league: a 2nd QB taken early is the classic
+#: roster-construction error the holdout caught. Fades out as the draft goes.
+_DEPTH_QB_EARLY_RAMP: tuple[tuple[int, float], ...] = ((6, 0.60), (8, 0.85))
+
+
+def _streamer_round_multiplier(position: str, current_round: int, late_round_ok: bool) -> float:
+    """``<= 1.0`` for a K/DST taken too early; a mild ``> 1.0`` once it is late enough."""
+    if position not in _STREAMER_ROUND_RAMP:
+        return 1.0
+    if late_round_ok:
+        return _STREAMER_LATE_BOOST
+    if not current_round:
+        return 1.0
+    for round_cap, multiplier in _STREAMER_ROUND_RAMP[position]:
+        if current_round <= round_cap:
+            return multiplier
+    return 1.0
+
+
+def _depth_qb_multiplier(
+    position: str,
+    current_round: int,
+    roster_counts: dict[str, int],
+    settings: LeagueSettings,
+) -> float:
+    """Damp an early 2nd QB in a 1-QB league; ``1.0`` everywhere else."""
+    if position != "QB" or not current_round:
+        return 1.0
+    if _starting_slots_per_position(settings).get("QB", 1.0) > 1.0:
+        return 1.0
+    if roster_counts.get("QB", 0) < 1:
+        return 1.0
+    for round_cap, multiplier in _DEPTH_QB_EARLY_RAMP:
+        if current_round <= round_cap:
+            return multiplier
+    return 1.0
 
 #: How much of a player's value estimate comes from the *market* (fused ADP)
 #: rather than our own backward-looking VORP.
@@ -1078,6 +1150,10 @@ def get_best_pick_for_round(
     picks_until_next: int | None = None,
     risk_tolerance: str = "balanced",
     limit: int = 10,
+    *,
+    draft_state: dict[str, Any] | None = None,
+    drafted_ids: set[str] | list[Any] | None = None,
+    weights: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     """The best pick right now, across every position -- a live "best available" board.
 
@@ -1119,6 +1195,29 @@ def get_best_pick_for_round(
     against a real slot, so ranking falls back to raw ADP ascending (best-
     rated player first) with the same scarcity/scoring tiebreakers.
 
+    The sort-tuple *structure* is unchanged, but round awareness now shifts the
+    key-3 ``scoring_value`` (its magnitude and the tie-broken order) versus prior
+    releases for any caller passing an ADP-carrying board plus
+    ``current_pick_overall``/``picks_until_next`` -- it is not a pure no-op
+    default. Round awareness is a set of factors applied sign-safely (a demotion
+    always ranks a player later, a boost always earlier, on both sides of zero):
+
+    * **will-last demotion** -- a player whose ADP sits well past your *next*
+      pick is a luxury this slot doesn't need; strength is
+      ``weights["round_value"]`` (1.0 by default; pass 0.0 to disable).
+    * **round band** -- a K/DST is damped in the early rounds (and an early 2nd
+      QB in a 1-QB league), so one never tops the board before its time even
+      when it carries no ADP. Active whenever ``current_round`` is non-zero.
+    * **tier drop-off / run pressure** -- dormant unless ``draft_state`` is
+      supplied and ``weights["dropoff"]`` / ``weights["pressure"]`` are non-zero.
+      They chiefly reorder same-position, ADP-equidistant candidates and the
+      no-ADP tail (where sort keys 1 and 2 tie), not the top of the board.
+
+    ``draft_state`` is a :func:`fantasy.draft_state.build_draft_state` snapshot;
+    ``drafted_ids`` hard-filters those player ids from the board (belt-and-
+    suspenders for callers whose board may not be pre-filtered); ``weights``
+    overrides :data:`POSITIONAL_WEIGHTS` key by key.
+
     Returns ``[]`` when nothing is left to recommend -- a normal empty state,
     not an error.
     """
@@ -1126,6 +1225,28 @@ def get_best_pick_for_round(
     pool, _rejected = validate_players(drop_synthetic(list(board or [])), require_projection=False)
     if not pool:
         return []
+
+    active_weights = {**POSITIONAL_WEIGHTS, **{str(k): float(v) for k, v in (weights or {}).items()}}
+    state = draft_state or {}
+    dropoff_by_pos = state.get("dropoff_by_pos") or {}
+    run_pressure = state.get("run_pressure") or {}
+    late_ok_positions = set(state.get("late_round_ok_positions") or ())
+
+    if drafted_ids:
+        gone = {str(pid) for pid in drafted_ids if pid is not None and str(pid)}
+        if gone:
+            pool = [
+                player
+                for player in pool
+                if str(player.get("player_id") or player.get("id") or "") not in gone
+            ]
+            if not pool:
+                return []
+
+    round_number = int(current_round or 0)
+    position_span = max(
+        1, len({str(p.get("position", "")).strip().upper() for p in pool if p.get("position")})
+    )
 
     roster_counts = _roster_counts(my_roster)
     capped = {position for position in roster_counts if roster_cap_reached(roster_counts, position)}
@@ -1173,6 +1294,50 @@ def get_best_pick_for_round(
 
         scoring_value = vorp * need_multiplier * risk_multiplier
 
+        # --- round awareness: multipliers on key 3, never a filter ----------
+        # A player the market says lasts well past your *next* pick is a luxury
+        # this slot doesn't need; demote him without hiding him.
+        will_last = 1.0
+        if adp is not None and current_pick_overall is not None and picks_until_next is not None:
+            survives_by = safe_float(adp) - float(current_pick_overall) - float(picks_until_next)
+            if survives_by > 0:
+                will_last = clamp(
+                    1.0 - active_weights["round_value"] * min(1.0, survives_by / (2.5 * position_span)),
+                    0.6,
+                    1.0,
+                )
+
+        streamer_multiplier = _streamer_round_multiplier(
+            position, round_number, position in late_ok_positions
+        )
+        depth_qb_multiplier = _depth_qb_multiplier(position, round_number, roster_counts, settings)
+        round_band_multiplier = round(streamer_multiplier * depth_qb_multiplier, 3)
+
+        dropoff = float(dropoff_by_pos.get(position, 0.0) or 0.0)
+        dropoff_multiplier = 1.0
+        if active_weights["dropoff"] and dropoff > 0:
+            scale = max(1.0, levels.get(position, 0.0) or projection)
+            dropoff_multiplier = 1.0 + active_weights["dropoff"] * math.tanh(dropoff / scale)
+
+        pressure_now = float(run_pressure.get(position, 0.0) or 0.0)
+        pressure_multiplier = 1.0
+        if active_weights["pressure"] and pressure_now > 0:
+            pressure_multiplier = 1.0 + active_weights["pressure"] * pressure_now
+
+        # Apply the round-awareness factors sign-safely. `scoring_value` is VORP-
+        # based and routinely negative in the mid/late rounds; a plain `*=` there
+        # would make a demotion (factor < 1) move a negative value *toward* zero,
+        # i.e. promote the very player it should bury. Dividing a negative score
+        # by the factor -- and multiplying a non-negative one -- makes a demotion
+        # always rank a player later and a boost always rank one earlier, on both
+        # sides of zero.
+        round_awareness = max(
+            1e-6, will_last * round_band_multiplier * dropoff_multiplier * pressure_multiplier
+        )
+        scoring_value = (
+            scoring_value * round_awareness if scoring_value >= 0 else scoring_value / round_awareness
+        )
+
         entry = {
             "player_id": player.get("player_id") or player.get("id"),
             "name": player.get("name"),
@@ -1189,6 +1354,10 @@ def get_best_pick_for_round(
             "risk_multiplier": round(risk_multiplier, 3),
             "scoring_value": round(scoring_value, 2),
             "position_rank": position_counter[position],
+            "will_last": round(will_last, 3),
+            "round_band_multiplier": round_band_multiplier,
+            "dropoff": round(dropoff, 2),
+            "position_pressure_now": round(pressure_now, 3),
         }
         entry["rationale"] = _round_pick_rationale(entry, current_pick_overall)
         # Sort key kept out of the returned dict -- it's an internal ordering

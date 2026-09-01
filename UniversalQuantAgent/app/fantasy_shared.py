@@ -442,11 +442,13 @@ def drafted_card_html(entry: dict[str, Any]) -> str:
 # Team grade rendering -- shared by the live panel and the final report.
 # ---------------------------------------------------------------------------
 def _grade_tone(score: float) -> str:
-    if score >= 75:
+    # Anchored to the re-centred 0-100 scale (~50 = league-average = C):
+    # green for a genuine B+, blue for average-and-up, amber for a weak team.
+    if score >= 72:
         return "success"
-    if score >= 55:
+    if score >= 46:
         return "info"
-    if score >= 40:
+    if score >= 35:
         return "warning"
     return "danger"
 

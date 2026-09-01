@@ -9,5 +9,7 @@ htmlcov/
 .env
 data/snapshots/*
 !data/snapshots/.gitkeep
+data/user_teams/*
+!data/user_teams/.gitkeep
 examples/cheatsheet_output.csv
 build/

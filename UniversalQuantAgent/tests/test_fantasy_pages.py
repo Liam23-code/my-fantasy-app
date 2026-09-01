@@ -160,6 +160,64 @@ class FantasyPageContracts(unittest.TestCase):
         self.assertIn("Worst pick", metric_labels)
         self.assertIn("Value gained vs ADP", metric_labels)
 
+    def test_save_my_drafted_team_writes_a_saved_teams_file(self):
+        """The Draft Room's "Save My Drafted Team" button must produce a save in
+        the exact shape the Saved Teams page reads, and only on the click."""
+        import tempfile
+        from pathlib import Path as _Path
+
+        from fantasy import my_team_manager
+        from fantasy.live_draft import (
+            draft_for_user,
+            start_live_draft,
+            user_turn_context,
+        )
+
+        settings = dict(fantasy_shared.DEFAULT_LEAGUE_SETTINGS)
+        state = start_live_draft(
+            list(self.pool), settings, num_teams=12, num_rounds=3, user_draft_slot=1, seed=7
+        )
+        while not state["is_complete"]:
+            context = user_turn_context(state)
+            state = draft_for_user(state, context["board"][0]["player_id"])
+        drafted = state["rosters"][state["user_team"]]
+        self.assertGreater(len(drafted), 0)
+
+        real_dir = my_team_manager.USER_TEAMS_DIR
+        with tempfile.TemporaryDirectory() as raw:
+            my_team_manager.USER_TEAMS_DIR = _Path(raw) / "user_teams"
+            try:
+                app = AppTest.from_file(str(PAGES / "25_Fantasy_Draft_Room.py"), default_timeout=120)
+                app.session_state["fantasy_live_draft"] = state
+                app.run()
+                self._assert_clean(app, "draft room before saving")
+
+                # Nothing is written until the button is pressed.
+                self.assertEqual(my_team_manager.list_saved_teams(), [])
+                self.assertIn("Save this team", self._text(app))
+
+                save_button = next(b for b in app.button if b.key == "fantasy_save_drafted_team")
+                save_button.click().run(timeout=120)
+                self._assert_clean(app, "draft room after saving")
+
+                saved = my_team_manager.list_saved_teams()
+                self.assertEqual(len(saved), 1)
+                self.assertTrue(saved[0]["is_valid"])
+                self.assertEqual(saved[0]["player_count"], len(drafted))
+
+                document = my_team_manager.load_saved_team(saved[0]["team_id"])
+                self.assertEqual(len(document["players"]), len(drafted))
+                self.assertEqual(document["metadata"]["source"], "mock_draft")
+                self.assertEqual(
+                    app.session_state["fantasy_selected_team_id"], saved[0]["team_id"]
+                )
+                # The "Go to Saved Teams" button appears once a save exists.
+                self.assertTrue(
+                    any(button.key == "fantasy_go_to_saved_teams" for button in app.button)
+                )
+            finally:
+                my_team_manager.USER_TEAMS_DIR = real_dir
+
     def test_the_override_control_is_offered_for_players_the_room_has_taken(self):
         app = self._run("25_Fantasy_Draft_Room.py")
         # Slot 4 so the room has already made three picks by the user's turn.

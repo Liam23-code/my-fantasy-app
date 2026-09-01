@@ -45,6 +45,7 @@ from app.page_runtime import (
     section_header,
 )
 from fantasy.assistant import get_best_pick_for_round
+from fantasy.draft_state import from_live_state
 from fantasy.grader import grade_team
 from fantasy.live_draft import (
     draft_for_user,
@@ -53,6 +54,7 @@ from fantasy.live_draft import (
     start_live_draft,
     user_turn_context,
 )
+from fantasy.my_team_manager import create_new_team_save
 from fantasy.projections import projection_season_label
 
 apply_global_theme()
@@ -101,6 +103,16 @@ if require_pool(setup, "run a draft"):
                 st.session_state["fantasy_live_draft"] = new_state
                 st.session_state["fantasy_live_draft_narrated"] = 0
                 st.session_state["fantasy_grade_history"] = []
+                # Drop the previous draft's save affordance so a fresh, unsaved
+                # draft doesn't show "Go to Saved Teams" or a stale seed name.
+                # `fantasy_selected_team_id` is a shared cross-page pointer and
+                # is deliberately left alone.
+                for _stale in (
+                    "fantasy_draft_room_saved_team_id",
+                    "fantasy_save_team_name",
+                    "fantasy_save_team_league",
+                ):
+                    st.session_state.pop(_stale, None)
                 st.rerun()
 
     live = st.session_state.get("fantasy_live_draft")
@@ -219,6 +231,14 @@ if require_pool(setup, "run a draft"):
             )
             info3.metric("On your roster", len(context["my_roster"]))
 
+            draft_state = run_analysis(
+                "draft state",
+                lambda: from_live_state(
+                    live,
+                    current_pick_overall=context["overall_pick"],
+                    picks_until_next=context["picks_until_next"],
+                ),
+            )
             recommendations = run_analysis(
                 "best pick for this round",
                 lambda: get_best_pick_for_round(
@@ -229,6 +249,8 @@ if require_pool(setup, "run a draft"):
                     current_pick_overall=context["overall_pick"],
                     picks_until_next=context["picks_until_next"],
                     limit=15,
+                    draft_state=draft_state,
+                    weights={"dropoff": 0.6, "pressure": 0.4},
                 ),
             )
 
@@ -359,6 +381,61 @@ if require_pool(setup, "run a draft"):
                     st.markdown(
                         pick_card_html(pick, players_by_id.get(pick["player_id"], {})), unsafe_allow_html=True
                     )
+
+        # -------------------------------------------------------------------
+        # Save this drafted roster to its own Saved Teams file. Nothing is
+        # written until the button is pressed -- Mock Draft never auto-persists.
+        # -------------------------------------------------------------------
+        st.divider()
+        st.markdown("### Save this team")
+        drafted_rows = list(live["rosters"].get(live.get("user_team")) or [])
+        if not drafted_rows:
+            st.caption("Draft at least one player before saving.")
+        else:
+            st.caption(
+                f"Writes a Saved Teams file with all {len(drafted_rows)} of your drafted players, in the "
+                "same format the Saved Teams page uses. Nothing is written until you press the button."
+            )
+            name_col, league_col = st.columns(2)
+            save_name = name_col.text_input(
+                "Team name",
+                value=f"Mock Draft — seed {live.get('seed')}",
+                key="fantasy_save_team_name",
+                max_chars=80,
+            )
+            save_league = league_col.text_input(
+                "League name",
+                value="Mock Draft",
+                key="fantasy_save_team_league",
+                max_chars=100,
+            )
+            if st.button("Save My Drafted Team", type="primary", key="fantasy_save_drafted_team"):
+                try:
+                    record = create_new_team_save(
+                        drafted_rows,
+                        name=(save_name.strip() or None),
+                        league=(save_league.strip() or None),
+                        metadata={
+                            "source": "mock_draft",
+                            "seed": live.get("seed"),
+                            "n_teams": live.get("n_teams"),
+                            "rounds": live.get("rounds"),
+                            "draft_pick": setup.get("draft_pick"),
+                        },
+                    )
+                except (FileExistsError, OSError, TypeError, ValueError) as error:
+                    st.error(f"The team save could not be created: {error}")
+                else:
+                    st.session_state["fantasy_selected_team_id"] = record["team_id"]
+                    st.session_state["fantasy_draft_room_saved_team_id"] = record["team_id"]
+                    st.success(
+                        f"Saved **{record['name']}** with {len(drafted_rows)} players "
+                        f"(save id · {record['team_id']})."
+                    )
+            if st.session_state.get("fantasy_draft_room_saved_team_id") and st.button(
+                "Go to Saved Teams", key="fantasy_go_to_saved_teams"
+            ):
+                st.switch_page("pages/26_Fantasy_Saved_Teams.py")
 
         # -------------------------------------------------------------------
         # Reference: the board so far, and league-wide rosters.
