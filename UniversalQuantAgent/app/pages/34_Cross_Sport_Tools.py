@@ -22,7 +22,9 @@ if _FANTASY_ENGINE_ROOT.is_dir() and str(_FANTASY_ENGINE_ROOT) not in sys.path:
 # six times.
 #
 # Nothing on this page ever fetches a sportsbook, and nothing here places
-# a bet.
+# a bet. The one network touch is the opt-in "Refresh Player Status" button,
+# which reads Sleeper's public feed via fantasy.online.player_status_fetcher;
+# every comparison stays offline, reading the local player_status.json.
 
 from typing import Any
 
@@ -31,6 +33,9 @@ import streamlit as st
 
 from app.betting_shared import load_cbb_evaluations, load_cfb_evaluations, load_mlb_evaluations, load_nba_evaluations, load_nfl_evaluations, load_nhl_evaluations
 from app.page_runtime import apply_global_theme, empty_state, page_header, section_header
+
+from fantasy.online.player_status_fetcher import refresh_player_status
+from fantasy.player_status import flagged_count, has_status_data, live_status, status_last_updated
 
 from modules.unified_parlay_engine import evaluate_cross_sport_parlay, make_unified_leg
 
@@ -43,6 +48,57 @@ page_header(
     "Nothing on this page places a bet.",
     eyebrow="Betting · cross-sport",
 )
+
+
+# ---------------------------------------------------------------------------
+# Live player-status overlay (NFL only; other sports keep their own data).
+# ---------------------------------------------------------------------------
+_STATUS_BADGE: dict[str, str] = {
+    "OUT": "🔴 OUT",
+    "HOLDOUT": "🟠 Holdout",
+    "SUSPENDED": "🟠 Suspended",
+    "DOUBTFUL": "🟡 Doubtful",
+    "QUESTIONABLE": "🟡 Questionable",
+    "HEALTHY": "🟢 Healthy",
+}
+
+
+def _status_badge(status: str) -> str:
+    return _STATUS_BADGE.get(str(status or "").strip().upper(), "🟢 Healthy")
+
+
+def _row_player(row: dict[str, Any]) -> dict[str, Any]:
+    """A ``{player_id, name}`` view of an evaluation row, across every sport's
+    slightly different field names."""
+    identifier = row.get("player_id") or row.get("player") or row.get("player_name") or ""
+    name = row.get("name") or row.get("player") or row.get("player_name") or ""
+    return {"player_id": identifier, "name": name}
+
+
+status_info_col, status_button_col = st.columns([3, 1])
+_status_updated = status_last_updated()
+with status_info_col:
+    if _status_updated:
+        st.caption(
+            f"Player status overlay · {flagged_count()} player(s) flagged · "
+            f"updated {_status_updated.replace('T', ' ').replace('Z', ' UTC')} · "
+            "OUT players are dropped from comparison; badges are NFL-only."
+        )
+    else:
+        st.caption(
+            "Player status overlay not loaded — comparisons use every priced prop as-is. "
+            "Refresh to pull live OUT / doubtful / holdout / suspended status (NFL)."
+        )
+with status_button_col:
+    st.markdown('<div style="height:.2rem"></div>', unsafe_allow_html=True)
+    if st.button("Refresh Player Status", key="cross_sport_refresh_player_status", width="stretch"):
+        result = refresh_player_status()
+        if result.get("ok"):
+            st.success(f"Updated {result['count']} player status flag(s) from {result['source']}.")
+            st.rerun()
+        else:
+            st.warning(result.get("error") or "Could not refresh player status — kept the existing data.")
+
 
 comparison_tab, cross_sport_tab = st.tabs(["Player Comparison", "Cross-Sport Parlay"])
 
@@ -96,8 +152,24 @@ with comparison_tab:
             ("Edge", "recommended_edge"), ("EV / $100", "recommended_ev"), ("Risk", "risk_tier"), ("Basis", "basis"),
         ]
 
+    # Drop live-OUT players from the comparison entirely (a no-op until the
+    # status overlay is refreshed; only ever affects NFL rows).
+    dropped_out = 0
+    if has_status_data():
+        kept = [row for row in rows_for_compare if live_status(_row_player(row)) != "OUT"]
+        dropped_out = len(rows_for_compare) - len(kept)
+        rows_for_compare = kept
+
     if len(rows_for_compare) < 2:
-        empty_state("Not enough priced props to compare", "Load more props on this sport's betting page first.", icon="🔬")
+        if dropped_out:
+            empty_state(
+                "Not enough available props to compare",
+                f"{dropped_out} prop(s) were dropped because the player is ruled OUT. "
+                "Load more props on this sport's betting page, or refresh player status.",
+                icon="🚑",
+            )
+        else:
+            empty_state("Not enough priced props to compare", "Load more props on this sport's betting page first.", icon="🔬")
     else:
         options = {label_fn(row): row for row in rows_for_compare}
         col1, col2 = st.columns(2)
@@ -109,9 +181,18 @@ with comparison_tab:
         # "Line" is a float, "Recommended side" is a string) -- stringify
         # for display so the column has one consistent dtype instead of
         # letting pandas/pyarrow silently coerce a mixed-type object column.
-        comparison_table = pd.DataFrame(
-            [{"Metric": label, left_label: str(left.get(key, "")), right_label: str(right.get(key, ""))} for label, key in metrics]
-        )
+        table_rows = [
+            {
+                "Metric": "Availability",
+                left_label: _status_badge(live_status(_row_player(left))),
+                right_label: _status_badge(live_status(_row_player(right))),
+            }
+        ]
+        table_rows += [
+            {"Metric": label, left_label: str(left.get(key, "")), right_label: str(right.get(key, ""))}
+            for label, key in metrics
+        ]
+        comparison_table = pd.DataFrame(table_rows)
         st.dataframe(comparison_table, width="stretch", hide_index=True)
 
 # -----------------------------------------------------------------------
