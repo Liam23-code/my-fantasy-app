@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fantasy import player_status as _status
 from fantasy.adapter import normalize_projection
 from fantasy.models import LeagueSettings, Roster, RosterPlayer
 from fantasy.projections import projected_or_scored
@@ -244,6 +245,28 @@ def optimize_lineup(
     scored = _score_candidates(eligible_players, week_projections, settings)
     candidates = list(scored.values())
     auto_excluded = {p.player_id for p in eligible_players if p.injury_status in INACTIVE_STATUSES} - locked
+
+    # Live player-status overlay (a no-op until the status file is refreshed).
+    # A live OUT / HOLDOUT / SUSPENDED player is dropped from the DFS pool with
+    # a zeroed projection; DOUBTFUL / QUESTIONABLE stay in the pool with a
+    # trimmed projection. The solver / value / salary logic below is untouched.
+    if _status.has_status_data():
+        for candidate in candidates:
+            if candidate["player_id"] in locked:  # an explicit lock overrides the overlay
+                continue
+            flag = _status.live_status(candidate)
+            if flag == _status.HEALTHY:
+                continue
+            candidate["status"] = flag
+            if flag in _status.UNAVAILABLE_STATUSES:
+                candidate["points"] = 0.0
+                candidate["injury_status"] = flag
+                auto_excluded.add(candidate["player_id"])
+            else:
+                candidate["points"] = round(
+                    _status.adjust_projection_for_status(candidate["points"], flag), 2
+                )
+
     excluded = excluded | auto_excluded
 
     dedicated = {k: v for k, v in settings.roster_requirements.starting_slots().items() if k != "FLEX"}

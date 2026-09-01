@@ -16,6 +16,7 @@ from typing import Any
 
 from projections.projection_engine import compute_final_projection
 
+from . import player_status_utils as status_utils
 from .odds_math import edge_vs_fair, expected_value, remove_vig_two_way
 from .parallel_utils import parallel_ev_map
 
@@ -161,7 +162,15 @@ def evaluate_prop(player: dict[str, Any], prop_odds: dict[str, Any]) -> dict[str
     ``prop_odds`` is one entry from a unified odds object
     (:func:`betting.odds_loader.unified_odds`) -- ``{"market", "line",
     "over_price", "under_price", ...}``.
+
+    The live player-status overlay (a no-op until refreshed) scales the
+    player's own stat inputs first: OUT / HOLDOUT / SUSPENDED zero every stat
+    field (so the over probability collapses toward 0), DOUBTFUL / QUESTIONABLE
+    trim them. The distribution / probability / edge math below is untouched.
     """
+    status = status_utils.live_status(player)
+    if status != status_utils.HEALTHY:
+        player = status_utils.status_adjusted_row(player, STAT_FIELDS.values(), status=status)
     market = prop_odds["market"]
     line = prop_odds["line"]
     over_price = prop_odds["over_price"]
@@ -184,6 +193,7 @@ def evaluate_prop(player: dict[str, Any], prop_odds: dict[str, Any]) -> dict[str
         "player_id": player.get("player_id"),
         "name": player.get("name"),
         "team": player.get("team"),
+        "status": status,
         "market": market,
         "line": line,
         "over_price": over_price,
@@ -225,10 +235,15 @@ def evaluate_props(players_by_id: dict[str, dict[str, Any]], odds: dict[str, Any
     (a real, tested parallel path) despite the limited GIL-bound benefit
     for CPU-only work at today's row counts.
     """
+    overlay = status_utils.has_status_data()
     candidates = []
     for prop in (odds.get("player_props") or {}).values():
         player = players_by_id.get(str(prop.get("player_id")))
         if player is None or prop.get("market") not in STAT_FIELDS:
+            continue
+        # Live-OUT players are removed from the prop board entirely;
+        # HOLDOUT/SUSPENDED stay but evaluate_prop zeroes their inputs.
+        if overlay and status_utils.is_out(player):
             continue
         candidates.append((player, prop))
     rows = [row for row in parallel_ev_map(_evaluate_prop_or_none, candidates) if row is not None]
