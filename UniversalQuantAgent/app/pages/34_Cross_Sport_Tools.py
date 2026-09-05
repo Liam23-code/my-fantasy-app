@@ -34,6 +34,7 @@ import streamlit as st
 from app.betting_shared import load_cbb_evaluations, load_cfb_evaluations, load_mlb_evaluations, load_nba_evaluations, load_nfl_evaluations, load_nhl_evaluations
 from app.page_runtime import apply_global_theme, empty_state, page_header, section_header
 
+from fantasy import player_status
 from fantasy.online.player_status_fetcher import refresh_player_status
 from fantasy.player_status import flagged_count, has_status_data, live_status, status_last_updated
 
@@ -92,7 +93,7 @@ with status_info_col:
 with status_button_col:
     st.markdown('<div style="height:.2rem"></div>', unsafe_allow_html=True)
     if st.button("Refresh Player Status", key="cross_sport_refresh_player_status", width="stretch"):
-        result = refresh_player_status()
+        result = refresh_player_status(player_status.STATUS_PATH)
         if result.get("ok"):
             st.success(f"Updated {result['count']} player status flag(s) from {result['source']}.")
             st.rerun()

@@ -21,6 +21,7 @@ from app.page_runtime import (
     section_header,
 )
 from app.style import gold_glow_chart, stacked_card_html
+from fantasy import player_status
 from fantasy.my_team_manager import (
     create_new_team_save,
     delete_team_save,
@@ -146,7 +147,7 @@ with status_info_col:
 with status_button_col:
     st.markdown('<div style="height:.2rem"></div>', unsafe_allow_html=True)
     if st.button("Refresh Player Status", key="saved_teams_refresh_player_status", width="stretch"):
-        result = refresh_player_status()
+        result = refresh_player_status(player_status.STATUS_PATH)
         if result.get("ok"):
             st.success(f"Updated {result['count']} player status flag(s) from {result['source']}.")
             st.rerun()

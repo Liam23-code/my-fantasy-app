@@ -44,6 +44,7 @@ from app.page_runtime import (
     run_analysis,
     section_header,
 )
+from fantasy import player_status
 from fantasy.assistant import get_best_pick_for_round
 from fantasy.draft_state import from_live_state
 from fantasy.grader import grade_team
@@ -103,7 +104,7 @@ if require_pool(setup, "run a draft"):
     with status_button_col:
         st.markdown('<div style="height:.2rem"></div>', unsafe_allow_html=True)
         if st.button("Refresh Player Status", key="fantasy_refresh_player_status", width="stretch"):
-            result = run_analysis("player status refresh", lambda: refresh_player_status())
+            result = run_analysis("player status refresh", lambda: refresh_player_status(player_status.STATUS_PATH))
             if result and result.get("ok"):
                 st.success(f"Updated {result['count']} player status flag(s) from {result['source']}.")
                 st.rerun()
