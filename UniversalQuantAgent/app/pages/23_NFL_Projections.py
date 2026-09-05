@@ -6,16 +6,33 @@ while ROOT in sys.path:
     sys.path.remove(ROOT)
 sys.path.insert(0, ROOT)
 
+# ``fantasy`` is editable-installed for the app; adding the engine root keeps a
+# local/offline launch self-contained now that this page reads the live
+# player-status overlay for its availability badge.
+_ENGINE_ROOT = str(Path(__file__).resolve().parents[3] / "fantasy_engine")
+if Path(_ENGINE_ROOT).is_dir() and _ENGINE_ROOT not in sys.path:
+    sys.path.insert(0, _ENGINE_ROOT)
+
 import pandas as pd
 import streamlit as st
 
 from app.page_runtime import apply_global_theme, confidence_ring, nfl_profile_header, reliability_bar, render_insight_list, run_analysis
+from app.status_ui import player_status_badge, render_status_strip
 from modules.nfl import latest_completed_nfl_season
 from modules.nfl_projections import project_nfl_player
 
 apply_global_theme()
 st.title("NFL Player Projections")
 st.write("Project volume, yardage, touchdowns, and fantasy points with matchup and weather context.")
+
+# Display-only. The projection below is the stored model output for the chosen
+# player and opponent; the badge reports availability next to it and never
+# rescales, zeroes, or hides a number.
+render_status_strip(
+    "nfl_projections_refresh_player_status",
+    hint="the projection below is the stored model output. ",
+)
+
 with st.form("nfl_projection_form"):
     one, two, three = st.columns([2, 2, 1])
     player = one.text_input("NFL player", "Saquon Barkley")
@@ -34,6 +51,20 @@ if not result:
     st.info("Choose a player and opponent to build a projection.")
 else:
     nfl_profile_header(result["player"], result["team"], f"{result['position']} vs {result['opponent']}")
+    projected_player = {
+        "name": result["player"],
+        "team": result["team"],
+        "position": result["position"],
+        "player_id": result.get("player_id"),
+    }
+    st.markdown(
+        f"**Availability:** {player_status_badge(projected_player)} · "
+        f"{result['player']} ({result['position']})"
+    )
+    st.caption(
+        "Current availability, shown alongside the projection. Every number below is the model's "
+        "stored output and is not adjusted by this badge."
+    )
     projection, drivers, reliability, context = st.tabs(["Projection", "Model Drivers", "Reliability", "Player Context"])
     with projection:
         p = result["projection"]

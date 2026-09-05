@@ -24,11 +24,17 @@ if _FANTASY_ENGINE_ROOT.is_dir() and str(_FANTASY_ENGINE_ROOT) not in sys.path:
 # models) and an optional file you upload here, which overrides matching
 # entries and leaves everything else untouched. Nothing on this page ever
 # fetches a sportsbook, and nothing here places a bet.
+#
+# Availability is display-only here. `betting.prop_model.evaluate_props`
+# already drops live-OUT players and trims doubtful/questionable ones before
+# this page sees a row, so the badges below explain the table rather than
+# change it -- this page filters nothing of its own.
 
 import streamlit as st
 
 from app.betting_shared import load_nfl_evaluations, render_nfl_moneylines_tab, render_nfl_props_tab, render_parlay_builder
 from app.page_runtime import apply_global_theme, page_header
+from app.status_ui import render_player_badges, render_status_strip
 
 apply_global_theme()
 
@@ -37,6 +43,11 @@ page_header(
     "Offline fair-line analysis for NFL props, money lines, and parlays -- odds come only from our own "
     "default file or a file you upload here, never a sportsbook. Nothing on this page places a bet.",
     eyebrow="Betting · NFL",
+)
+
+render_status_strip(
+    "nfl_betting_refresh_player_status",
+    hint="prop pricing uses the odds file exactly as loaded. ",
 )
 
 moneylines_tab, props_tab, parlays_tab = st.tabs(["Money Lines", "Props", "Parlays"])
@@ -51,3 +62,24 @@ with props_tab:
 
 with parlays_tab:
     render_parlay_builder(prop_evaluations=nfl_prop_evaluations, sport_key="NFL", empty_icon="🏈")
+
+# One badge per priced player, in the same order the props table ranks them.
+# Nothing is removed: a doubtful or questionable player is still priced and
+# still bettable, the badge just says what the model already knew about him.
+with st.expander("Player availability"):
+    st.caption(
+        "Live availability for every player priced above. Ruled-out players are already excluded by the "
+        "prop model, so anything flagged here is still on the board — the badge is context, not a filter."
+    )
+    _seen: set[str] = set()
+    _priced_players: list[dict] = []
+    for _evaluation in nfl_prop_evaluations:
+        _key = str(_evaluation.get("player_id") or _evaluation.get("name") or "")
+        if _key and _key not in _seen:
+            _seen.add(_key)
+            _priced_players.append(_evaluation)
+    render_player_badges(
+        _priced_players,
+        limit=40,
+        empty_note="No priced props in this odds file, so there is nothing to check.",
+    )

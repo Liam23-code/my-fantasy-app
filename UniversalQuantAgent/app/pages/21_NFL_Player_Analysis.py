@@ -6,6 +6,13 @@ while ROOT in sys.path:
     sys.path.remove(ROOT)
 sys.path.insert(0, ROOT)
 
+# ``fantasy`` is editable-installed for the app; adding the engine root keeps a
+# local/offline launch self-contained now that this page reads the live
+# player-status overlay for its availability badge.
+_ENGINE_ROOT = str(Path(__file__).resolve().parents[3] / "fantasy_engine")
+if Path(_ENGINE_ROOT).is_dir() and _ENGINE_ROOT not in sys.path:
+    sys.path.insert(0, _ENGINE_ROOT)
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -14,12 +21,22 @@ from app.page_runtime import (
     PLOTLY_CONFIG, apply_global_theme, nfl_profile_header, records_table,
     render_insight_list, run_analysis, section_header, style_figure,
 )
+from app.status_ui import player_status_badge, render_status_strip
 from modules.nfl import latest_completed_nfl_season
 from modules.nfl_analysis import analyze_nfl_player
 
 apply_global_theme()
 st.title("NFL Player Analysis")
 st.write("Explore role, efficiency, context, volatility, and blended league/position percentiles.")
+
+# Display-only. This page reports a completed season's actuals; a current
+# availability flag never changes a historical number, so nothing below is
+# filtered or rescaled by it.
+render_status_strip(
+    "nfl_player_analysis_refresh_player_status",
+    hint="this page reports completed-season actuals, which availability never changes. ",
+)
+
 with st.form("nfl_player_analysis_form"):
     one, two, three = st.columns([2, 2, 1])
     player = one.text_input("NFL player", "Josh Allen")
@@ -38,6 +55,20 @@ if not result:
     st.info("Choose a player to build the NFL identity profile.")
 else:
     nfl_profile_header(result["player"], result["team"], f"{result['position']} · {result['season']}")
+    analysed_player = {
+        "name": result["player"],
+        "team": result["team"],
+        "position": result["position"],
+        "player_id": result.get("player_id"),
+    }
+    st.markdown(
+        f"**Availability:** {player_status_badge(analysed_player)} · "
+        f"{result['player']} ({result['position']})"
+    )
+    st.caption(
+        "Current availability, shown alongside the profile. The percentiles and traits below are "
+        f"{result['season']} actuals and are unaffected by it."
+    )
     render_insight_list([result["identity_summary"]], "Player identity")
     overview, traits, context = st.tabs(["Overview", "Strengths & weaknesses", "Matchup context"])
     with overview:

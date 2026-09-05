@@ -37,6 +37,7 @@ from app.page_runtime import (
     run_analysis,
     section_header,
 )
+from app.status_ui import player_status_badge, render_player_badges, render_status_strip
 from app.style import gold_glow_chart, safe_number, stacked_card_html
 from fantasy.assistant import weekly_start_sit_advice
 from fantasy.optimizer import optimize_lineup
@@ -242,6 +243,14 @@ st.caption(
     "weekly Quant forecasts, so its total matches the selected week's analytical curve."
 )
 
+# Display-only. Every table on this page keeps showing exactly the rows and
+# numbers the engines produced; the badges say who is flagged, and the waiver,
+# lineup, trade, and scoring math is untouched by them.
+render_status_strip(
+    "season_tools_refresh_player_status",
+    hint="the weekly, waiver, lineup, trade, and scoring numbers below are the engines' own. ",
+)
+
 tool_cards = (
     ("Weekly Projections", "18-week matchup-adjusted points and confidence curves.", "Projection signal"),
     ("Start / Sit", "Optimize the legal lineup for this week's opponent context.", "Lineup signal"),
@@ -352,6 +361,15 @@ with weekly_tab:
                 extra_class="weekly-player-card",
             ),
             unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"**Availability:** {player_status_badge(selected_player)} · "
+            f"{selected_player.get('name', 'Unknown player')} "
+            f"({selected_player.get('position', '—')})"
+        )
+        st.caption(
+            "Availability badge only — the Quant projection, confidence, scarcity, and the full "
+            "18-week curve below are the engine's stored output and are not adjusted by it."
         )
 
         st.markdown("#### Weekly scoring curve")
@@ -530,6 +548,12 @@ with lineup_tab:
     if roster:
         roster_names = [player.get("name", "") for player in roster]
         id_by_name = {player.get("name"): player.get("player_id") for player in roster}
+        with st.expander("Roster availability"):
+            st.caption(
+                "Live status for everyone on your roster. Nobody is removed from the optimizer by this "
+                "list — use \"Force to bench\" below to actually sit a player."
+            )
+            render_player_badges(roster, empty_note="No roster loaded.")
         lineup_week = int(
             st.number_input(
                 "Lineup week", min_value=1, max_value=18, value=1, key="fantasy_lineup_week"

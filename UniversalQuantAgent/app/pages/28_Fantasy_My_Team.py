@@ -23,6 +23,7 @@ from app.page_runtime import (
     page_header,
     section_header,
 )
+from app.status_ui import player_status_badge, render_player_badges, render_status_strip
 from app.style import gold_glow_chart, render_drag_drop_lineup, stacked_card_html
 from fantasy.my_team_manager import (
     find_weak_positions,
@@ -74,6 +75,10 @@ if not team_id:
         label="Back to Saved Teams",
         icon=":material/arrow_back:",
     )
+    render_status_strip(
+        "my_team_refresh_player_status",
+        hint="select a save to see its roster availability. ",
+    )
     empty_state(
         "No team selected",
         "Open Saved Teams and choose the league you want to manage.",
@@ -115,6 +120,14 @@ st.page_link(
     "pages/26_Fantasy_Saved_Teams.py",
     label="Back to Saved Teams",
     icon=":material/arrow_back:",
+)
+
+# Display-only. This save's roster is shown exactly as stored: a flagged player
+# keeps his card, his slot, and his saved projection, and the weekly projection,
+# start/sit, waiver, and trade engines below are untouched by the badges.
+render_status_strip(
+    "my_team_refresh_player_status",
+    hint="this save's roster is shown exactly as stored. ",
 )
 
 control_col, week_col = st.columns([2, 1])
@@ -178,7 +191,11 @@ section_header("Saved Roster", "Rarity-tiered player cards from this save file o
 for index, player in enumerate(saved_players):
     projection_value = player.get("projection", player.get("expected_fantasy_points"))
     rank = player.get("overall_rank", player.get("rank", player.get("adp", 41)))
-    status = str(player.get("injury_status") or "Available").upper()
+    # The card's Health line is now the shared availability badge: the same
+    # value it always showed, canonicalised and colour-coded, and preferring
+    # the live overlay when the feed knows this player. The saved projection
+    # beside it is untouched.
+    status = player_status_badge(player)
     st.markdown(
         stacked_card_html(
             player.get("name", "Unknown player"),
@@ -193,6 +210,18 @@ for index, player in enumerate(saved_players):
             extra_class="roster-player-card",
         ),
         unsafe_allow_html=True,
+    )
+
+with st.expander("Roster availability"):
+    st.caption(
+        "Every player on this save, flagged or not. Nobody is dropped from the roster, the weekly "
+        "projection, or the start/sit table by this list."
+    )
+    render_player_badges(
+        saved_players,
+        extra=lambda player: (
+            f"proj {safe_float(player.get('projection', player.get('expected_fantasy_points'))):,.1f}"
+        ),
     )
 
 if health["issues"]:

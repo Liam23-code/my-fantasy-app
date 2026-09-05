@@ -16,6 +16,7 @@ if _loaded_app is not None and not hasattr(_loaded_app, "__path__"):
 import streamlit as st
 from app.fantasy_shared import league_setup
 from app.page_runtime import apply_global_theme, page_header, section_header
+from app.status_ui import render_player_badges, render_status_strip
 from app.style import (
     CIRCUIT_CYAN,
     SIGNAL_GOLD,
@@ -32,6 +33,14 @@ page_header(
     "Fantasy Hub",
     "Draft, organize team saves, and open the weekly tools from one clean command center.",
     eyebrow="Fantasy · command center",
+)
+
+# Display-only. The pool below is the same forward projection pool every
+# Fantasy page reads; the badges report availability against it and nothing on
+# this page is filtered, reordered, or rescaled by them.
+render_status_strip(
+    "fantasy_hub_refresh_player_status",
+    hint="the projection pulse below reads the stored pool unchanged. ",
 )
 
 projections = [dict(player) for player in setup["projections"] if isinstance(player, dict)]
@@ -80,6 +89,21 @@ if leader_curve:
         use_container_width=True,
         config={"displayModeBar": False},
         key="fantasy-hub-projection-pulse",
+    )
+
+section_header("Pool Availability", "Live status for the top of the projection pool.")
+with st.container(border=True):
+    render_player_badges(
+        projections,
+        limit=12,
+        empty_note="Load a projection pool in League & draft setup above to check availability.",
+        extra=lambda player: (
+            f"proj {safe_number(player.get('projection', player.get('expected_fantasy_points'))):,.1f}"
+        ),
+    )
+    st.caption(
+        "Stored projections, shown as-is. Ruled-out players are excluded by the draft and lineup "
+        "engines when it matters; here the badge is context only."
     )
 
 section_header("Fantasy Tools", "Each workflow has one focused destination.")

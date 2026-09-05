@@ -33,6 +33,7 @@ from app.page_runtime import (
     page_header,
     section_header,
 )
+from app.status_ui import player_status_badge, render_player_badges, render_status_strip
 from app.style import (
     CIRCUIT_CYAN,
     SIGNAL_GOLD,
@@ -352,6 +353,15 @@ page_header(
     eyebrow="Visual intelligence",
 )
 
+# Display-only, and rendered before the empty-state stop below so the strip is
+# always reachable. Every figure on this page is drawn from the Quant Engine's
+# own numbers; a badge never removes a player from the selector or bends a
+# curve, a radar spoke, or a volatility band.
+render_status_strip(
+    "graph_lab_refresh_player_status",
+    hint="every figure below is drawn from the Quant Engine's own numbers. ",
+)
+
 players = [dict(player) for player in setup["projections"] if isinstance(player, Mapping)]
 players.sort(key=_projection, reverse=True)
 for rank_number, player_row in enumerate(players, start=1):
@@ -417,6 +427,10 @@ st.markdown(
     f'{escape(rarity_tier)} · {escape(archetype)}</p>'
     "</div></div>",
     unsafe_allow_html=True,
+)
+st.markdown(
+    f"**Availability:** {player_status_badge(selected)} · "
+    f"{selected.get('name', 'Unknown player')} ({selected.get('position', '—')})"
 )
 
 quant_projection = safe_number(
@@ -572,3 +586,10 @@ with st.container(border=True):
         )
     else:
         st.caption("No same-position comparison with enough normalized data is available in this pool.")
+
+with st.expander("Availability — this player and his comps"):
+    st.caption(
+        "Live status for the selected player and every comparison above. The cosine similarity that "
+        "picked them is computed from stat vectors and is not weighted by availability."
+    )
+    render_player_badges([selected, *comparison_rows])
