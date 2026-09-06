@@ -31,11 +31,11 @@ for callers that want to mirror an engine's own view.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 import streamlit as st
-from fantasy import player_status
+from fantasy import multi_sport_status, player_status
 from fantasy.online.player_status_fetcher import refresh_player_status
 from fantasy.player_status import (
     HEALTHY,
@@ -256,3 +256,134 @@ def render_flagged_watchlist(empty_note: str = "", *, limit: int | None = 50) ->
         f"{counts[status]} {status.lower()}" for status in RISK_STATUSES if counts.get(status)
     )
     st.caption(f"⚠️ Availability: {len(ordered)} player(s) flagged league-wide — {breakdown}.")
+
+
+# ===========================================================================
+# Multi-sport (MLB / NHL / NBA / CFB / CBB) -- the same strip and badges over
+# ``fantasy.multi_sport_status`` instead of the NFL-only ``fantasy.player_status``.
+# Everything above is unchanged; nothing here touches the NFL path.
+# ===========================================================================
+
+#: Sport code (any case) -> the ``player_status_fetcher_<sport>`` module name.
+_MULTI_SPORT_CODES: tuple[str, ...] = ("mlb", "nhl", "nba", "cfb", "cbb")
+
+
+def _multi_sport_refresher(sport: str) -> Callable[..., dict[str, Any]]:
+    """Lazily import the one fetcher for ``sport``. Kept lazy so importing this
+    module (every page does) never pulls in five feed modules it may not use."""
+    code = str(sport or "").strip().lower()
+    if code not in _MULTI_SPORT_CODES:
+        raise ValueError(f"unknown multi-sport code {sport!r} (expected one of {_MULTI_SPORT_CODES})")
+    module = __import__(f"fantasy.online.player_status_fetcher_{code}", fromlist=["refresh_player_status"])
+    return module.refresh_player_status  # type: ignore[no-any-return]
+
+
+def multi_sport_status_badge(sport: str, player: Any) -> str:
+    """Badge for one player from the multi-sport live overlay, falling back to the
+    row's own ``status`` / ``injury_status`` -- the "everything we know" read
+    (safe here because a badge is not a decision; see the module docstring)."""
+    return status_badge(multi_sport_status.effective_status(sport, _as_player(player)))
+
+
+def multi_sport_live_badge(sport: str, player: Any) -> str:
+    """Badge from the multi-sport live overlay only -- what the engines see."""
+    return status_badge(multi_sport_status.live_status(sport, _as_player(player)))
+
+
+def render_multi_sport_status_strip(sport: str, key: str, *, hint: str = "") -> None:
+    """The "Refresh Player Status" strip for one non-NFL sport: last-updated
+    stamp, flagged count, and the one button on the page that touches the
+    network. Byte-for-byte the same UX as :func:`render_status_strip`, reading
+    ``fantasy.multi_sport_status`` and calling that sport's ESPN fetcher.
+
+    Degrades gracefully in both directions: a failed fetch keeps the existing
+    JSON untouched and warns rather than errors; an unwritable file raises
+    ``OSError``, caught here. The path is resolved from
+    ``multi_sport_status.STATUS_PATH`` at call time so a test pointing the module
+    at a temp file gets the refresh written there.
+    """
+    code = str(sport or "").strip().lower()
+    label = code.upper()
+    info_column, button_column = st.columns([3, 1])
+    updated = multi_sport_status.status_last_updated(code)
+    with info_column:
+        if updated:
+            st.caption(
+                f"{label} player status overlay · {multi_sport_status.flagged_count(code)} player(s) flagged · "
+                f"updated {_stamp_label(updated)}"
+            )
+        else:
+            st.caption(
+                f"{label} player status overlay not loaded — "
+                + (hint or "this page prices the odds file exactly as loaded. ")
+                + "Refresh to flag OUT / doubtful / holdout / suspended players."
+            )
+    with button_column:
+        st.markdown('<div style="height:.2rem"></div>', unsafe_allow_html=True)
+        if st.button("Refresh Player Status", key=key, width="stretch"):
+            try:
+                result = _multi_sport_refresher(code)(multi_sport_status.STATUS_PATH)
+            except OSError as error:
+                st.warning(f"Could not write the player status file — kept the existing data. {error}")
+                return
+            if result.get("ok"):
+                st.success(f"Updated {result['count']} {label} player status flag(s) from {result['source']}.")
+                st.rerun()
+            else:
+                st.warning(
+                    result.get("error") or "Could not refresh player status — kept the existing data."
+                )
+
+
+def multi_sport_status_counts(sport: str, players: Iterable[Mapping[str, Any]]) -> dict[str, int]:
+    """How many of ``players`` sit at each canonical status, for ``sport``."""
+    counts: dict[str, int] = {}
+    for player in players:
+        if not isinstance(player, Mapping):
+            continue
+        status = multi_sport_status.effective_status(sport, player)
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def multi_sport_availability_summary(sport: str, counts: Mapping[str, int], total: int) -> str:
+    """One caption summarising a multi-sport badge list: the flag breakdown, or
+    all-clear -- the sport-namespaced twin of :func:`availability_summary`."""
+    if not multi_sport_status.has_status_data(sport):
+        return (
+            f"Refresh {str(sport).upper()} player status above to check live availability — "
+            "badges read from the loaded data until then."
+        )
+    flagged = sum(counts.get(status, 0) for status in RISK_STATUSES)
+    if not flagged:
+        return f"{_HEALTHY_BADGE} — no availability flags on any of these {total} player(s)."
+    breakdown = ", ".join(
+        f"{counts[status]} {status.lower()}" for status in RISK_STATUSES if counts.get(status)
+    )
+    return f"⚠️ Availability: {flagged} of {total} flagged — {breakdown}."
+
+
+def render_multi_sport_player_badges(
+    sport: str,
+    players: Iterable[Mapping[str, Any]],
+    *,
+    limit: int | None = None,
+    empty_note: str = "No players to check.",
+    extra: Any = None,
+) -> None:
+    """A markdown list of ``badge **Name** (POS)`` lines plus a summary caption,
+    for one non-NFL sport. Purely additive: every player handed in is listed,
+    flagged or not -- the sport-namespaced twin of :func:`render_player_badges`."""
+    rows = [player for player in players if isinstance(player, Mapping)]
+    if not rows:
+        st.caption(empty_note)
+        return
+    shown = rows if limit is None else rows[:limit]
+    lines = []
+    for player in shown:
+        suffix = f" · {extra(player)}" if extra is not None else ""
+        lines.append(f"- {multi_sport_status_badge(sport, player)} **{player_label(player)}**{suffix}")
+    st.markdown("\n".join(lines))
+    if limit is not None and len(rows) > len(shown):
+        st.caption(f"Showing the first {len(shown)} of {len(rows)} players.")
+    st.caption(multi_sport_availability_summary(sport, multi_sport_status_counts(sport, rows), len(rows)))

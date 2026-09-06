@@ -24,6 +24,10 @@ from typing import Any
 from betting.odds_math import edge_vs_fair, expected_value, remove_vig_two_way
 from betting.parallel_utils import parallel_ev_map
 from betting.prop_model import _risk_tier
+from fantasy import multi_sport_status as _status
+
+#: Which slice of the multi-sport availability overlay this engine reads.
+_SPORT = "cbb"
 
 #: Base coefficient of variation (stdev / mean) for a full-rotation CBB
 #: player -- meaningfully wider than fantasy_engine/betting/prop_model.py's
@@ -65,12 +69,19 @@ def evaluate_prop(prop_odds: dict[str, Any], *, minutes_per_game: float | None =
     -- carries its own real per-game-rate ``"line"`` as the model's mean.
     ``minutes_per_game``, if known, widens the assumed variance for a
     low-minutes player (see :func:`minutes_volatility_multiplier`).
+
+    The live multi-sport availability overlay (a no-op until refreshed)
+    scales the model's mean first while leaving the posted line in place:
+    OUT / HOLDOUT / SUSPENDED zero the mean, DOUBTFUL / QUESTIONABLE trim it.
+    The Gaussian / edge math below is untouched.
     """
-    mean = float(prop_odds["line"])
+    status = _status.live_status(_SPORT, prop_odds)
+    line = float(prop_odds["line"])
+    mean = line if status == _status.HEALTHY else _status.adjust_projection_for_status(line, status)
     over_price = float(prop_odds.get("over_price") or -110.0)
     under_price = float(prop_odds.get("under_price") or -110.0)
     cv = _BASE_CV * minutes_volatility_multiplier(minutes_per_game)
-    distribution = over_under_probability(mean, mean, cv=cv)
+    distribution = over_under_probability(line, mean, cv=cv)
 
     fair_over, fair_under = remove_vig_two_way(over_price, under_price)
     edge_over = edge_vs_fair(distribution["probability_over"], over_price, under_price, side="a")
@@ -83,7 +94,8 @@ def evaluate_prop(prop_odds: dict[str, Any], *, minutes_per_game: float | None =
         "player_name": prop_odds.get("player_name"),
         "team": prop_odds.get("team"),
         "category": prop_odds.get("category"),
-        "line": mean,
+        "status": status,
+        "line": line,
         "over_price": over_price,
         "under_price": under_price,
         "model_probability_over": distribution["probability_over"],
@@ -104,8 +116,15 @@ def evaluate_prop(prop_odds: dict[str, Any], *, minutes_per_game: float | None =
 
 
 def evaluate_props(props: list[dict[str, Any]], *, minutes_by_player: dict[str, float] | None = None) -> list[dict[str, Any]]:
-    """Evaluate every loaded CBB prop line. Each row's math is pure and independent -- see betting.parallel_utils."""
+    """Evaluate every loaded CBB prop line. Each row's math is pure and independent -- see betting.parallel_utils.
+
+    Live-OUT players are dropped from the board entirely (a no-op until the
+    multi-sport status overlay is refreshed); HOLDOUT / SUSPENDED players
+    stay but :func:`evaluate_prop` zeroes their priced mean.
+    """
     minutes_by_player = minutes_by_player or {}
+    if _status.has_status_data(_SPORT):
+        props = [row for row in props if not _status.is_out(_SPORT, row)]
 
     def _evaluate(prop_odds: dict[str, Any]) -> dict[str, Any]:
         return evaluate_prop(prop_odds, minutes_per_game=minutes_by_player.get(prop_odds.get("player_name")))
