@@ -68,6 +68,20 @@ def latest_completed_nfl_season() -> int:
     return today.year if today.month >= 9 else today.year - 1
 
 
+def default_analysis_season() -> int:
+    """The most recent season with a *full* slate of games to analyze.
+
+    ``latest_completed_nfl_season`` returns the in-progress season from
+    September on -- fine for "which season file exists", wrong as a default for
+    a player-analysis page, which then aggregates one week of data and falls
+    back to the bundled snapshot. From February through August the prior
+    calendar year's season is complete; from September through January it is
+    the year before that.
+    """
+    today = date.today()
+    return today.year - 1 if today.month >= 2 else today.year - 2
+
+
 def lookup_team(team_name: str) -> dict[str, Any]:
     """Resolve an abbreviation, full name, nickname, or supported alias."""
     query = team_name.strip().lower()

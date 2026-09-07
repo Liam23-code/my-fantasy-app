@@ -22,7 +22,7 @@ from app.page_runtime import (
     render_insight_list, run_analysis, section_header, style_figure,
 )
 from app.status_ui import player_status_badge, render_status_strip
-from modules.nfl import latest_completed_nfl_season
+from modules.nfl import default_analysis_season, latest_completed_nfl_season
 from modules.nfl_analysis import analyze_nfl_player
 
 apply_global_theme()
@@ -41,7 +41,7 @@ with st.form("nfl_player_analysis_form"):
     one, two, three = st.columns([2, 2, 1])
     player = one.text_input("NFL player", "Josh Allen")
     opponent = two.text_input("Opponent (optional)", "KC")
-    season = three.number_input("Season", 1999, latest_completed_nfl_season(), latest_completed_nfl_season())
+    season = three.number_input("Season", 1999, latest_completed_nfl_season(), default_analysis_season())
     mode_col, compare_col = st.columns(2)
     mode = mode_col.radio("Mode", ["Raw", "Adjusted"], index=1, horizontal=True)
     comparison = compare_col.radio("Comparison", ["League", "Position"], horizontal=True)
@@ -54,6 +54,12 @@ result = st.session_state.get("nfl_player_analysis")
 if not result:
     st.info("Choose a player to build the NFL identity profile.")
 else:
+    if str(result.get("source")) == "fallback":
+        st.warning(
+            "⚠️ The live NFL data provider is unavailable, so this page is running on a small "
+            "bundled snapshot of ~40 players. Non-snapshot names will not resolve. Try again in a "
+            "few minutes — the live feed is retried on every search."
+        )
     nfl_profile_header(result["player"], result["team"], f"{result['position']} · {result['season']}")
     analysed_player = {
         "name": result["player"],
