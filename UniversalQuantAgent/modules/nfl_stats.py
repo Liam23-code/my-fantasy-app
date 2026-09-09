@@ -8,7 +8,6 @@ the ``warnings`` attribute always makes that fallback explicit.
 """
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import Any, Iterable
 
 import numpy as np
@@ -245,7 +244,75 @@ def _fallback_rows() -> list[dict[str, Any]]:
         {"player":"Baltimore Ravens Defense","player_id":"DEF-BAL","team":"BAL","position":"DEF","games":17,"plays":1050,"pressure_rate":34.0,"blitz_rate":26.0,"sack_probability":8.2,"coverage_grade":76.0,"run_stop_win_rate":34.0,"explosive_plays_allowed":9.5,"epa_allowed":-.06,"pass_rush_win_rate":46.0,"snap_share":100.0},
         {"player":"Kansas City Chiefs Defense","player_id":"DEF-KC","team":"KC","position":"DEF","games":17,"plays":1035,"pressure_rate":35.0,"blitz_rate":31.0,"sack_probability":7.8,"coverage_grade":72.0,"run_stop_win_rate":32.0,"explosive_plays_allowed":10.2,"epa_allowed":-.04,"pass_rush_win_rate":48.0,"snap_share":100.0},
         {"player":"San Francisco 49ers Defense","player_id":"DEF-SF","team":"SF","position":"DEF","games":17,"plays":1040,"pressure_rate":32.0,"blitz_rate":22.0,"sack_probability":7.1,"coverage_grade":70.0,"run_stop_win_rate":33.0,"explosive_plays_allowed":11.0,"epa_allowed":.01,"pass_rush_win_rate":45.0,"snap_share":100.0},
+        # --- non-star depth so a provider outage is not superstar-only ------
+        *_fallback_qb("Jared Goff","00-0033106","DET",538,366,4292,29,12,25,88,0),
+        *_fallback_qb("Jordan Love","00-0036264","GB",478,308,3625,24,11,52,247,3),
+        *_fallback_rb("Kenneth Walker III","00-0037746","SEA",206,905,7,46,35,299,9),
+        *_fallback_rb("James Cook","00-0037753","BUF",207,1009,2,44,32,258,4),
+        *_fallback_rb("Tony Pollard","00-0035700","TEN",260,1079,5,54,41,301,0),
+        *_fallback_rb("Chase Brown","00-0039491","CIN",178,779,7,54,44,360,4),
+        *_fallback_rb("Rhamondre Stevenson","00-0036997","NE",180,720,3,40,30,220,1),
+        *_fallback_rb("Javonte Williams","00-0037029","DEN",139,513,3,52,42,280,1),
+        *_fallback_wr("Amon-Ra St. Brown","00-0037012","DET",141,109,1263,12,1450,25.0,36.0),
+        *_fallback_wr("DK Metcalf","00-0035640","SEA",108,66,992,5,1620,22.0,39.0),
+        *_fallback_wr("DeVonta Smith","00-0036912","PHI",107,68,833,4,1180,21.0,31.0),
+        *_fallback_wr("Chris Olave","00-0037643","NO",87,54,704,1,1090,24.0,37.0),
+        *_fallback_wr("Jaylen Waddle","00-0037070","MIA",100,58,744,2,1140,22.0,33.0),
+        *_fallback_wr("Tank Dell","00-0039080","HOU",89,51,667,3,980,20.0,30.0),
+        *_fallback_wr("Jerry Jeudy","00-0036165","CLE",145,90,1229,4,1490,23.0,34.0),
+        *_fallback_wr("Khalil Shakir","00-0037641","BUF",100,76,821,4,690,18.0,17.0),
+        *_fallback_te("Sam LaPorta","00-0039338","DET",83,60,726,7,560,19.0,20.0),
+        *_fallback_te("Trey McBride","00-0037744","ARI",133,111,1146,2,720,23.0,22.0),
+        *_fallback_te("Dallas Goedert","00-0034224","PHI",70,42,496,2,430,15.0,16.0),
+        *_fallback_te("Jake Ferguson","00-0037243","DAL",102,71,761,0,540,20.0,19.0),
+        {"player":"Pittsburgh Steelers Defense","player_id":"DEF-PIT","team":"PIT","position":"DEF","games":17,"plays":1045,"pressure_rate":33.0,"blitz_rate":28.0,"sack_probability":7.6,"coverage_grade":68.0,"run_stop_win_rate":31.0,"explosive_plays_allowed":10.8,"epa_allowed":-.02,"pass_rush_win_rate":44.0,"snap_share":100.0},
+        {"player":"Philadelphia Eagles Defense","player_id":"DEF-PHI","team":"PHI","position":"DEF","games":17,"plays":1030,"pressure_rate":31.0,"blitz_rate":24.0,"sack_probability":6.9,"coverage_grade":71.0,"run_stop_win_rate":33.0,"explosive_plays_allowed":10.0,"epa_allowed":-.05,"pass_rush_win_rate":45.0,"snap_share":100.0},
+        {"player":"New York Jets Defense","player_id":"DEF-NYJ","team":"NYJ","position":"DEF","games":17,"plays":1050,"pressure_rate":30.0,"blitz_rate":21.0,"sack_probability":6.4,"coverage_grade":66.0,"run_stop_win_rate":30.0,"explosive_plays_allowed":11.4,"epa_allowed":.02,"pass_rush_win_rate":42.0,"snap_share":100.0},
+        {"player":"Denver Broncos Defense","player_id":"DEF-DEN","team":"DEN","position":"DEF","games":17,"plays":1038,"pressure_rate":36.0,"blitz_rate":33.0,"sack_probability":8.6,"coverage_grade":69.0,"run_stop_win_rate":32.0,"explosive_plays_allowed":9.8,"epa_allowed":-.03,"pass_rush_win_rate":47.0,"snap_share":100.0},
     ]
+
+
+def _fallback_qb(name, pid, team, att, cmp_, yds, tds, ints, carries, rush_yds, rush_tds):
+    return [{
+        "player": name, "player_id": pid, "team": team, "position": "QB", "player_position": "QB",
+        "games": 17, "plays": att + carries, "epa_per_play": .09, "cpoe": 1.5, "pressure_to_sack_rate": 16.0,
+        "deep_accuracy": 40.0, "red_zone_efficiency": 58.0, "scramble_rate": 5.0, "time_to_throw": 2.80,
+        "turnover_worthy_play_rate": 3.4, "explosive_pass_rate": 9.5, "attempts": att, "completions": cmp_,
+        "passing_yards": yds, "passing_tds": tds, "interceptions": ints, "carries": carries,
+        "rushing_yards": rush_yds, "rushing_tds": rush_tds, "fantasy_points_per_game": round(yds / 25 / 17 + tds, 1),
+        "snap_share": 96.0,
+    }]
+
+
+def _fallback_rb(name, pid, team, carries, rush_yds, rush_tds, targets, receptions, rec_yds, rec_tds):
+    return [{
+        "player": name, "player_id": pid, "team": team, "position": "RB", "player_position": "RB",
+        "games": 16, "plays": carries + targets, "yards_after_contact": 2.9, "missed_tackles_forced": round(carries * .13),
+        "explosive_run_rate": 10.0, "target_share": 10.0, "red_zone_share": 45.0, "snap_share": 62.0,
+        "rush_success_rate": 44.0, "yards_per_route_run": 1.10, "pass_block_win_rate": 78.0, "carries": carries,
+        "targets": targets, "receptions": receptions, "rushing_yards": rush_yds, "receiving_yards": rec_yds,
+        "rushing_tds": rush_tds, "receiving_tds": rec_tds, "total_tds": rush_tds + rec_tds,
+        "fantasy_points_per_game": round((rush_yds + rec_yds) / 10 / 16 + receptions / 16, 1),
+    }]
+
+
+def _fallback_wr(name, pid, team, targets, receptions, rec_yds, rec_tds, air_yds, tgt_share, ay_share):
+    return [{
+        "player": name, "player_id": pid, "team": team, "position": "WR", "player_position": "WR",
+        "games": 16, "plays": targets, "target_share": tgt_share, "air_yards_share": ay_share,
+        "yards_per_route_run": 1.90, "separation": 3.0, "contested_catch_rate": 50.0, "explosive_play_rate": 13.0,
+        "red_zone_target_rate": 18.0, "route_win_rate": 48.0, "average_depth_of_target": round(air_yds / max(targets, 1), 1),
+        "targets": targets, "receptions": receptions, "receiving_yards": rec_yds, "receiving_tds": rec_tds,
+        "receiving_air_yards": air_yds, "carries": 0, "rushing_yards": 0, "rushing_tds": 0,
+        "fantasy_points_per_game": round(rec_yds / 10 / 16 + receptions / 16 + rec_tds * 6 / 16, 1), "snap_share": 82.0,
+    }]
+
+
+def _fallback_te(name, pid, team, targets, receptions, rec_yds, rec_tds, air_yds, tgt_share, ay_share):
+    row = _fallback_wr(name, pid, team, targets, receptions, rec_yds, rec_tds, air_yds, tgt_share, ay_share)[0]
+    row["position"] = row["player_position"] = "TE"
+    row["snap_share"] = 78.0
+    return [row]
 
 
 def fallback_player_table(season: int | None = None) -> pd.DataFrame:
@@ -422,19 +489,46 @@ def _load_position_lookup(provider: Any, season: int) -> dict[str, str]:
     return lookup
 
 
-@lru_cache(maxsize=3)
+#: Only a genuine *live* table is memoised. A provider outage returns the
+#: bundled snapshot uncached, so the very next call retries the live feed
+#: instead of pinning the 17-row fallback for the whole process lifetime.
+_LIVE_TABLE_MEMO: dict[int, pd.DataFrame] = {}
+
+_PROVIDER_ERRORS = (ImportError, ModuleNotFoundError, OSError, KeyError, ValueError, AttributeError, TypeError)
+
+
 def load_player_stats(season: int | None = None) -> pd.DataFrame:
-    """Load one canonical season table once per process."""
-    season=season or latest_completed_nfl_season()
+    """Load one canonical season table, memoised only when the live feed works.
+
+    On any provider failure this returns :func:`fallback_player_table` (source
+    ``"fallback"``) *without* caching it -- callers should surface that state
+    (``table.attrs["source"] == "fallback"``) and the next call will try the
+    live feed again.
+    """
+    season = season or latest_completed_nfl_season()
+    if season in _LIVE_TABLE_MEMO:
+        return _LIVE_TABLE_MEMO[season]
     try:
         import nflreadpy as nfl
-        try: raw=nfl.load_pbp([season],columns=PBP_PLAYER_COLUMNS)
-        except TypeError: raw=nfl.load_pbp([season])
-        frame=raw.to_pandas() if hasattr(raw,"to_pandas") else pd.DataFrame(raw)
-        positions=_load_position_lookup(nfl,season)
-        return _aggregate_live(frame,season,positions)
-    except Exception:
+
+        try:
+            raw = nfl.load_pbp([season], columns=PBP_PLAYER_COLUMNS)
+        except TypeError:
+            raw = nfl.load_pbp([season])
+        frame = raw.to_pandas() if hasattr(raw, "to_pandas") else pd.DataFrame(raw)
+        positions = _load_position_lookup(nfl, season)
+        table = _aggregate_live(frame, season, positions)
+    except _PROVIDER_ERRORS:
         return fallback_player_table(season)
+    except Exception:  # noqa: BLE001 - never let an unexpected provider bug crash the page
+        return fallback_player_table(season)
+    _LIVE_TABLE_MEMO[season] = table
+    return table
+
+
+def clear_player_stats_cache() -> None:
+    """Drop the live-table memo (used by tests and a manual refresh)."""
+    _LIVE_TABLE_MEMO.clear()
 
 
 def percentile(series: pd.Series, value: Any, higher_is_better: bool=True) -> float:
@@ -453,14 +547,47 @@ def blended_percentile(table: pd.DataFrame,row: pd.Series,metric: str) -> dict[s
 def resolve_player(name_or_id: str|int,season: int|None=None,table: pd.DataFrame|None=None) -> tuple[pd.Series,pd.DataFrame,list[str]]:
     data=canonicalize_player_table(table.copy() if table is not None else load_player_stats(season).copy())
     query=str(name_or_id).strip(); match=None
+    extra_warnings: list[str] = []
+    on_fallback = str(data.attrs.get("source")) == "fallback"
     if query and "player_id" in data:
         exact=data[data["player_id"].astype(str)==query]
         if not exact.empty: match=exact.iloc[0]
+    # Fast, offline exact-name match (handles "First Last" straight against the
+    # bundled snapshot and most live rows without a network round-trip).
+    if match is None and query and "player" in data:
+        names = data["player"].map(normalize_text)
+        exact_name = data[names == normalize_text(query)]
+        if len(exact_name) == 1:
+            match = exact_name.iloc[0]
+    # A real roster identity index turns "First Last" into the canonical gsis
+    # id before the play-by-play name fuzzer (whose keys are "F.Last") ever
+    # runs, so ordinary players stop being unfindable. Skipped on the bundled
+    # snapshot (its ids are hand-coded) and best-effort only -- any failure
+    # here falls straight through to the fuzzy match below.
+    if match is None and query and not on_fallback and not query.lower().startswith("00-") and "player_id" in data:
+        try:
+            from modules.player_lookup import lookup_player
+
+            hit = lookup_player(query, season=season)
+            # Only substitute a player on a HIGH-confidence identity match -- a
+            # 0.6-0.9 "close-ish" hit (e.g. a shared first name) must not
+            # silently swap in a different player; let it fall through to the
+            # pbp fuzzer, which will either match or raise a clean "not found".
+            if hit and hit.get("player_id") and hit.get("confidence", 1.0) >= 0.9:
+                by_id = data[data["player_id"].astype(str) == str(hit["player_id"])]
+                if not by_id.empty:
+                    match = by_id.iloc[0].copy()
+                    # Replace the nflverse "F.Last" play-by-play key with the
+                    # canonical roster name so the UI reads "Jaylen Waddle".
+                    if hit.get("name"):
+                        match["player"] = hit["name"]
+        except Exception:
+            pass
     if match is None and query:
         candidate=fuzzy_name_match(query,data.to_dict("records"),key=lambda item:str(item.get("player","")),cutoff=.62)
         if candidate: match=pd.Series(candidate)
     if match is None: raise ValueError(f"Could not identify NFL player {name_or_id!r}.")
-    warnings=list(data.attrs.get("warnings",[])); return match,data,warnings
+    warnings=[*data.attrs.get("warnings",[]),*extra_warnings]; return match,data,warnings
 
 
 def normalized_profile(name_or_id: str|int,season: int|None=None,comparison_mode: str="League",display_mode: str="Adjusted") -> dict[str,Any]:

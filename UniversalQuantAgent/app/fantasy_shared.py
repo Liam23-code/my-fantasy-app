@@ -282,15 +282,42 @@ def quant_breakout_by_player(players: list[dict[str, Any]]) -> dict[str, dict[st
 
 
 def breakout_pill(entry: dict[str, Any]) -> str:
-    """Quant's breakout-probability read, banded so the color carries the meaning."""
-    probability = entry.get("quant_breakout_probability")
+    """Breakout-probability read, banded so the color carries the meaning.
+
+    Reads ``breakout_probability`` (the age-aware ``fantasy.breakout_model``
+    number the draft engine now attaches), falling back to the legacy
+    ``quant_breakout_probability`` key for any older caller. The bands are
+    tuned to that model's deliberately conservative [0.05, 0.65] scale.
+    """
+    probability = entry.get("breakout_probability", entry.get("quant_breakout_probability"))
     if probability is None:
         return ""
     probability = float(probability)
-    if probability >= 0.65:
-        return pill(f"🚀 Breakout {probability:.0%}", "success")
     if probability >= 0.40:
+        return pill(f"🚀 Breakout {probability:.0%}", "success")
+    if probability >= 0.22:
         return pill(f"Breakout {probability:.0%}", "neutral")
+    return ""
+
+
+def value_pill(entry: dict[str, Any]) -> str:
+    """Signed value / reach vs the current pick, from ``adp_value``."""
+    delta = entry.get("adp_value")
+    if delta is None:
+        return pill("No ADP", "neutral")
+    if delta >= 8:
+        return pill(f"📉 Value +{delta:.0f}", "success")
+    if delta <= -8:
+        return pill(f"⚠️ Reach {delta:.0f}", "warning")
+    return pill("On the clock", "neutral")
+
+
+def risk_pill(entry: dict[str, Any]) -> str:
+    """A boom/bust + age + injury read, shown only when it is worth flagging."""
+    band = str(entry.get("risk_band") or "")
+    score = entry.get("risk_score")
+    if band in {"elevated", "high"} and score is not None:
+        return pill(f"⚠ Risk {score:.0f}/100", "warning" if band == "elevated" else "danger")
     return ""
 
 
@@ -392,26 +419,50 @@ def _stat_row(stats: list[tuple[str, str]]) -> str:
 
 
 def player_card_html(entry: dict[str, Any], rank_label: str, taken_by: str | None = None) -> str:
-    """One recommendation rendered as a premium card."""
+    """One recommendation rendered as a premium decision card.
+
+    Reads the :func:`fantasy.draft_engine.get_recommendations` entry shape:
+    the signed ``adp_value`` (value_pill), the age-aware ``breakout_probability``
+    (breakout_pill), a ``risk_band`` (risk_pill), and a plain-English
+    ``roster_fit`` line, alongside the projection / PPG / VORP / expected-games
+    stat row and the composite ``rank_score``.
+    """
     pills = "".join(
-        [status_pill(entry), proximity_pill(entry), scarcity_pill(entry), need_pill(entry), breakout_pill(entry)]
+        [
+            status_pill(entry),
+            value_pill(entry),
+            scarcity_pill(entry),
+            need_pill(entry),
+            breakout_pill(entry),
+            risk_pill(entry),
+        ]
     )
     if taken_by:
         pills = pill(f"🔒 Taken by {taken_by}", "danger") + pills
+
+    position = str(entry.get("position", ""))
+    pos_rank = entry.get("pos_rank_label") or (
+        f"{position}{entry['position_rank']}" if entry.get("position_rank") else position
+    )
     stats = [
         ("Proj", fmt(entry.get("projection"))),
+        ("Pts/G", fmt(entry.get("points_per_game"), ".1f")),
         ("VORP", fmt(entry.get("vorp"), "+.0f")),
-        ("ADP", fmt(entry.get("adp"), ".1f")),
-        (f"{entry.get('position', '')} rank", fmt(entry.get("position_rank"), ".0f")),
+        ("ADP", fmt(entry.get("adp"), ".0f")),
+        ("Exp G", fmt(entry.get("expected_games"), ".1f")),
+        ("Fit", fmt(entry.get("rank_score"), "+.2f")),
     ]
+    fit_line = escape(str(entry.get("roster_fit") or ""))
+    fit_html = f'<div class="meta">{fit_line}</div>' if fit_line else ""
     classes = "player-card is-taken" if taken_by else "player-card"
     return (
         f'<div class="{classes}">'
         f'<div class="rank">{escape(rank_label)}</div>'
         f'<div class="name">{escape(str(entry.get("name", "—")))}</div>'
-        f'<div class="meta">{escape(str(entry.get("position", "")))} · {escape(str(entry.get("team", "")))}</div>'
+        f'<div class="meta">{escape(pos_rank)} · {escape(str(entry.get("team", "")))}</div>'
         f'<div class="stat-row">{_stat_row(stats)}</div>'
         f"<div>{pills}</div>"
+        f"{fit_html}"
         f"</div>"
     )
 

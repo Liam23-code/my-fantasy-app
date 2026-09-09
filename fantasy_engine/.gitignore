@@ -14,5 +14,11 @@ data/user_teams/*
 # Live player-status overlay -- fetched client-side, recreated on demand
 # (fantasy.online.player_status_fetcher). Engines tolerate its absence.
 data/player_status.json
+# Multi-sport (MLB/NHL/NBA/CFB/CBB) availability overlay -- same story
+# (fantasy.online.player_status_fetcher_<sport>). Engines tolerate its absence.
+data/multi_sport_status.json
+# ...and the transient write-lock sibling (fantasy.online._multi_sport_common),
+# in case a hard kill strands one.
+data/multi_sport_status.json.lock
 examples/cheatsheet_output.csv
 build/

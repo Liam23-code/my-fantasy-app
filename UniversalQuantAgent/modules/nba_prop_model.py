@@ -29,8 +29,12 @@ from typing import Any
 from betting.odds_math import edge_vs_fair, expected_value, remove_vig_two_way
 from betting.parallel_utils import parallel_ev_map
 from betting.prop_model import _risk_tier
+from fantasy import multi_sport_status as _status
 
 from modules.sportsbook_parser import normalize_player_name
+
+#: Which slice of the multi-sport availability overlay this engine reads.
+_SPORT = "nba"
 
 #: This app's own established confidence-band convention (see
 #: modules/minutes_model.py, modules/props.py::_three_projection): treat
@@ -62,8 +66,15 @@ def price_prop_comparison(comparison_row: dict[str, Any], prop_odds: dict[str, A
     ``"confidence_high"``, ``"sportsbook_line"``). ``prop_odds`` is the
     matching row from :func:`modules.nba_props_loader.unified_props` for
     the same player + category (has ``"over_price"``, ``"under_price"``).
+
+    The live multi-sport availability overlay (a no-op until refreshed)
+    scales the projection first: OUT / HOLDOUT / SUSPENDED zero it,
+    DOUBTFUL / QUESTIONABLE trim it. The probability / edge math is untouched.
     """
+    status = _status.live_status(_SPORT, comparison_row)
     projection = float(comparison_row["minutes_adjusted_projection"])
+    if status != _status.HEALTHY:
+        projection = _status.adjust_projection_for_status(projection, status)
     stdev = _stdev_from_confidence_band(comparison_row["confidence_low"], comparison_row["confidence_high"])
     line = float(comparison_row["sportsbook_line"])
     over_price = float(prop_odds.get("over_price") or -110.0)
@@ -88,6 +99,7 @@ def price_prop_comparison(comparison_row: dict[str, Any], prop_odds: dict[str, A
 
     return {
         **comparison_row,
+        "status": status,
         "over_price": over_price,
         "under_price": under_price,
         "model_probability_over": round(probability_over, 4),
@@ -123,7 +135,13 @@ def price_aware_evaluations(
     independent math with no I/O -- see betting.parallel_utils for why
     this still uses a thread pool despite the limited GIL-bound benefit
     for CPU-only work at today's row counts.
+
+    Live-OUT players are dropped from the board entirely (a no-op until the
+    multi-sport status overlay is refreshed); HOLDOUT / SUSPENDED players
+    stay but :func:`price_prop_comparison` zeroes their projection.
     """
+    if _status.has_status_data(_SPORT):
+        comparison_rows = [row for row in comparison_rows if not _status.is_out(_SPORT, row)]
     candidates = []
     for row in comparison_rows:
         key = (normalize_player_name(row["player"]), row["category"])

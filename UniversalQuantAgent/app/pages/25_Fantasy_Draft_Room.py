@@ -33,7 +33,6 @@ from app.fantasy_shared import (
     league_setup,
     pick_card_html,
     player_card_html,
-    quant_breakout_by_player,
     render_grade_panel,
     require_pool,
 )
@@ -44,8 +43,7 @@ from app.page_runtime import (
     run_analysis,
     section_header,
 )
-from fantasy.assistant import get_best_pick_for_round
-from fantasy.draft_state import from_live_state
+from fantasy.draft_engine import get_recommendations
 from fantasy.grader import grade_team
 from fantasy.live_draft import (
     draft_for_user,
@@ -142,6 +140,7 @@ if require_pool(setup, "run a draft"):
                     "fantasy_draft_room_saved_team_id",
                     "fantasy_save_team_name",
                     "fantasy_save_team_league",
+                    "fantasy_drafted_external",
                 ):
                     st.session_state.pop(_stale, None)
                 st.rerun()
@@ -185,6 +184,16 @@ if require_pool(setup, "run a draft"):
         my_picks = [pick for pick in live["picks"] if pick["is_user_pick"]]
         my_roster = list(live["rosters"].get(live.get("user_team")) or [])
 
+        # Players you have marked as gone in your REAL draft room. The mock
+        # sim's bots pick differently, so without this the board (and every
+        # recommendation, the grade, and the manual-pick list drawn from it)
+        # drifts out of sync. Held only in session state — the sim state is
+        # never mutated.
+        gone_external: set[str] = st.session_state.setdefault("fantasy_drafted_external", set())
+        _available_remaining = [
+            player for player in live["remaining"] if str(player.get("player_id")) not in gone_external
+        ]
+
         summary1, summary2, summary3 = st.columns(3)
         summary1.metric("Picks made", len(live["picks"]))
         summary2.metric("Your picks", len(my_picks))
@@ -208,7 +217,7 @@ if require_pool(setup, "run a draft"):
             "team grade",
             lambda: grade_team(
                 my_roster,
-                live["remaining"],
+                _available_remaining,
                 league_settings,
                 picks=my_picks,
                 all_rosters=live["rosters"],
@@ -262,26 +271,58 @@ if require_pool(setup, "run a draft"):
             )
             info3.metric("On your roster", len(context["my_roster"]))
 
-            draft_state = run_analysis(
-                "draft state",
-                lambda: from_live_state(
-                    live,
-                    current_pick_overall=context["overall_pick"],
-                    picks_until_next=context["picks_until_next"],
-                ),
-            )
+            board = [
+                player for player in context["board"] if str(player.get("player_id")) not in gone_external
+            ]
+
+            # ---------------------------------------------------------------
+            # Keep the board honest with your real draft room.
+            # ---------------------------------------------------------------
+            _sim_board_by_id = {player["player_id"]: player for player in context["board"]}
+            with st.expander(
+                f"Mark players drafted elsewhere{f' ({len(gone_external)} marked)' if gone_external else ''}"
+            ):
+                st.caption(
+                    "The room around you is a model, not a transcript of your real draft. Mark anyone "
+                    "your real league has taken and they drop out of every recommendation, the manual "
+                    "pick list, and the team grade immediately. This does not spend one of your picks."
+                )
+
+                def _mark_label(pid: str) -> str:
+                    row = _sim_board_by_id.get(pid, {})
+                    return f"{row.get('name', pid)} ({row.get('position', '')}, {row.get('team', '')})"
+
+                mark_ids = st.multiselect(
+                    "Players taken in my real draft",
+                    options=list(_sim_board_by_id),
+                    default=[pid for pid in gone_external if pid in _sim_board_by_id],
+                    format_func=_mark_label,
+                    key=f"fantasy_mark_drafted_{context['overall_pick']}",
+                )
+                new_gone = set(mark_ids)
+                if new_gone != gone_external:
+                    st.session_state["fantasy_drafted_external"] = new_gone
+                    st.rerun()
+                if gone_external and st.button(
+                    "Clear all", key=f"fantasy_clear_marked_{context['overall_pick']}"
+                ):
+                    st.session_state["fantasy_drafted_external"] = set()
+                    st.rerun()
+
             recommendations = run_analysis(
-                "best pick for this round",
-                lambda: get_best_pick_for_round(
-                    context["round"],
+                "recommendations for this pick",
+                lambda: get_recommendations(
+                    context["overall_pick"],
                     context["my_roster"],
-                    context["board"],
+                    gone_external,
+                    board,
                     league_settings,
-                    current_pick_overall=context["overall_pick"],
                     picks_until_next=context["picks_until_next"],
+                    num_rounds=setup["num_rounds"],
+                    n_teams=setup["n_teams"],
+                    pool=projections,
+                    picks=live["picks"],
                     limit=15,
-                    draft_state=draft_state,
-                    weights={"dropoff": 0.6, "pressure": 0.4},
                 ),
             )
 
@@ -293,18 +334,12 @@ if require_pool(setup, "run a draft"):
                 )
             else:
                 st.caption(
-                    "Ranked by ADP proximity to this pick, then positional scarcity, then your scoring "
-                    "model — not locked to one position, so a gone target never limits you to a worse "
-                    "player at the same spot."
+                    "One composite score per player: signed ADP value (a faller is a plus, a reach a "
+                    "minus), positional scarcity, roster need as its own term, VORP as the tiebreaker, "
+                    "and a conservative breakout nudge. Not locked to one position."
                 )
-                # Computed from the original board, not the recommendation rows
-                # above -- those are reshaped to ~15 summary fields and would
-                # starve the Quant breakout model of the player data it reads.
-                breakout_by_player = quant_breakout_by_player(context["board"])
                 rec_columns = st.columns(3)
                 for index, entry in enumerate(recommendations):
-                    breakout_row = breakout_by_player.get(str(entry.get("player_id")), {})
-                    entry = {**entry, "quant_breakout_probability": breakout_row.get("breakout_probability")}
                     with rec_columns[index % 3], st.container(border=True):
                         st.markdown(player_card_html(entry, f"#{entry['rank']}"), unsafe_allow_html=True)
                         if st.button(
@@ -317,11 +352,20 @@ if require_pool(setup, "run a draft"):
                 with st.expander("Why these, in this order?"):
                     for entry in recommendations:
                         st.markdown(
-                            f"**{entry['rank']}. {entry['name']}** ({entry['position']}) — {entry['rationale']}"
+                            f"**{entry['rank']}. {entry['name']}** ({entry['pos_rank_label']}) — "
+                            f"score {entry['rank_score']:+.2f} · {entry['rationale']}"
+                        )
+                        st.caption(
+                            " · ".join(
+                                f"{part['factor']} {part['weighted']:+.2f}"
+                                for part in entry["score_breakdown"]
+                                if abs(part["weighted"]) >= 0.01
+                            )
+                            + (f"  —  {entry['roster_fit']}" if entry.get("roster_fit") else "")
                         )
 
             with st.expander("Draft someone else"):
-                board_by_id = {player["player_id"]: player for player in context["board"]}
+                board_by_id = {player["player_id"]: player for player in board}
                 if not board_by_id:
                     st.caption("Nobody is left on the board.")
                 else:

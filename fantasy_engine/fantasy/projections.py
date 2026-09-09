@@ -363,6 +363,21 @@ def project_forward(
         updated["prior_season"] = player.get("season")
         updated["prior_season_points"] = round(prior_points, 2)
         updated["prior_games_played"] = int(round(games))
+
+        # Retire the prior season's *final* injury-report designation. It is the
+        # status the player carried into the last game of a completed season --
+        # a backward-looking flag by construction -- and downstream projection
+        # code (fantasy_engine/projections/projection_engine.INJURY_MULTIPLIERS)
+        # reads ``injury_status`` as a *current* game-week flag, applying an
+        # 0.08-0.48x haircut for OUT/IR/DOUBTFUL. Left in place it slashes a
+        # forward projection for a player who merely ended last year dinged and
+        # is healthy now. The missed-time cost is already carried by the
+        # availability regression above (``expected_games``); current in-season
+        # status is the live player-status overlay's job, not a stale column's.
+        prior_injury_status = player.get("injury_status") or player.get("status")
+        if prior_injury_status:
+            updated["prior_injury_status"] = str(prior_injury_status).strip().upper()
+        updated.pop("injury_status", None)
         updated["projection"] = round(projection, 2)
         updated["expected_fantasy_points"] = round(projection, 2)
         updated["points_per_game"] = round(projection / projected_games, 2)

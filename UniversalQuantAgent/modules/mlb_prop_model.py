@@ -28,6 +28,10 @@ from typing import Any
 from betting.odds_math import edge_vs_fair, expected_value, remove_vig_two_way
 from betting.parallel_utils import parallel_ev_map
 from betting.prop_model import _risk_tier
+from fantasy import multi_sport_status as _status
+
+#: Which slice of the multi-sport availability overlay this engine reads.
+_SPORT = "mlb"
 
 
 def _poisson_cdf(k: int, lam: float) -> float:
@@ -62,11 +66,19 @@ def evaluate_prop(prop_odds: dict[str, Any], *, matchup_multiplier: float = 1.0)
     :func:`modules.mlb_fusion_model.fuse_projection`), adjusts that mean
     before pricing; the default 1.0 prices the line exactly as given, the
     same contract CFB/CBB's optional context parameters follow.
+
+    The live multi-sport availability overlay (a no-op until refreshed)
+    scales the model's mean first while leaving the posted line in place:
+    OUT / HOLDOUT / SUSPENDED zero the mean (so the over probability
+    collapses toward 0), DOUBTFUL / QUESTIONABLE trim it. The distribution /
+    probability / edge math below is untouched.
     """
-    mean = float(prop_odds["line"]) * float(matchup_multiplier)
+    status = _status.live_status(_SPORT, prop_odds)
+    line = float(prop_odds["line"]) * float(matchup_multiplier)
+    mean = line if status == _status.HEALTHY else _status.adjust_projection_for_status(line, status)
     over_price = float(prop_odds.get("over_price") or -110.0)
     under_price = float(prop_odds.get("under_price") or -110.0)
-    distribution = over_under_probability(mean, mean)
+    distribution = over_under_probability(line, mean)
 
     fair_over, fair_under = remove_vig_two_way(over_price, under_price)
     edge_over = edge_vs_fair(distribution["probability_over"], over_price, under_price, side="a")
@@ -79,7 +91,8 @@ def evaluate_prop(prop_odds: dict[str, Any], *, matchup_multiplier: float = 1.0)
         "player_name": prop_odds.get("player_name"),
         "team": prop_odds.get("team"),
         "category": prop_odds.get("category"),
-        "line": mean,
+        "status": status,
+        "line": line,
         "over_price": over_price,
         "under_price": under_price,
         "model_probability_over": distribution["probability_over"],
@@ -100,8 +113,15 @@ def evaluate_prop(prop_odds: dict[str, Any], *, matchup_multiplier: float = 1.0)
 
 
 def evaluate_props(props: list[dict[str, Any]], *, matchup_multipliers: dict[str, float] | None = None) -> list[dict[str, Any]]:
-    """Evaluate every loaded MLB prop line. Each row's math is pure and independent -- see betting.parallel_utils."""
+    """Evaluate every loaded MLB prop line. Each row's math is pure and independent -- see betting.parallel_utils.
+
+    Live-OUT players are dropped from the board entirely (a no-op until the
+    multi-sport status overlay is refreshed); HOLDOUT / SUSPENDED players
+    stay but :func:`evaluate_prop` zeroes their priced mean.
+    """
     matchup_multipliers = matchup_multipliers or {}
+    if _status.has_status_data(_SPORT):
+        props = [row for row in props if not _status.is_out(_SPORT, row)]
 
     def _evaluate(prop_odds: dict[str, Any]) -> dict[str, Any]:
         return evaluate_prop(prop_odds, matchup_multiplier=matchup_multipliers.get(prop_odds.get("player_name"), 1.0))

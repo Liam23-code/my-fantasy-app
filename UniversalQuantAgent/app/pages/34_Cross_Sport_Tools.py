@@ -34,9 +34,11 @@ import streamlit as st
 from app.betting_shared import load_cbb_evaluations, load_cfb_evaluations, load_mlb_evaluations, load_nba_evaluations, load_nfl_evaluations, load_nhl_evaluations
 from app.page_runtime import apply_global_theme, empty_state, page_header, section_header
 
+from fantasy import multi_sport_status
 from fantasy.online.player_status_fetcher import refresh_player_status
 from fantasy.player_status import flagged_count, has_status_data, live_status, status_last_updated
 
+from app.status_ui import render_multi_sport_status_strip
 from modules.unified_parlay_engine import evaluate_cross_sport_parlay, make_unified_leg
 
 apply_global_theme()
@@ -109,6 +111,18 @@ with comparison_tab:
     section_header("Player Comparison", "Side-by-side edge, EV, and confidence for two priced props from one sport.")
     sport = st.radio("Sport", ["NFL", "NBA", "CFB", "CBB", "MLB", "NHL"], horizontal=True, key="cross_sport_tools_compare_sport")
 
+    # NFL availability comes from the strip at the top of the page; the other
+    # five sports each get their own Refresh strip here (a no-op until clicked).
+    if sport != "NFL":
+        render_multi_sport_status_strip(sport, f"cross_sport_{sport.lower()}_refresh_player_status")
+
+    def _avail_has_data() -> bool:
+        return has_status_data() if sport == "NFL" else multi_sport_status.has_status_data(sport)
+
+    def _avail_status(row: dict[str, Any]) -> str:
+        player = _row_player(row)
+        return live_status(player) if sport == "NFL" else multi_sport_status.live_status(sport, player)
+
     if sport == "NFL":
         rows_for_compare, _, _ = load_nfl_evaluations("compare_nfl_odds_upload")
         label_fn = lambda row: f"{row['name']} {row['market']} {row['line']}"
@@ -152,11 +166,11 @@ with comparison_tab:
             ("Edge", "recommended_edge"), ("EV / $100", "recommended_ev"), ("Risk", "risk_tier"), ("Basis", "basis"),
         ]
 
-    # Drop live-OUT players from the comparison entirely (a no-op until the
-    # status overlay is refreshed; only ever affects NFL rows).
+    # Drop live-OUT players from the comparison entirely (a no-op until this
+    # sport's status overlay is refreshed).
     dropped_out = 0
-    if has_status_data():
-        kept = [row for row in rows_for_compare if live_status(_row_player(row)) != "OUT"]
+    if _avail_has_data():
+        kept = [row for row in rows_for_compare if _avail_status(row) != "OUT"]
         dropped_out = len(rows_for_compare) - len(kept)
         rows_for_compare = kept
 
@@ -184,8 +198,8 @@ with comparison_tab:
         table_rows = [
             {
                 "Metric": "Availability",
-                left_label: _status_badge(live_status(_row_player(left))),
-                right_label: _status_badge(live_status(_row_player(right))),
+                left_label: _status_badge(_avail_status(left)),
+                right_label: _status_badge(_avail_status(right)),
             }
         ]
         table_rows += [

@@ -24,9 +24,55 @@ def win_probability_from_spread(spread: float, *, stdev: float) -> float:
     return round(_normal_cdf(spread / stdev), 4)
 
 
-def fair_moneyline(home_team: str, away_team: str, *, averages: dict[str, dict[str, float]], margin_stdev: float) -> dict[str, Any]:
-    """Fair spread, total, and moneyline price for one matchup, from real CBB team scoring."""
+def _apply_team_status_penalty(
+    projection: dict[str, Any],
+    home_team: str,
+    away_team: str,
+    team_status_penalty: dict[str, float] | None,
+) -> dict[str, Any]:
+    """Shade each team's expected points down by a caller-supplied points penalty
+    (unavailable key players -- see
+    :func:`fantasy.multi_sport_status.team_status_penalty`), then recompute the
+    spread and total. ``None`` / ``{}`` -> the projection is returned unchanged,
+    so this is a pure opt-in seam -- mirrors ``betting.moneyline_model`` for NFL
+    exactly."""
+    if not team_status_penalty:
+        return projection
+    home_penalty = float(team_status_penalty.get(home_team, 0.0) or 0.0)
+    away_penalty = float(team_status_penalty.get(away_team, 0.0) or 0.0)
+    if not home_penalty and not away_penalty:
+        return projection
+    home_expected = round(max(0.0, projection["home_expected_points"] - home_penalty), 2)
+    away_expected = round(max(0.0, projection["away_expected_points"] - away_penalty), 2)
+    return {
+        **projection,
+        "home_expected_points": home_expected,
+        "away_expected_points": away_expected,
+        "spread": round(home_expected - away_expected, 2),
+        "total": round(home_expected + away_expected, 2),
+        "status_penalty": {"home": round(home_penalty, 2), "away": round(away_penalty, 2)},
+    }
+
+
+def fair_moneyline(
+    home_team: str,
+    away_team: str,
+    *,
+    averages: dict[str, dict[str, float]],
+    margin_stdev: float,
+    team_status_penalty: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Fair spread, total, and moneyline price for one matchup, from real CBB team scoring.
+
+    ``team_status_penalty`` optionally maps an upper-cased team code to a points
+    penalty for unavailable key players; it shades that team's expected points
+    before the win-probability math (which is otherwise untouched). Omit it for
+    the historical behaviour exactly.
+    """
     projection = project_game(home_team, away_team, averages=averages)
+    projection = _apply_team_status_penalty(
+        projection, home_team.strip().upper(), away_team.strip().upper(), team_status_penalty
+    )
     home_win_probability = win_probability_from_spread(projection["spread"], stdev=margin_stdev)
     away_win_probability = round(1.0 - home_win_probability, 4)
     return {
@@ -38,10 +84,28 @@ def fair_moneyline(home_team: str, away_team: str, *, averages: dict[str, dict[s
     }
 
 
-def evaluate_game(game_odds: dict[str, Any], *, averages: dict[str, dict[str, float]], volatility: dict[str, float]) -> dict[str, Any]:
-    """Compare our fair moneyline/total to a real game-odds entry: edges, EV, confidence."""
+def evaluate_game(
+    game_odds: dict[str, Any],
+    *,
+    averages: dict[str, dict[str, float]],
+    volatility: dict[str, float],
+    team_status_penalty: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Compare our fair moneyline/total to a real game-odds entry: edges, EV, confidence.
+
+    ``team_status_penalty`` is passed straight through to :func:`fair_moneyline`
+    -- an optional ``{TEAM: points}`` map (from
+    :func:`fantasy.multi_sport_status.team_status_penalty`) for unavailable key
+    players. Omit it for the exact historical behaviour.
+    """
     home_team, away_team = game_odds["home_team"], game_odds["away_team"]
-    fair = fair_moneyline(home_team, away_team, averages=averages, margin_stdev=volatility["margin_stdev"])
+    fair = fair_moneyline(
+        home_team,
+        away_team,
+        averages=averages,
+        margin_stdev=volatility["margin_stdev"],
+        team_status_penalty=team_status_penalty,
+    )
     result: dict[str, Any] = {
         "game_id": game_odds.get("game_id"),
         "home_team": home_team,
@@ -96,8 +160,13 @@ def evaluate_games(
     averages: dict[str, dict[str, float]],
     odds_by_matchup: dict[tuple[str, str], dict[str, Any]] | None = None,
     volatility: dict[str, float],
+    team_status_penalty: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
-    """Evaluate real CBB matchups, optionally compared against loaded CBB game odds."""
+    """Evaluate real CBB matchups, optionally compared against loaded CBB game odds.
+
+    ``team_status_penalty`` (optional) is forwarded to every game -- see
+    :func:`evaluate_game`.
+    """
     odds_by_matchup = odds_by_matchup or {}
     rows = []
     for game in games:
@@ -105,7 +174,11 @@ def evaluate_games(
         if not home_team or not away_team:
             continue
         game_odds = odds_by_matchup.get((home_team, away_team), {"home_team": home_team, "away_team": away_team})
-        rows.append(evaluate_game(game_odds, averages=averages, volatility=volatility))
+        rows.append(
+            evaluate_game(
+                game_odds, averages=averages, volatility=volatility, team_status_penalty=team_status_penalty
+            )
+        )
 
     def _sort_key(row: dict[str, Any]) -> float:
         edges = [row.get("moneyline", {}).get("recommended_edge", 0.0), row.get("total", {}).get("recommended_edge", 0.0)]
