@@ -95,6 +95,14 @@ class PlayerLookupContracts(unittest.TestCase):
         self.assertNotEqual(hit["source"], "roster")
         self.assertEqual(hit["player_id"], "")
 
+    def test_a_misspelled_surname_still_resolves(self):
+        # "Jalen Wadle" -> "Jaylen Waddle": typos in BOTH names, but the surname
+        # is still ~0.9 similar. The exact-equality surname gate rejected this;
+        # a near-match gate must let it through rather than fall to unresolved.
+        hit = player_lookup.lookup_player("Jalen Wadle", season=2025)
+        self.assertEqual(hit["player_id"], "00-0037070")
+        self.assertGreaterEqual(hit["confidence"], 0.6)
+
     def test_a_shared_surname_still_resolves(self):
         # "Mike Pittman" -> "Michael Pittman": shared surname, so a fuzzy first
         # name is still allowed.

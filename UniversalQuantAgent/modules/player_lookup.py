@@ -177,7 +177,18 @@ def _score(query_norm: str, row: dict[str, Any]) -> float:
     if candidate == query_norm:
         return 1.0
     q_parts, c_parts = query_norm.split(), candidate.split()
-    shared_surname = bool(q_parts and c_parts and q_parts[-1] == c_parts[-1])
+    # A shared surname is what licenses a full-strength fuzzy match (see below).
+    # Accept a near-identical surname too, so a typo *in the surname*
+    # ("jalen wadle" -> "jaylen waddle") still resolves -- the exact-equality
+    # gate alone rejected every misspelled last name.
+    shared_surname = bool(
+        q_parts
+        and c_parts
+        and (
+            q_parts[-1] == c_parts[-1]
+            or difflib.SequenceMatcher(None, q_parts[-1], c_parts[-1]).ratio() >= 0.85
+        )
+    )
 
     # surname + first initial (the "J.Waddle" -> "j waddle" case)
     surname_initial = 0.92 if shared_surname and q_parts[0][:1] == c_parts[0][:1] else 0.0

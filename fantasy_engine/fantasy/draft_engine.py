@@ -570,6 +570,15 @@ def get_recommendations(
 
         # --- components ---------------------------------------------------
         adp_component, adp_value = _adp_value_component(adp, current_pick, picks_until_next, vorp)
+        # A streamer's ADP (K/DST sit at 150-190) is noise, and once it is
+        # genuinely streamer time -- ``late_round_ok_positions`` has cleared the
+        # position -- the roster-need term should drive. Without this, every
+        # late-round kicker reads as a 15-25 pick "reach" past its ADP (the full
+        # ~-1.2 penalty), so a required, still-empty K/DST slot ends up buried
+        # beneath a luxury 6th WR who happens to sit right on the slot -- exactly
+        # the "weaker player over the one I need" fault this module exists to fix.
+        if position in _STREAMER_POSITIONS and position in late_ok_positions:
+            adp_component = max(adp_component, -0.15)
         scarcity_component, scarcity_points = _scarcity_component(position, scarcity_raw, replacement_level, dropoff_by_pos, run_pressure)
         need_component = _roster_need_component(position, roster_counts, needs, starting_slots, flex_eligible)
         value_component = _value_component(vorp, replacement_level)

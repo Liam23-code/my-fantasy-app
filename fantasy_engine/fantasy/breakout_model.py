@@ -270,8 +270,14 @@ def compute_breakout_prob(
     if established and age >= ceiling_age > 0.0:
         raw *= 0.55
         drivers.append("already an established positional starter — limited leap room")
-    elif established and age < 20.0 and experience >= 6.0:
+    elif established and age <= 0.0 and experience >= 6.0:
+        # Age never joined from the pool, so the youth curve is running off
+        # ``years_experience`` alone -- but an established top-5 player with 6+
+        # seasons is a plateaued starter, not a breakout. Damp on the
+        # experience-only path too. (This was previously ``age < 20.0``, which
+        # with ``experience >= 6.0`` is impossible, so the branch never fired.)
         raw *= 0.70
+        drivers.append("established starter, 6+ seasons in — limited leap room")
 
     # --- chronic-injury damper --------------------------------------------------
     if prior_injury in {"IR", "PUP", "NFI"} and 0.0 < prior_games < 10.0:

@@ -341,6 +341,38 @@ def test_kickers_and_defenses_are_damped_early_and_freed_late():
     assert any(r["position"] in {"K", "DST"} for r in late)
 
 
+def test_a_needed_streamer_is_not_buried_by_its_adp_reach_when_it_is_finally_time():
+    # Real K/DST ADPs sit at 150-190, so in the final rounds every kicker is a
+    # 15-25 pick "reach" past your slot. Once the draft is late enough that K/DST
+    # are cleared to be drafted, the required-but-empty K slot must still outrank
+    # a luxury 4th WR / 3rd RB sitting right on the clock -- the ADP-reach
+    # penalty must not sink it.
+    roster = _roster("QB", "RB", "RB", "RB", "WR", "WR", "WR", "WR", "TE", "DST")
+    board = [
+        _p("late-k", "K", 140, adp=188, age=29),
+        _p("luxury-wr", "WR", 135, adp=165, age=27),
+        _p("luxury-rb", "RB", 130, adp=170, age=27),
+    ]
+    recs = get_recommendations(
+        current_pick=165,  # round 14 of 15 in a 12-team draft
+        my_roster=roster,
+        drafted_players=set(),
+        board=board,
+        league_settings=SETTINGS,
+        picks_until_next=8,
+        num_rounds=15,
+        n_teams=12,
+        limit=5,
+    )
+    by_id = {r["player_id"]: r for r in recs}
+    assert recs[0]["player_id"] == "late-k"
+    assert by_id["late-k"]["rank_score"] > by_id["luxury-wr"]["rank_score"]
+    assert by_id["late-k"]["rank_score"] > by_id["luxury-rb"]["rank_score"]
+    # the ADP term was floored, not left at the full past-horizon reach penalty
+    k_adp = next(p for p in by_id["late-k"]["score_breakdown"] if p["factor"] == "ADP value")
+    assert k_adp["weighted"] >= -0.15
+
+
 def test_an_early_second_qb_in_a_one_qb_league_is_penalised():
     board = _deep_board()
     recs = get_recommendations(30, _roster("QB"), set(), board, SETTINGS, picks_until_next=22, num_rounds=15, limit=20)

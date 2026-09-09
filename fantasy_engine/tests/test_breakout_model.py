@@ -121,6 +121,21 @@ def test_experience_stands_in_when_age_is_missing_and_caps_tighter():
     assert rookie_ish["breakout_probability"] <= 0.50
 
 
+def test_established_starter_is_damped_on_the_experience_only_path():
+    # age never joined from the pool, so the youth curve runs off
+    # years_experience alone. An established top-5 player with 8 seasons is a
+    # plateaued starter, not a breakout -- the established-star damper must fire
+    # here too. (Regression: the branch guard was previously an impossible
+    # `age < 20.0 and experience >= 6.0`, so it never ran.)
+    established = _wr("rank3-no-age", years_experience=8, projection=250.0, prior=180.0, adp=60.0)
+    established["position_rank"] = 3
+    plain = _wr("plain-no-age", years_experience=8, projection=250.0, prior=180.0, adp=60.0)
+    damped = compute_breakout_prob(established)
+    undamped = compute_breakout_prob(plain)
+    assert damped["breakout_probability"] < undamped["breakout_probability"] - 0.01
+    assert any("limited leap room" in d for d in damped["drivers"])
+
+
 def test_no_age_and_no_experience_sits_near_the_base_rate():
     result = compute_breakout_prob(_wr("blank", projection=180.0, prior=175.0, adp=60.0))
     assert 0.05 <= result["breakout_probability"] <= 0.30
