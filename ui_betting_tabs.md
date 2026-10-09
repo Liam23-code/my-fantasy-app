@@ -2,6 +2,8 @@
 
 How the single `30_Betting_Engine.py` page (a sport toggle over five tabs) became seven separate pages across two build cycles. See [betting_engine.md](betting_engine.md) / [betting_engine_advanced.md](betting_engine_advanced.md) for the engine functions each page calls, [cross_sport_tools.md](cross_sport_tools.md) for the shared cross-sport page's own detail, and [ui_design.md](ui_design.md) for the general Streamlit patterns in play (widget-`session_state` seeding, cached loaders).
 
+> **Also see [nfl_betting_pages.md](nfl_betting_pages.md):** three newer NFL pages (MoneyLines, Player Props, Parlays) that sit first in the Betting group and price a pasted sportsbook number against the model. They are additive; the seven pages below are unchanged.
+
 ## The seven pages
 
 | Page | Sport | Tabs |

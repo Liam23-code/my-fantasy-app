@@ -52,7 +52,7 @@ destinations = (
         "title": "Betting",
         "kicker": "Market intelligence",
         "body": "Transparent prop, parlay, and edge research with visible model context.",
-        "page": "pages/8_Prop_Analyzer.py",
+        "page": "pages/moneylines.py",
         "label": "Open Betting",
         "accent": "gold-accent",
     },

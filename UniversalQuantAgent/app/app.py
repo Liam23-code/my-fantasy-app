@@ -2579,6 +2579,14 @@ def main() -> None:
         st.Page("pages/17_Trend_Graphs.py", title="Trend Graphs", icon=":material/show_chart:"),
     ]
     betting_pages = [
+        # The NFL betting trio, first in the group so "Betting" lands on it: each
+        # prices a market against a sportsbook number the user pastes, using the
+        # offline fantasy_engine/betting math (see modules/nfl_moneyline_analysis.py,
+        # nfl_prop_analysis.py, nfl_parlay_builder.py). They sit beside -- not
+        # instead of -- the older pages below.
+        st.Page("pages/moneylines.py", title="MoneyLines", icon=":material/paid:", url_path="moneylines"),
+        st.Page("pages/playerprops.py", title="Player Props", icon=":material/sports_football:", url_path="playerprops"),
+        st.Page("pages/parlays.py", title="Parlays", icon=":material/layers:", url_path="parlays"),
         st.Page("pages/8_Prop_Analyzer.py", title="Prop Analyzer", icon=":material/compare_arrows:"),
         st.Page("pages/19_Edge_Heatmap.py", title="Edge Heatmap", icon=":material/grid_on:"),
         st.Page("pages/9_Prop_Recommendations.py", title="Prop Recommendations", icon=":material/recommend:"),
