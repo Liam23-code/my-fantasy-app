@@ -6,11 +6,30 @@ weather, and pace context already produced by ``analyze_nfl_player``. Nothing
 here defaults a real statistical category to zero unless the player's own
 history is truly zero for that category (e.g. a quarterback with zero career
 rush attempts, or a wide receiver with zero career carries).
+
+Optional NFL upgrade pack
+-------------------------
+:func:`project_nfl_player` takes an optional ``pack_context`` (the feature context
+:func:`modules.nfl_matchup_features.build_game_context` builds). When given, the
+finished per-game line is run through :func:`modules.nfl_upgrade_pipeline.apply_upgrade_pack`
+(collapse -> explosion -> coverage mismatch / explosive plays -> red-zone funnel -> game
+script, plus the volume pass-through) and the fantasy points and confidence band are
+recomputed from the adjusted line. The adjustment comes back as a new top-level
+``upgrade_pack`` key with the full audit. With ``pack_context=None`` nothing changes:
+the same keys, the same numbers, no ``upgrade_pack`` key. This module stays pure and
+offline -- it never builds a context itself.
+
+Honest limits of the pack here: its weights are priors, several of its inputs are
+proxies or neutral because no free feed exists, and the line it adjusts is the
+player's own historical per-game rate (already scaled by this module's ``Adjusted``
+matchup / weather factor, which can overlap with the pack's coverage and explosion
+stages -- the audit says so).
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
+from modules import nfl_upgrade_pipeline as _pack
 from modules.data_quality import safe_number
 from modules.nfl_analysis import analyze_nfl_player
 from modules.nfl_stats import get_player_stats
@@ -205,14 +224,68 @@ def _build_drivers(position: str, raw: dict[str, Any], analysis: dict[str, Any],
     return drivers
 
 
+#: Decimal places the engine line carries per field; the pack's adjusted values are rounded the same way.
+_LINE_DECIMALS = {
+    "attempts": 1, "passing_yards": 1, "passing_tds": 2, "interceptions": 2, "carries": 1, "rushing_yards": 1,
+    "rushing_tds": 2, "targets": 1, "receptions": 1, "receiving_yards": 1, "receiving_tds": 2,
+}
+
+
+def _apply_pack(line: dict[str, Any], position: str, pack_context: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run the finished per-game line through the NFL upgrade pack; ``(new_line, upgrade_pack_report)``.
+
+    Never raises: a defect inside the (optional) pack leaves the line untouched and is reported in the
+    ``warnings`` of the report. ``pack_context`` is never mutated.
+    """
+    base = {
+        "applied": False, "neutral": True, "has_signal": False, "adjustments": [], "summary": {}, "explanations": [],
+        "warnings": [], "guard": [], "stage_order": [], "signals": {}, "recentered": True, "propagate_volume": True,
+    }
+    if position not in _pack.POSITIONS:
+        base["warnings"].append(f"The upgrade pack has no stage for position {position!r}; the line is unchanged.")
+        return line, base
+    try:
+        outcome = _pack.project_with_pack(dict(line), position=position, context=pack_context)
+    except Exception as error:  # noqa: BLE001 - optional layer: never take the projection down
+        base["warnings"].append(f"The upgrade pack could not be applied ({type(error).__name__}); the line is unchanged.")
+        return line, base
+    adjusted = dict(line)
+    for key, value in (outcome.get("line") or {}).items():
+        if key in _LINE_DECIMALS and isinstance(value, (int, float)) and key in line:
+            adjusted[key] = round(float(value), _LINE_DECIMALS[key])
+    signals = outcome.get("signals") or {}
+    report = {
+        "applied": not outcome.get("neutral", True),
+        "neutral": bool(outcome.get("neutral", True)),
+        "has_signal": bool(signals.get("has_signal")),
+        "adjustments": [dict(a) for a in outcome.get("adjustments") or []],
+        "summary": dict(outcome.get("summary") or {}),
+        "explanations": list(outcome.get("explanations") or []),
+        "warnings": list(outcome.get("warnings") or []),
+        "guard": list(outcome.get("guard") or []),
+        "stage_order": list(outcome.get("stage_order") or []),
+        "signals": dict(signals.get("probabilities") or {}),
+        "recentered": bool(outcome.get("recentered", True)),
+        "propagate_volume": bool(outcome.get("propagate_volume", True)),
+    }
+    return adjusted, report
+
+
 def project_nfl_player(
     player_name: str,
     opponent_team: str | None = None,
     season: int | None = None,
     mode: str = "Adjusted",
     comparison_mode: str = "League",
+    pack_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build one premium, position-correct NFL projection with a confidence band."""
+    """Build one premium, position-correct NFL projection with a confidence band.
+
+    ``pack_context`` (default ``None``) opts in to the NFL upgrade pack: the finished per-game line is
+    adjusted for this matchup (see the module docstring), the fantasy points and confidence band follow
+    the adjusted line, and the result gains an ``upgrade_pack`` key with the full audit. ``None`` returns
+    exactly what this function always returned -- same keys, same numbers, no ``upgrade_pack`` key.
+    """
     analysis = analyze_nfl_player(player_name, opponent_team, season, mode, comparison_mode)
     position = analysis["position"]
     raw = analysis["raw_stats"]
@@ -232,6 +305,9 @@ def project_nfl_player(
     line["passing_tds"] = round(safe_number(line.get("passing_tds")) * td_factor, 2)
     line["rushing_tds"] = round(safe_number(line.get("rushing_tds")) * td_factor, 2)
     line["receiving_tds"] = round(safe_number(line.get("receiving_tds")) * td_factor, 2)
+    upgrade_pack: dict[str, Any] | None = None
+    if pack_context is not None:
+        line, upgrade_pack = _apply_pack(line, position, pack_context)
     expected_fantasy_points = round(_fantasy_points(position, line), 2)
     line["fantasy_points"] = expected_fantasy_points
     line["expected_fantasy_points"] = expected_fantasy_points
@@ -253,13 +329,22 @@ def project_nfl_player(
         "carries_projection": safe_number(line.get("carries")),
     }
 
+    drivers = _build_drivers(position, raw, analysis, td_factor)
+    if upgrade_pack is not None and upgrade_pack["applied"]:
+        for field, entry in upgrade_pack["summary"].items():
+            before, after = entry.get("before"), entry.get("after")
+            if before and after is not None and abs(after / before - 1.0) >= 0.01:
+                drivers.append(
+                    f"Upgrade pack: {field.replace('_', ' ')} {before:.1f} to {after:.1f} ({(after / before - 1.0) * 100:+.0f}%) "
+                    "for this matchup (priors, not a fitted model)."
+                )
     volatility = safe_number(analysis.get("volatility_score"), 50.0)
     confidence_score = round(max(5.0, min(97.0, 100.0 - volatility)), 1)
     spread = max(1.0, round(expected_fantasy_points * (volatility / 100.0) * 0.6, 1))
     low = round(expected_fantasy_points - spread, 1)
     high = round(expected_fantasy_points + spread, 1)
 
-    return {
+    result: dict[str, Any] = {
         "player": analysis["player"],
         "player_id": analysis["player_id"],
         "team": analysis["team"],
@@ -269,7 +354,7 @@ def project_nfl_player(
         "mode": mode,
         "comparison_mode": comparison_mode,
         "projection": projection,
-        "drivers": _build_drivers(position, raw, analysis, td_factor),
+        "drivers": drivers,
         "confidence": {
             "score": confidence_score,
             "low": low,
@@ -281,3 +366,6 @@ def project_nfl_player(
         "source": analysis["source"],
         "warnings": analysis["warnings"],
     }
+    if upgrade_pack is not None:
+        result["upgrade_pack"] = upgrade_pack
+    return result

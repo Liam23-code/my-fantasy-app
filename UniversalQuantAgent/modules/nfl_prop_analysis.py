@@ -34,6 +34,22 @@ rate per game, so ``P(at least one TD) = 1 - exp(-lambda)``. Passing TDs are not
 part of it (it is the standard "to score a TD" market). Its confidence and risk
 tier use the same engine helpers as the native markets.
 
+Optional matchup upgrade pack
+-----------------------------
+:func:`project_stat` and :func:`evaluate_line` take ``pack_context`` (a canonical-feature
+context from :mod:`modules.nfl_matchup_features`; this module never does that I/O). When given,
+the per-game MEAN of the market is passed through the NFL upgrade pack's stages for the
+player's position (collapse, explosion, coverage mismatch, explosive plays, red-zone funnel,
+game script, volume pass-through; see ``docs/nfl_model_upgrade_pack.md``) AFTER the status
+overlay, and the spread follows: a Gaussian market keeps its coefficient of variation, a count
+market uses ``sqrt(mean)``. The probabilities are then priced from the adjusted
+mean/stdev/family. ``pack_context=None`` (the default) returns exactly what this module has
+always returned -- no extra key, no changed number. A market the pack does not touch for that
+position (a QB's rushing yards, an RB's receiving line apart from volume pass-through) comes
+back numerically unchanged; the QB completion-percentage stage has no market here.
+Honest limits: the pack's weights are priors, several inputs are proxies or neutral without a
+free feed, and the baseline is still the player's PRIOR-season per-game rate.
+
 Sign and convention notes
 -------------------------
 * ``edge_*`` is model probability minus the market's **de-vigged** fair
@@ -121,6 +137,7 @@ from betting.prop_model import (
 from fantasy.projections import load_forward_projections, upcoming_season
 from projections.projection_engine import compute_final_projection
 
+from modules import nfl_upgrade_pipeline
 from modules.odds_input import (
     evaluate_price,
     format_american,
@@ -638,7 +655,78 @@ def _status_adjusted(player: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
     return status, dict(player)
 
 
-def project_stat(player: Mapping[str, Any], category_label: str) -> dict[str, Any]:
+def _pack_adjust(
+    market: str,
+    position: str,
+    distribution: dict[str, Any],
+    row: Mapping[str, Any],
+    games: float,
+    pack_context: Mapping[str, Any],
+    wr_role: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Pass a market's per-game mean through the upgrade pack; ``(distribution, report)``.
+
+    Never raises (a defect leaves the distribution untouched and is reported). The spread follows the
+    adjusted mean: a Gaussian market keeps its cv, a count (Poisson) market uses ``sqrt(mean)``.
+    """
+    mean_before = float(distribution["mean"])
+    report: dict[str, Any] = {
+        "applied": False, "neutral": True, "has_signal": False, "mean_before": mean_before, "mean_after": mean_before,
+        "adjustments": [], "summary": {}, "explanations": [], "warnings": [], "guard": [], "stage_order": [], "signals": {},
+    }
+    if position not in nfl_upgrade_pipeline.POSITIONS:
+        report["warnings"].append(f"The upgrade pack has no stage for position {position!r}; the projection is unchanged.")
+        return distribution, report
+    if market == ANYTIME_TD_MARKET:
+        line = {"rushing_tds": _num(row.get("rushing_tds")) / games, "receiving_tds": _num(row.get("receiving_tds")) / games}
+    else:
+        line = {market: mean_before}
+    try:
+        outcome = nfl_upgrade_pipeline.project_with_pack(line, position=position, context=pack_context, wr_role=wr_role)
+    except Exception as error:  # noqa: BLE001 - optional layer: never take a priced line down
+        report["warnings"].append(f"The upgrade pack could not be applied ({type(error).__name__}); the projection is unchanged.")
+        return distribution, report
+    adjusted = outcome.get("line") or {}
+    if market == ANYTIME_TD_MARKET:
+        mean_after = max(0.0, sum(float(adjusted.get(key, line[key])) for key in line))
+    else:
+        mean_after = max(0.0, float(adjusted.get(market, mean_before)))
+    signals = outcome.get("signals") or {}
+    report.update(
+        neutral=bool(outcome.get("neutral", True)),
+        has_signal=bool(signals.get("has_signal")),
+        adjustments=[dict(a) for a in outcome.get("adjustments") or []],
+        summary=dict(outcome.get("summary") or {}),
+        explanations=list(outcome.get("explanations") or []),
+        warnings=list(outcome.get("warnings") or []),
+        guard=list(outcome.get("guard") or []),
+        stage_order=list(outcome.get("stage_order") or []),
+        signals=dict(signals.get("probabilities") or {}),
+        mean_after=mean_after,
+    )
+    if abs(mean_after - mean_before) < 5e-4:
+        return distribution, report
+    updated = dict(distribution)
+    mean_new = round(mean_after, 3)
+    if distribution["family"] == "poisson":
+        stdev_new = math.sqrt(max(mean_new, 1e-6))
+        cv_new: float | None = round(stdev_new / mean_new, 4) if mean_new > 0 else None
+    else:
+        cv_old = distribution.get("cv")
+        cv_new = cv_old
+        stdev_new = max(mean_new * float(cv_old), 0.01) if cv_old is not None else max(float(distribution["stdev"]), 0.01)
+    updated.update(mean=mean_new, stdev=round(stdev_new, 3), cv=cv_new)
+    report["applied"] = True
+    return updated, report
+
+
+def project_stat(
+    player: Mapping[str, Any],
+    category_label: str,
+    *,
+    pack_context: Mapping[str, Any] | None = None,
+    wr_role: str = "wr",
+) -> dict[str, Any]:
     """The model's projection of ``category_label`` for ONE game for ``player``.
 
     Built from :func:`betting.prop_model.stat_distribution` (so the seven native
@@ -660,6 +748,13 @@ def project_stat(player: Mapping[str, Any], category_label: str) -> dict[str, An
 
     ``data_season`` is the season of the actuals (``prior_season`` on a forward-projection
     row), or ``None`` when the row does not say -- never the *projection* season.
+
+    ``pack_context`` (default ``None``) opts in to the NFL upgrade pack (see the module docstring): the
+    adjusted ``mean`` / ``stdev`` / ``cv`` replace the status-adjusted ones, and the result gains
+    ``pack_applied`` (the mean actually moved), ``mean_before_pack`` and ``pack`` (audit: ``adjustments``,
+    ``summary``, ``explanations``, ``warnings``, ``guard``, ``stage_order``, ``signals``, ``mean_before``,
+    ``mean_after``). ``wr_role`` (``"wr"`` | ``"slot"``) picks the coverage-mismatch role for a receiver.
+    With ``pack_context=None`` no key is added and no number changes.
 
     Raises ``ValueError`` for an unsupported category, a player that is not a row
     (``None``, a string), or a player with no games played (no per-game rate exists).
@@ -684,6 +779,12 @@ def project_stat(player: Mapping[str, Any], category_label: str) -> dict[str, An
         distribution = _anytime_td_distribution(row, ensemble, games)
     else:
         distribution = stat_distribution(row, market, ensemble=ensemble)
+    mean_before_pack = distribution["mean"]
+    pack_report: dict[str, Any] | None = None
+    if pack_context is not None:
+        distribution, pack_report = _pack_adjust(
+            market, _position(player), distribution, row, games, pack_context, wr_role
+        )
     cv = distribution["cv"] if distribution["cv"] is not None else CV_UNDEFINED
     confidence = _confidence(row, ensemble, distribution["games"])
 
@@ -697,7 +798,7 @@ def project_stat(player: Mapping[str, Any], category_label: str) -> dict[str, An
     fantasy_points = round(_num(player.get("projection") or player.get("expected_fantasy_points")), 2)
     drivers = [str(item) for item in (player.get("drivers") or [])]
     data_season = _data_season(player)
-    return {
+    result = {
         "player_id": player.get("player_id"),
         "name": name,
         "team": _team_of(player),
@@ -731,6 +832,11 @@ def project_stat(player: Mapping[str, Any], category_label: str) -> dict[str, An
         "eligible": is_eligible(player, category_label),
         "components": components,
     }
+    if pack_report is not None:
+        result["pack_applied"] = bool(pack_report["applied"])
+        result["mean_before_pack"] = mean_before_pack
+        result["pack"] = pack_report
+    return result
 
 
 def suggest_line(projection: Mapping[str, Any]) -> float:
@@ -889,6 +995,8 @@ def evaluate_line(
     *,
     stake: float = 100.0,
     pool: Sequence[Mapping[str, Any]] | None = None,
+    pack_context: Mapping[str, Any] | None = None,
+    wr_role: str = "wr",
 ) -> dict[str, Any]:
     """Price one pasted sportsbook line against the model.
 
@@ -941,7 +1049,10 @@ def evaluate_line(
     if not math.isfinite(stake) or stake <= 0:
         raise ValueError("stake must be a positive number")
 
-    projection = project_stat(player, category_label)
+    if pack_context is None:
+        projection = project_stat(player, category_label)
+    else:
+        projection = project_stat(player, category_label, pack_context=pack_context, wr_role=wr_role)
     market = spec["market"]
     mean, stdev, family = projection["mean"], projection["stdev"], projection["family"]
     integer_line = line.is_integer()
@@ -961,7 +1072,11 @@ def evaluate_line(
         risk_tier = engine["risk_tier"]
         distribution = dict(engine["distribution"])
         distribution["cv"] = projection["cv"]
-        if integer_line:
+        if projection.get("pack_applied"):
+            # The engine priced its own (unadjusted) distribution; price the pack-adjusted one instead.
+            distribution["mean"], distribution["stdev"] = mean, stdev
+            p_over, p_under, push = _line_probabilities(mean, stdev, family, line)
+        elif integer_line:
             p_over, p_under, push = _line_probabilities(mean, stdev, family, line)
         else:
             p_over, p_under, push = engine["model_probability_over"], engine["model_probability_under"], 0.0
@@ -1443,6 +1558,20 @@ def reasoning_for(
             )
         else:
             probability_text = f"The model's {side} probability is {format_pct(side_probability)}"
+        if projection.get("pack_applied"):
+            pack = projection.get("pack") or {}
+            before, after = _num(projection.get("mean_before_pack")), _num(projection.get("mean"))
+            change = (after / before - 1.0) if before > 0 else 0.0
+            sentences = " ".join(str(t) for t in (pack.get("explanations") or [])[:2])
+            raises = after > before
+            add(
+                "Matchup upgrade pack",
+                f"For this opponent the pack moves the {unit} projection from {_fmt_stat(before, unit)} to "
+                f"{_fmt_stat(after, unit)} ({change:+.1%}); the line above is priced on the adjusted number. {sentences} "
+                "The weights are priors, several inputs are proxies, and the baseline is the player's prior-season rate, "
+                "so treat the change as a lean.",
+                "pro" if (raises == (side == "over")) else "con",
+            )
         add(
             "What the price needs",
             f"At {format_american(over_price)} / {format_american(under_price)} the break-even win rates are "

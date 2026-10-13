@@ -33,9 +33,11 @@ import streamlit as st
 from app import betting_ui as bt
 from app.page_runtime import apply_global_theme, page_header, section_header
 from betting import player_status_utils as status_utils
+from modules import nfl_matchup_features as nmf
 from modules import nfl_moneyline_analysis as ml
 from modules import nfl_parlay_builder as pb
 from modules import nfl_prop_analysis as pa
+from modules import nfl_upgrade_pipeline as pipe
 from modules.odds_input import (
     evaluate_price,
     format_american,
@@ -515,6 +517,93 @@ def _team_game(games, team: str):
 
 
 # ---------------------------------------------------------------------------
+# NFL upgrade pack (opt-in toggle, default ON; every helper is fail-soft)
+# ---------------------------------------------------------------------------
+_GAME_ID = re.compile(r"^(\d{4})_(\d{1,2})_")
+
+
+def _pack_on() -> bool:
+    return bool(st.session_state.get("pl_use_pack", True))
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _pack_context(team, opponent, season, week, is_home, spread, total, player_id=None, name=None, position=None):
+    """One offence's feature context (``None`` when it cannot be built). ``spread`` is in the sportsbook sign."""
+    try:
+        player = {"player_id": player_id, "name": name, "team": team, "position": position} if (player_id or name) else None
+        return nmf.build_game_context(
+            team, opponent, season=season, week=week, is_home=is_home, vegas_spread=spread, vegas_total=total, player=player,
+        )
+    except Exception:  # noqa: BLE001 - the pack is optional
+        return None
+
+
+def _game_contexts(game) -> dict:
+    """``{"home": ctx, "away": ctx}`` for a schedule game (``{}`` when the pack is off or nothing could be built)."""
+    if not _pack_on() or not game:
+        return {}
+    market = game.get("market_spread_home")  # nflverse sign: positive = HOME favored
+    home, away, total = game["home_team"], game["away_team"], game.get("market_total")
+    sides = (
+        ("home", home, away, True, None if market is None else -float(market)),
+        ("away", away, home, False, None if market is None else float(market)),
+    )
+    built = {}
+    for side, team, opponent, is_home, spread in sides:
+        context = _pack_context(team, opponent, game.get("season"), game.get("week"), is_home, spread, total)
+        if context:
+            built[side] = context
+    return built
+
+
+def _analyze(game, ratings, qb_context, **kwargs):
+    """``ml.analyze_game`` with the pack's contexts when they exist (the kwarg is passed only then)."""
+    contexts = _game_contexts(game)
+    if contexts:
+        kwargs["pack_contexts"] = contexts
+    return ml.analyze_game(game, ratings, qb_context, **kwargs)
+
+
+def _prop_pack_kwargs(player, game) -> dict:
+    """``{"pack_context": ctx}`` for a prop leg when the pack is on and the player's game is known, else ``{}``."""
+    if not _pack_on() or not game:
+        return {}
+    team = ml.normalize_team(player.get("team"))
+    home, away = game["home_team"], game["away_team"]
+    if team not in (home, away):
+        return {}
+    is_home = team == home
+    market = game.get("market_spread_home")
+    spread = None if market is None else (-float(market) if is_home else float(market))
+    context = _pack_context(
+        team, away if is_home else home, game.get("season"), game.get("week"), is_home, spread, game.get("market_total"),
+        str(player.get("player_id") or ""), str(player.get("name") or ""), str(player.get("position") or ""),
+    )
+    return {"pack_context": context} if context else {}
+
+
+def _slip_signals(legs):
+    """``{TEAM: team_signals}`` for both offences of every game the slip touches, or ``None`` when there are none."""
+    if not _pack_on():
+        return None
+    signals = {}
+    for leg in legs:
+        match = _GAME_ID.match(str(leg.get("game_id") or ""))
+        season, week = (int(match.group(1)), int(match.group(2))) if match else (None, None)
+        team, opponent, home = leg.get("team"), leg.get("opponent"), leg.get("home_team")
+        for offence, defence in ((team, opponent), (opponent, team)):
+            if not offence or not defence or offence in signals:
+                continue
+            context = _pack_context(offence, defence, season, week, (offence == home) if home else None, None, None)
+            if context and context.get("has_features"):
+                try:
+                    signals[offence] = pipe.team_signals(context)
+                except Exception:  # noqa: BLE001
+                    continue
+    return signals or None
+
+
+# ---------------------------------------------------------------------------
 # Game preview (moneyline and spread builders)
 # ---------------------------------------------------------------------------
 def _qb_line(analysis, game, side: str) -> str:
@@ -704,7 +793,7 @@ def _moneyline_price(analysis, side: str, text):
 
 
 def _render_moneyline_builder(inputs, game, side: str):
-    analysis = ml.analyze_game(game, inputs["ratings"], inputs["qb_context"])
+    analysis = _analyze(game, inputs["ratings"], inputs["qb_context"])
     _render_game_preview(game, analysis, inputs.get("warnings") or [])
     # A typed price belongs to the bet it was typed for: carried over to another game or side it would be added
     # to the wrong leg without a word, so the box starts blank again whenever the game or side changes.
@@ -752,7 +841,7 @@ def _default_spread_text(analysis, side: str) -> str:
 
 
 def _render_spread_builder(inputs, game, side: str):
-    base = ml.analyze_game(game, inputs["ratings"], inputs["qb_context"])
+    base = _analyze(game, inputs["ratings"], inputs["qb_context"])
     _render_game_preview(game, base, inputs.get("warnings") or [])
     _reseed("pl_sp_line", "pl_sp_ctx", (game["game_id"], side), _default_spread_text(base, side))
     team, _opponent = _teams(base, side)
@@ -801,7 +890,7 @@ def _render_spread_builder(inputs, game, side: str):
     # Sign adapter. The leg line is what the backed team receives (-3.5 lays 3.5). The engine's
     # user_spread_home uses the nflverse convention, where POSITIVE means the HOME team is favored.
     user_spread_home = -line if side == "home" else line
-    analysis = ml.analyze_game(game, inputs["ratings"], inputs["qb_context"], user_spread_home=user_spread_home)
+    analysis = _analyze(game, inputs["ratings"], inputs["qb_context"], user_spread_home=user_spread_home)
     try:
         candidate = _build_spread_leg(game, analysis, side, line, price, source)
         _price_tiles(analysis["probabilities"]["home_cover" if side == "home" else "away_cover"], price, source, "Model cover probability")
@@ -875,8 +964,9 @@ def _render_prop_builder(inputs):
     _remember("pl_pp_cat")
     if category is None:
         return None, "This player has no stat that can be priced."
+    pack_kwargs = _prop_pack_kwargs(player, _team_game(week_games, ml.normalize_team(player.get("team"))) if week_games else None)
     try:
-        projection = pa.project_stat(player, category)
+        projection = pa.project_stat(player, category, **pack_kwargs)
     except ValueError as problem:
         _notices([str(problem)], "warn")
         return None, ""
@@ -923,7 +1013,9 @@ def _render_prop_builder(inputs):
         return None, checked["message"]
     _notices(checked["notes"], "steel")
     try:
-        evaluation = pa.evaluate_line(player, category, checked["line"], checked["over_price"], checked["under_price"])
+        evaluation = pa.evaluate_line(
+            player, category, checked["line"], checked["over_price"], checked["under_price"], **pack_kwargs
+        )
     except ValueError as problem:
         _notices([_leg_problem(problem)], "warn")
         return None, ""
@@ -1048,8 +1140,11 @@ def _example_prop(pool, game, team: str):
             if pa.player_status(player) in status_utils.UNAVAILABLE_STATUSES:
                 continue
             try:
-                projection = pa.project_stat(player, category)
-                evaluation = pa.evaluate_line(player, category, pa.suggest_line(projection), pa.DEFAULT_PRICE, pa.DEFAULT_PRICE)
+                kw = _prop_pack_kwargs(player, game)
+                projection = pa.project_stat(player, category, **kw)
+                evaluation = pa.evaluate_line(
+                    player, category, pa.suggest_line(projection), pa.DEFAULT_PRICE, pa.DEFAULT_PRICE, **kw
+                )
                 return _build_prop_leg(player, evaluation, "over", game, SRC_STANDARD)
             except ValueError:
                 continue
@@ -1064,7 +1159,7 @@ def _build_example(inputs, pool):
     rated = []
     for game in games:
         try:
-            analysis = ml.analyze_game(game, ratings, qb_context)
+            analysis = _analyze(game, ratings, qb_context)
         except ValueError:
             continue
         side = analysis["favored"]
@@ -1264,8 +1359,10 @@ def _render_pricing_inputs() -> None:
 # Results
 # ---------------------------------------------------------------------------
 def _evaluate(legs, stake: float, book_price):
+    signals = _slip_signals(legs)
+    extra = {"pack_signals": signals} if signals else {}  # passed only when there are signals: default is untouched
     try:
-        return pb.evaluate_parlay_legs(legs, stake=stake, book_price=book_price), None
+        return pb.evaluate_parlay_legs(legs, stake=stake, book_price=book_price, **extra), None
     except ValueError as problem:
         return None, str(problem)
 
@@ -1449,6 +1546,139 @@ def _render_correlation_section(result, legs) -> None:
         bt.render(bt.notice_html("No linked pairs: these legs are in different games or have no modelled relationship, so they are priced as independent.", "steel"))
 
 
+def _opportunity_candidates(legs, signals):
+    """Illustrative two-leg stacks (QB over passing yards + a receiver's over) for the offences in the slip.
+
+    Built from the model's OWN suggested half-point lines at -110 / -110, not from any sportsbook number.
+    """
+    pool, error = _load_pool()
+    if error or not pool:
+        return []
+    seen = []
+    for leg in legs:
+        match = _GAME_ID.match(str(leg.get("game_id") or ""))
+        season, week = (int(match.group(1)), int(match.group(2))) if match else (None, None)
+        for team, opponent in ((leg.get("team"), leg.get("opponent")), (leg.get("opponent"), leg.get("team"))):
+            if team and opponent and team not in [row[0] for row in seen]:
+                seen.append((team, opponent, leg.get("game_id"), leg.get("home_team"), leg.get("away_team"), season, week))
+    candidates = []
+    for team, opponent, game_id, home, away, season, week in seen:
+        if team not in signals:
+            continue
+        game = {"game_id": game_id, "home_team": home, "away_team": away, "label": f"{away} @ {home}", "week": week, "played": False}
+        picks = []
+        for category, positions in (("Passing Yards", ("QB",)), ("Receiving Yards", ("WR", "TE"))):
+            chosen = None
+            for player in pa.players_for_team(pool, team, category):
+                if pa.player_status(player) in status_utils.UNAVAILABLE_STATUSES:
+                    continue
+                if str(player.get("position") or "").upper() not in positions:
+                    continue
+                chosen = player
+                break
+            if chosen is None:
+                break
+            context = _pack_context(
+                team, opponent, season, week, (team == home) if home else None, None, None,
+                str(chosen.get("player_id") or ""), str(chosen.get("name") or ""), str(chosen.get("position") or ""),
+            )
+            kw = {"pack_context": context} if context else {}
+            try:
+                projection = pa.project_stat(chosen, category, **kw)
+                evaluation = pa.evaluate_line(chosen, category, pa.suggest_line(projection), pa.DEFAULT_PRICE, pa.DEFAULT_PRICE, **kw)
+                picks.append(_build_prop_leg(chosen, evaluation, "over", game, SRC_STANDARD))
+            except ValueError:
+                break
+        if len(picks) == 2:
+            candidates.append(picks)
+    return candidates
+
+
+def _render_pack_section(legs, result) -> None:
+    """What the matchup upgrade pack did to this parlay's correlations, how strong the ticket reads, and ranked stacks."""
+    if not _pack_on():
+        return
+    pack = result.get("pack") if isinstance(result, dict) else None
+    section_header(
+        "Matchup upgrade pack",
+        "Collapse, explosion and game-script signals for each game, read against these legs.",
+    )
+    if not pack or not pack.get("has_signal"):
+        bt.render(bt.notice_html(
+            "No matchup features were available for these legs' games, so the correlations are the rule table's. "
+            "Nothing was changed.", "steel"))
+        return
+    flags = pack.get("flags") or {}
+    chips = []
+    if flags.get("trap"):
+        chips.append(bt.chip_html("TRAP", "bad"))
+    if flags.get("mega"):
+        chips.append(bt.chip_html("MEGA", "good"))
+    if flags.get("contradiction"):
+        chips.append(bt.chip_html("Contradiction", "bad"))
+    if flags.get("boost_overs"):
+        chips.append(bt.chip_html("Correlated overs boosted", "cyan"))
+    if flags.get("boost_unders"):
+        chips.append(bt.chip_html("Correlated unders boosted", "cyan"))
+    if chips:
+        bt.render(f'<div class="bt bt-chips">{"".join(chips)}</div>')
+    score = pack.get("score")
+    if isinstance(score, (int, float)):
+        tone = "bad" if flags.get("trap") else "good" if flags.get("mega") else "steel"
+        bt.render(bt.meter_html(
+            "Strength (how well these legs ride this game's signals)", score / 100.0, max_value=1.0,
+            display=f"{score:.0f} / 100", tone=tone,
+            caption="50 is neutral. Above it the legs ride regimes this game favors; below it they work against them. "
+                    "A screening label, not a prediction.",
+        ))
+    for reason in (pack.get("reasons") or [])[:4]:
+        st.write(reason)
+    changed = pack.get("pairs") or []
+    if changed:
+        rows = ["| Legs | Rule table | With the pack |", "|---|---|---|"]
+        for pair in changed[:6]:
+            labels = pair.get("labels") or ()
+            names = " + ".join(str(label) for label in labels) if labels else f"legs {pair['legs'][0] + 1}, {pair['legs'][1] + 1}"
+            rows.append(f"| {names} | {pair['base_rho']:+.2f} | {pair['blended_rho']:+.2f} |")
+        st.markdown(chr(10).join(rows))
+        st.caption("Correlations the pack moved (rho of the legs winning together). Moneyline-and-spread ties and "
+                   "legs in different games are never changed.")
+    if pack.get("error"):
+        st.caption(f"Note: part of the pack could not run ({pack['error']}); the rule table was used where it failed.")
+    signals = _slip_signals(legs) or {}
+    candidates = _opportunity_candidates(legs, signals) if signals else []
+    if candidates:
+        try:
+            ranked = pb.rank_parlay_opportunities(candidates, pack_signals=signals)
+        except Exception:  # noqa: BLE001
+            ranked = []
+        if ranked:
+            with st.expander("Ranked stack opportunities in these games", expanded=False, key="pl_pack_opps"):
+                rows = ["| # | Stack | Strength | Flag | Hit chance | EV on $100 |", "|---|---|---|---|---|---|"]
+                for row in ranked[:6]:
+                    evaluation = row["evaluation"]
+                    flag = "TRAP" if row["flags"].get("trap") else "MEGA" if row["flags"].get("mega") else ""
+                    rows.append(
+                        f"| {row['rank']} | {' + '.join(evaluation['labels'])} | {row['score']:.0f} | {flag} | "
+                        f"{_prob_text(evaluation['adjusted_probability'])} | {evaluation['ev_adjusted']:+.2f} |"
+                    )
+                st.markdown(chr(10).join(rows))
+                st.caption(
+                    "Illustrative: each stack is a QB over and a receiver's over at the model's own suggested half-point "
+                    "lines at -110 / -110, not your book's numbers. Ranked by the pack's strength score, then EV."
+                )
+    with st.expander("How the pack changes these numbers, and its limits", expanded=False, key="pl_pack_method"):
+        st.markdown(_md(
+            "The rule-table correlations above are the baseline. For legs in the same game the pack adds how THIS game's "
+            "signals (a quarterback or pass game likely to collapse, an offense likely to explode, a pass-heavy or "
+            "run-heavy script) differ from a league-average game, and nothing more, so an average game leaves the "
+            "table exactly as it was. Its weights are priors, not fitted to results; several inputs are free-data "
+            "proxies or neutral where no free feed exists (coverage mismatch is inert without a player feed); the "
+            "regime model's own correlations are much smaller than the observed same-team ones, which is why it only "
+            "nudges; and sportsbooks reprice same-game parlays, so MEGA is a screening label, not an edge."
+        ))
+
+
 def _render_results(legs, result, error, stake: float) -> None:
     if result is None:
         if len(legs) < 2:
@@ -1466,6 +1696,7 @@ def _render_results(legs, result, error, stake: float) -> None:
     _render_probability_section(result, stake)
     _render_risk_section(result)
     _render_correlation_section(result, legs)
+    _render_pack_section(legs, result)
 
 
 # ---------------------------------------------------------------------------
@@ -1519,6 +1750,15 @@ page_header(
 _inputs, _inputs_error = _load_game_inputs()
 if _inputs is not None:
     _notices(_inputs.get("warnings") or [], "steel")
+st.toggle(
+    "Use the matchup upgrade pack",
+    value=True,
+    key="pl_use_pack",
+    help=(
+        "Prices legs on the pack-adjusted projections and lets each game's collapse / explosion / game-script signals "
+        "adjust the correlations, with MEGA and TRAP flags. A league-average game is unchanged."
+    ),
+)
 _process_example_request(_inputs)
 
 _build_col, _slip_col = st.columns([1, 1], gap="large")

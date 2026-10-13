@@ -40,6 +40,7 @@ from app import betting_ui as bt
 from app.page_runtime import apply_global_theme, page_header, section_header
 from app.style import CIRCUIT_CYAN, MIDNIGHT_NAVY, SIGNAL_GOLD, SOFT_WHITE
 from betting.odds_math import hold as book_hold
+from modules import nfl_matchup_features as nmf
 from modules import nfl_moneyline_analysis as nma
 from modules import odds_input as oi
 
@@ -260,6 +261,29 @@ def _get_inputs(season: int) -> dict[str, Any]:
 def _clear_all_caches() -> None:
     st.cache_data.clear()
     nma.clear_caches()
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _pack_contexts(season: int | None, week: int, home: str, away: str, market_spread_home: float | None,
+                   market_total: float | None) -> dict[str, Any]:
+    """Both offences' upgrade-pack contexts for one game (``{}`` when they cannot be built).
+
+    ``market_spread_home`` is the page's nflverse sign (positive = HOME favored); the assembler wants the
+    sportsbook sign per team (-7 = this team favored by 7), so the home offence gets ``-spread`` and the away
+    offence ``+spread``. A missing line is left to the assembler's own schedule lookup. Fail-soft: the pack is
+    optional, so any failure here must leave the analysis exactly as it was.
+    """
+    try:
+        home_line = None if market_spread_home is None else 0.0 - float(market_spread_home)
+        away_line = None if market_spread_home is None else float(market_spread_home)
+        return {
+            "home": nmf.build_game_context(home, away, season=season, week=week, is_home=True,
+                                           vegas_spread=home_line, vegas_total=market_total),
+            "away": nmf.build_game_context(away, home, season=season, week=week, is_home=False,
+                                           vegas_spread=away_line, vegas_total=market_total),
+        }
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def _render_load_failure(title: str, body: str) -> None:
@@ -990,6 +1014,64 @@ def _render_reasoning(analysis: dict[str, Any]) -> None:
     )
 
 
+def _pct1(value: Any) -> str:
+    number = _num(value)
+    return "n/a" if number is None else f"{number * 100:.1f}%"
+
+
+def _render_pack(analysis: dict[str, Any], *, enabled: bool) -> None:
+    """The upgrade pack's explosion stage for the selected game: what moved, by how much, and why to doubt it."""
+    pack = analysis.get("pack")
+    if not enabled or not pack:
+        return
+    home, away = analysis["home_team"], analysis["away_team"]
+    section_header(
+        "Matchup upgrade pack",
+        "Explosion chance for each offense against the defense it faces, and what it did to expected points.",
+    )
+    if not pack.get("has_signal"):
+        bt.render(
+            bt.empty_card_html(
+                "No matchup features were available",
+                "The team and opposing-defense features could not be loaded for this game, so expected points are the "
+                "base model's. Nothing was changed.",
+            )
+        )
+        return
+    rows = [
+        "| Offense | Explosion chance | League average | Expected points | QB collapse risk |",
+        "|---|---|---|---|---|",
+    ]
+    for code, side in ((home, "home"), (away, "away")):
+        info = pack[side]
+        change = (
+            f"{info['points_before']:.1f} → **{info['points_after']:.1f}** ({info['points_delta']:+.1f})"
+            if info.get("applied")
+            else f"{info['points_before']:.1f} (unchanged)"
+        )
+        collapse = (
+            f"{_pct1(info.get('collapse_probability'))} (avg {_pct1(info.get('collapse_reference'))})"
+            if info.get("collapse_probability") is not None
+            else "n/a"
+        )
+        rows.append(
+            f"| {code} | {_pct1(info.get('explosion_probability'))} | {_pct1(info.get('reference_probability'))} | {change} | {collapse} |"
+        )
+    st.markdown(chr(10).join(rows))
+    if pack.get("applied"):
+        st.caption(
+            f"Model spread {pack['spread_before']:+.1f} → {pack['spread_after']:+.1f} (positive = {home} favored) and "
+            f"total {pack['total_before']:.1f} → {pack['total_after']:.1f}. Everything below, including win "
+            "probability and the price check, uses the adjusted numbers."
+        )
+    else:
+        st.caption("This matchup is close to league average, so the pack left expected points unchanged.")
+    for text in pack.get("warnings", [])[:4]:
+        st.caption(f"Note: {text}")
+    with st.expander("How the pack adjusts this, and its limits", key="ml_pack_method"):
+        st.markdown(pack["basis"])
+
+
 def _render_methodology() -> None:
     k_games, carry, blend = nma.BLEND_K_GAMES, nma.PRIOR_CARRYOVER, nma.EFFICIENCY_WEIGHT
     with st.expander("How this is computed and its limits", key="ml_method"):
@@ -1124,8 +1206,25 @@ def _render_page() -> None:
     if spread_now.value is not None:
         user_spread_home = 0.0 - spread_now.value  # sportsbook "home -3.5" is nflverse +3.5 (positive = home favored)
 
+    use_pack = st.toggle(
+        "Use the matchup upgrade pack",
+        value=True,
+        key="ml_use_pack",
+        help=(
+            "Adds the pack's explosion stage to each team's expected points: an elite offense against a weak defense "
+            "scores more. A league-average matchup is unchanged. The slate tiles above show the base model."
+        ),
+    )
+    pack_contexts = None
+    if use_pack:
+        pack_contexts = _pack_contexts(
+            game.get("season") or season, int(game["week"]), game["home_team"], game["away_team"],
+            game.get("market_spread_home"), game.get("market_total"),
+        ) or None
+
     try:
-        analysis = nma.analyze_game(game, ratings, qb_context, user_spread_home=user_spread_home)
+        extra = {"pack_contexts": pack_contexts} if pack_contexts else {}  # the kwarg only exists when the pack is in play
+        analysis = nma.analyze_game(game, ratings, qb_context, user_spread_home=user_spread_home, **extra)
     except Exception as error:  # noqa: BLE001
         bt.render(
             bt.empty_card_html(
@@ -1142,6 +1241,7 @@ def _render_page() -> None:
     _render_price_check(analysis)
     _render_breakdown(analysis, game)
     _render_reasoning(analysis)
+    _render_pack(analysis, enabled=use_pack)
     _render_methodology()
     if scroll_to_analysis:  # last, so the script's element never shifts anything above it on the next run
         _scroll_to_analysis()

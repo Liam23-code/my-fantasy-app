@@ -33,6 +33,7 @@ import pandas as pd
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
+from modules import nfl_matchup_features as nmf
 from modules import nfl_moneyline_analysis as nma
 from modules import odds_input as oi
 
@@ -49,6 +50,23 @@ _RAW_COLUMNS = [
 ]
 _NAN = float("nan")
 
+
+
+_PACK_PATCH = None
+
+
+def setUpModule():
+    """The page's matchup upgrade pack is ON by default; its context builder does I/O. These tests pin the base
+    model, so the builder is made to fail (the page then quietly runs without the pack, exactly as it did before
+    the pack existed). ``test_nfl_moneyline_pack_page.py`` exercises the pack path."""
+    global _PACK_PATCH
+    _PACK_PATCH = mock.patch.object(nmf, "build_game_context", side_effect=RuntimeError("pack disabled for base-model tests"))
+    _PACK_PATCH.start()
+
+
+def tearDownModule():
+    if _PACK_PATCH is not None:
+        _PACK_PATCH.stop()
 
 def raw_game(week, away, home, *, gameday, gametime="13:00", away_score=None, home_score=None, spread=None,
              total=None, home_ml=None, away_ml=None, home_qb=None, away_qb=None, roof="outdoors", wind=5.0,

@@ -81,6 +81,37 @@ HONEST LIMITS -- read before trusting a number
 * The tier/score is a rule of thumb for how fragile the ticket is, not a
   prediction.
 
+Optional upgrade-pack layer (opt-in, default off)
+--------------------------------------------------
+:func:`correlation_matrix`, :func:`evaluate_parlay_legs` and
+:func:`rank_parlay_opportunities` take ``pack_signals`` -- ``{TEAM:
+nfl_upgrade_pipeline.team_signals(context)}``, one bundle per offence. The caller (the
+page) builds those through ``modules.nfl_matchup_features``; this module stays pure and
+offline, and imports :mod:`modules.parlay_correlation` lazily so it still works without
+the pack.
+
+* **Additive evidence, never a replacement.** The pack's regime model only *moves* the
+  rule table's number by how this game's regimes differ from a league-average game
+  (``blended = base + w * (pack_rho - pack_rho_at_average)``). A pair is touched only when
+  both legs are in one game, the pair is not structural (|base| < 0.999, not the ``-2.0``
+  contradiction sentinel) and both teams carry signal. The structural ``+/-1`` ties and the
+  sentinel survive untouched, and the matrix is re-tied (:func:`_tie_structural_groups`)
+  after blending so a third leg still sees a tied group as ONE variable.
+* **Nothing changes unless asked.** With ``pack_signals=None`` every returned dict is
+  byte-identical to the pre-pack one -- no new key, no new number. With signals that carry
+  no information (a league-average bundle, a missing team) the numbers are also unchanged
+  and the ``pack`` report says ``applied=False``.
+* **The ``pack`` report.** ``{"applied", "weight", "pack_pairs", "pairs", "strength",
+  "flags", "reasons", ...}``; ``strength`` is :func:`modules.parlay_correlation.parlay_strength`
+  evaluated on the matrix the ticket was PRICED with. ``flags`` has ``mega``, ``trap``,
+  ``contradiction``, ``boost_overs`` and ``boost_unders``. A flag adds a plain-English line
+  (with numbers) to ``warnings`` and ``risk_factors``; no flag, no line.
+* **Risk stays monotone.** A ``trap`` flag adds :data:`PACK_TRAP_RISK_POINTS` to the
+  correlation-concentration component on top of its cap; no flag ever lowers the score.
+* **Honest limits.** The pack's weights are priors, several of its inputs are proxies or
+  neutral without a free feed (coverage mismatch is inert without a player feed), and a
+  sportsbook reprices same-game parlays, so a "mega" is a screening label, not an edge.
+
 Sign conventions
 ----------------
 * ``probability`` is always the chance the leg *wins* as built (the over, the
@@ -148,6 +179,13 @@ MAX_ABS_BOOK_PRICE = 100_000_000.0
 MAX_STAKE = 1_000_000_000.0
 #: Largest prop line accepted (no NFL player stat is anywhere near this).
 MAX_PROP_LINE = 10_000.0
+#: Risk points an upgrade-pack TRAP flag adds to the correlation-concentration component, ON TOP of that
+#: component's own cap (:data:`_RISK_CORR_MAX`). It only ever raises the score.
+PACK_TRAP_RISK_POINTS = 5.0
+#: Every warning / risk-factor line the pack layer writes starts with this, so a page can style them.
+PACK_NOTE_PREFIX = "Upgrade pack: "
+#: A matrix entry that moved by less than this (after tying) is not reported as a pack change.
+_PACK_CHANGE_EPS = 5e-5
 
 _MC_SEED = 20260930  # fixed: the same parlay must always price identically
 _MC_CHUNK = 50_000
@@ -1182,7 +1220,36 @@ def _copula_matrix(table: Mapping[tuple[int, int], Mapping[str, Any]], n: int) -
     return _tie_structural_groups(matrix)
 
 
-def correlation_matrix(legs: Sequence[Mapping[str, Any]]) -> list[list[float]]:
+def _pack_blend(
+    legs: Sequence[Mapping[str, Any]],
+    base_matrix: list[list[float]],
+    pack_signals: Any,
+) -> tuple[list[list[float]], dict[str, Any] | None, str | None]:
+    """Blend the upgrade pack's regime correlation into ``base_matrix``.
+
+    Returns ``(matrix, built, error)``. ``matrix`` IS ``base_matrix`` (the same object) unless the pack touched
+    at least one pair; ``built`` is :func:`modules.parlay_correlation.build_correlation_matrix`'s report (``None``
+    when the pack could not run) and ``error`` is a short text in that case. The pack is additive evidence, so
+    any failure inside it must leave pricing exactly as the rule table had it.
+    """
+    try:
+        from modules import parlay_correlation  # lazy: the pack is optional; this module works without it
+
+        built = parlay_correlation.build_correlation_matrix(legs, pack_signals, base_matrix=base_matrix)
+    except Exception as problem:  # noqa: BLE001 - never let optional evidence break pricing
+        return base_matrix, None, f"{type(problem).__name__}: {problem}"
+    if not built.get("pack_pairs"):
+        return base_matrix, built, None
+    # The pack blends pair by pair, so a tied structural group (an ML and its spread) can end up with two
+    # different correlations to one third leg; re-tie so the group is still ONE variable to that leg.
+    return _tie_structural_groups([list(row) for row in built["matrix"]]), built, None
+
+
+def correlation_matrix(
+    legs: Sequence[Mapping[str, Any]],
+    *,
+    pack_signals: Mapping[str, Any] | None = None,
+) -> list[list[float]]:
     """Symmetric ``n x n`` matrix of pairwise copula correlations with a unit diagonal.
 
     This is the input :func:`joint_probability` expects, so
@@ -1199,9 +1266,17 @@ def correlation_matrix(legs: Sequence[Mapping[str, Any]]) -> list[list[float]]:
     The entry can therefore differ slightly from that pair's own ``rho`` in
     :func:`leg_correlation` whenever a structurally tied group shares a ticket with
     another leg; the matrix is what the price is built from.
+
+    ``pack_signals`` (optional, ``{TEAM: nfl_upgrade_pipeline.team_signals(context)}``) blends the NFL upgrade
+    pack's regime correlation into the rule table above -- see the module docstring. ``None`` (the default), an
+    empty mapping or signals with no information return the rule-table matrix unchanged; the diagonal stays 1,
+    the matrix stays symmetric, and the structural ``+/-1`` entries and the ``-2.0`` sentinel are never touched.
     """
     n = len(legs)
-    return _copula_matrix(_pair_table(legs), n)
+    base = _copula_matrix(_pair_table(legs), n)
+    if not pack_signals:
+        return base
+    return _pack_blend(legs, base, pack_signals)[0]
 
 
 def pairwise_findings(legs: Sequence[Mapping[str, Any]], *, include_none: bool = False) -> list[dict[str, Any]]:
@@ -1588,6 +1663,82 @@ def joint_probability(
 
 
 # --------------------------------------------------------------------------- #
+# Upgrade-pack report and risk bump
+# --------------------------------------------------------------------------- #
+
+
+def _pack_report(
+    legs: Sequence[Mapping[str, Any]],
+    pack_signals: Any,
+    matrix: list[list[float]],
+    base_matrix: list[list[float]],
+    built: Mapping[str, Any] | None,
+    error: str | None,
+    adjusted_probability: float,
+    naive_probability: float,
+) -> dict[str, Any]:
+    """The ``pack`` block of :func:`evaluate_parlay_legs` (never raises; a failure is reported inside it)."""
+    report: dict[str, Any] = {
+        "applied": False,
+        "has_signal": False,
+        "weight": None,
+        "pack_pairs": 0,
+        "pairs": [],
+        "strength": None,
+        "flags": {"mega": False, "trap": False, "contradiction": False, "boost_overs": False, "boost_unders": False},
+        "reasons": [],
+        "score": None,
+        "error": error,
+    }
+    if built is not None:
+        report["has_signal"] = bool(built.get("has_signal"))
+        report["weight"] = built.get("weight")
+        report["pack_pairs"] = int(built.get("pack_pairs") or 0)
+        report["applied"] = report["pack_pairs"] > 0
+        changed = []
+        n = len(legs)
+        for pair in built.get("pairs") or []:
+            i, j = pair.get("i"), pair.get("j")
+            if not isinstance(i, int) or not isinstance(j, int) or not (0 <= i < n and 0 <= j < n):
+                continue
+            after, before = matrix[i][j], base_matrix[i][j]
+            if abs(after - before) >= _PACK_CHANGE_EPS:
+                changed.append({
+                    "legs": (i, j), "labels": tuple(pair.get("labels") or ()), "base_rho": round(before, 4),
+                    "blended_rho": round(after, 4), "pack_rho": pair.get("pack_rho"), "kind": pair.get("kind"),
+                    "note": pair.get("note"),
+                })
+        report["pairs"] = changed
+    try:
+        from modules import parlay_correlation
+
+        strength = parlay_correlation.parlay_strength(
+            legs, pack_signals, matrix=matrix, base_matrix=base_matrix,
+            joint_probability=adjusted_probability, independent_probability=naive_probability,
+        )
+        report["strength"] = strength
+        report["flags"] = dict(strength.get("flags") or report["flags"])
+        report["reasons"] = list(strength.get("reasons") or [])
+        report["score"] = strength.get("score")
+        report["has_signal"] = bool(report["has_signal"] or strength.get("has_signal"))
+    except Exception as problem:  # noqa: BLE001 - optional evidence must never break pricing
+        report["error"] = report["error"] or f"{type(problem).__name__}: {problem}"
+    return report
+
+
+def _bump_risk(risk: dict[str, Any], points: float) -> dict[str, Any]:
+    """``risk`` with ``points`` more correlation-concentration risk (only ever raises the score; blocked stays 100)."""
+    if risk["score"] >= 100.0 or points <= 0:
+        return risk
+    score = round(min(100.0, risk["score"] + points), 1)
+    tier = "High" if score >= _RISK_HIGH_AT else "Medium" if score >= _RISK_MEDIUM_AT else "Low"
+    breakdown = dict(risk["breakdown"])
+    breakdown["correlation"] = round(breakdown["correlation"] + points, 1)
+    breakdown["pack_trap"] = round(points, 1)
+    return {**risk, "score": score, "tier": tier, "breakdown": breakdown}
+
+
+# --------------------------------------------------------------------------- #
 # Parlay evaluation
 # --------------------------------------------------------------------------- #
 
@@ -1707,8 +1858,13 @@ def evaluate_parlay_legs(
     stake: float = 100.0,
     book_price: float | None = None,
     draws: int = DEFAULT_DRAWS,
+    pack_signals: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Price a parlay of 2+ legs: correlation, combined probability, EV, and risk tier.
+
+    ``pack_signals`` (optional, ``{TEAM: nfl_upgrade_pipeline.team_signals(context)}``) opts in to the NFL
+    upgrade pack's regime correlation and adds a ``pack`` key (see the module docstring); ``None`` leaves
+    every returned value and key exactly as it was before the pack existed.
 
     ``legs`` come from :func:`make_parlay_leg`. ``stake`` is in dollars.
     ``book_price`` (optional, American) is the combined price the sportsbook
@@ -1811,6 +1967,11 @@ def evaluate_parlay_legs(
 
     table = _pair_table(checked)
     matrix = _copula_matrix(table, n)
+    base_matrix = matrix
+    pack_built: dict[str, Any] | None = None
+    pack_error: str | None = None
+    if pack_signals is not None:
+        matrix, pack_built, pack_error = _pack_blend(checked, base_matrix, pack_signals)
     findings = [
         {"legs": (i, j), "labels": (labels[i], labels[j]), **found}
         for (i, j), found in table.items()
@@ -1867,6 +2028,11 @@ def evaluate_parlay_legs(
     correlation_mass = sum(abs(f["rho"]) for f in findings)
     engine_tier = _engine_risk_tier(n, adjusted_r)
     risk = _risk(n, adjusted_r, longest_decimal, correlation_mass, engine_tier, blocked=bool(contradictions))
+    pack: dict[str, Any] | None = None
+    if pack_signals is not None:
+        pack = _pack_report(checked, pack_signals, matrix, base_matrix, pack_built, pack_error, adjusted_r, naive_r)
+        if pack["flags"].get("trap") and not contradictions:
+            risk = _bump_risk(risk, PACK_TRAP_RISK_POINTS)
 
     games = {leg.get("game_id") for leg in checked}
     one_game = all(
@@ -1957,6 +2123,24 @@ def evaluate_parlay_legs(
             "(<=2 legs and >=35% is Low, <=4 legs and >=15% is Medium, otherwise High)."
         )
 
+    if pack is not None and not contradictions:
+        pack_flags = pack["flags"]
+        reasons = pack.get("reasons") or []
+        lead = reasons[0] if reasons else ""
+        score_text = f" (strength {pack['score']:.0f}/100)" if isinstance(pack.get("score"), (int, float)) else ""
+        if pack_flags.get("trap"):
+            warnings.append(
+                f"{PACK_NOTE_PREFIX}this looks like a correlated stack but this game's signals work against it{score_text}. {lead}".strip()
+            )
+            factors.append(f"{PACK_NOTE_PREFIX}TRAP flag{score_text}: the shared driver of these legs is adverse in this game.")
+        elif pack_flags.get("mega"):
+            factors.append(
+                f"{PACK_NOTE_PREFIX}MEGA flag{score_text}: the legs ride regimes this game's signals favor. {lead}".strip()
+            )
+        for key, text in (("boost_overs", "overs"), ("boost_unders", "unders")):
+            if pack_flags.get(key) and not pack_flags.get("trap"):
+                factors.append(f"{PACK_NOTE_PREFIX}the same-direction {text} share a regime this game favors, so their link is firmer than the rule table alone says.")
+
     leg_summaries = [
         {
             "index": index,
@@ -1987,7 +2171,7 @@ def evaluate_parlay_legs(
     if reprice_caveat:
         summary += " The price is the product of the leg prices; a sportsbook would likely quote less for these correlated legs."
 
-    return {
+    result = {
         "num_legs": n,
         "legs": leg_summaries,
         "labels": labels,
@@ -2025,6 +2209,60 @@ def evaluate_parlay_legs(
         "risk_factors": factors,
         "warnings": warnings,
     }
+    if pack is not None:
+        result["pack"] = pack
+    return result
+
+
+def rank_parlay_opportunities(
+    candidate_leg_sets: Sequence[Sequence[Mapping[str, Any]]],
+    *,
+    pack_signals: Mapping[str, Any] | None,
+    stake: float = 100.0,
+) -> list[dict[str, Any]]:
+    """Evaluate each candidate parlay with the upgrade pack and rank them (the brief's "rank parlay opportunities").
+
+    Each candidate is a list of legs (see :func:`make_parlay_leg`). A candidate that cannot be priced (fewer than
+    two legs, a contradiction the validator rejects) is dropped quietly. Returns
+    :func:`modules.parlay_correlation.rank_parlays`' rows (rank, score, flags, reasons, lift, alignment,
+    fragility, adjusted probability, EV, ...) each with the full ``evaluation`` of that parlay and
+    ``candidate`` (the index into ``candidate_leg_sets``), best first. Ranking is by the pack's strength score,
+    then expected value, then hit probability, and is stable; a flag is a screening label, not an edge.
+    """
+    from modules import parlay_correlation
+
+    evaluations: dict[int, dict[str, Any]] = {}
+    kept: list[tuple[int, list[Mapping[str, Any]]]] = []
+    for index, legs in enumerate(candidate_leg_sets):
+        try:
+            evaluations[index] = evaluate_parlay_legs(list(legs), stake=stake, pack_signals=pack_signals or {})
+        except ValueError:
+            continue
+        kept.append((index, list(legs)))
+    if not kept:
+        return []
+    by_legs = {id(legs): evaluations[index] for index, legs in kept}
+
+    def evaluator(legs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        found = by_legs[id(legs)] if id(legs) in by_legs else evaluate_parlay_legs(list(legs), stake=stake, pack_signals=pack_signals or {})
+        return {
+            "adjusted_probability": found["adjusted_probability"],
+            "naive_probability": found["naive_probability"],
+            "ev_adjusted": found["ev_adjusted"],
+        }
+
+    ranked = parlay_correlation.rank_parlays([legs for _, legs in kept], pack_signals or {}, evaluator=evaluator)
+    out: list[dict[str, Any]] = []
+    for row in ranked:
+        position = row.get("index")
+        if not isinstance(position, int) or not (0 <= position < len(kept)):
+            continue
+        original_index, _ = kept[position]
+        merged = dict(row)
+        merged["candidate"] = original_index
+        merged["evaluation"] = evaluations[original_index]
+        out.append(merged)
+    return out
 
 
 __all__ = [
@@ -2039,6 +2277,7 @@ __all__ = [
     "MAX_PARLAY_LEGS",
     "MAX_PROP_LINE",
     "MAX_STAKE",
+    "PACK_TRAP_RISK_POINTS",
     "bivariate_normal_cdf",
     "can_add_leg",
     "correlation_matrix",
@@ -2051,4 +2290,5 @@ __all__ = [
     "make_parlay_leg",
     "nearest_correlation_matrix",
     "pairwise_findings",
+    "rank_parlay_opportunities",
 ]

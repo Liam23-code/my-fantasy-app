@@ -26,9 +26,30 @@ from fantasy import player_status
 from streamlit.testing.v1 import AppTest
 
 from app.style import SIGNAL_GOLD
+from modules import nfl_matchup_features as nmf
+from modules import nfl_moneyline_analysis as nma
 from modules import nfl_prop_analysis as npa
 
 PAGE = str(Path(_PROJECT_ROOT) / "app" / "pages" / "playerprops.py")
+
+
+_PACK_PATCHES: list = []
+
+
+def setUpModule():
+    """The page's matchup upgrade pack is ON by default and its helpers do I/O (the schedule lookup that picks a
+    default opponent, and the feature-context builder). These tests pin the BASE model and must not reach the
+    network, so both are made unavailable: the page then runs exactly as it did before the pack existed.
+    ``test_nfl_props_pack_page.py`` covers the pack path with its own fixtures."""
+    for target, name in ((nma, "load_schedule"), (nmf, "build_game_context")):
+        patcher = mock.patch.object(target, name, side_effect=RuntimeError("pack disabled for base-model tests"))
+        patcher.start()
+        _PACK_PATCHES.append(patcher)
+
+
+def tearDownModule():
+    while _PACK_PATCHES:
+        _PACK_PATCHES.pop().stop()
 
 # A printed non-finite number or a Python ``None`` leaking into a label. Whole words only:
 # the disclaimer says "financial", which contains "nan".
@@ -266,7 +287,7 @@ class PlayerPropsPageCase(unittest.TestCase):
 class RenderTests(PlayerPropsPageCase):
     def test_renders_with_the_fixture_pool_and_no_exceptions(self):
         app = self.run_page()
-        self.assertEqual([s.key for s in app.selectbox], ["pp_team", "pp_player", "pp_category"])
+        self.assertEqual([s.key for s in app.selectbox], ["pp_team", "pp_player", "pp_category", "pp_opponent"])
         for key in ("pp_line", "pp_over_price", "pp_under_price"):
             app.text_input(key=key)
         app.number_input(key="pp_stake")

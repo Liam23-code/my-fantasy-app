@@ -1,5 +1,7 @@
 # NFL betting pages: MoneyLines, Player Props, Parlays
 
+> **Upgrade pack.** All three pages also take the NFL model upgrade pack (collapse, explosion, coverage mismatch, red-zone funnel, game script, parlay correlation) behind a toggle that defaults on; see [docs/nfl_model_upgrade_pack.md](docs/nfl_model_upgrade_pack.md).
+
 Three Streamlit pages that price an NFL market against a sportsbook number the user pastes, in the Midnight Circuit theme. They sit first in the **Betting** nav group (top rail "Betting" and the Home card both land on MoneyLines) and sit *beside* the older pages (`30_NFL_Betting.py` and friends), not instead of them. Nothing here fetches a sportsbook and nothing places a bet. See [ui_betting_tabs.md](ui_betting_tabs.md) for the older per-sport pages and [betting_engine.md](betting_engine.md) for the `fantasy_engine/betting` math these pages call.
 
 ## Where things live

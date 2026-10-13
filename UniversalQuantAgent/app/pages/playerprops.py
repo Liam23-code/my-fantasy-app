@@ -41,6 +41,8 @@ from app.style import (
     SOFT_WHITE,
     apply_gold_glow_theme,
 )
+from modules import nfl_matchup_features as nmf
+from modules import nfl_moneyline_analysis as nma
 from modules import nfl_prop_analysis as npa
 from modules.odds_input import (
     SLIGHT_VALUE_GAP,
@@ -164,6 +166,47 @@ def _load_pool() -> list[dict]:
             return list(_cached_pool())
     except Exception:  # noqa: BLE001 - any loader failure is a calm empty state, never a traceback
         return []
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _upcoming_game(team: str) -> dict | None:
+    """The selected team's game in the schedule's default week: ``{opponent, week, season, is_home, spread, total}``.
+
+    ``spread`` is already in the SPORTSBOOK sign for ``team`` (-7 = this team favored by 7); the schedule's
+    nflverse column is positive when the HOME team is favored. ``None`` when the schedule or the team's game is
+    not available (a bye, an offline run): the page then simply has no default opponent.
+    """
+    try:
+        season = nma.current_season()
+        schedule = nma.load_schedule(season)
+        week = nma.default_week(schedule)
+        for game in nma.games_for_week(schedule, week):
+            home, away = str(game.get("home_team")), str(game.get("away_team"))
+            if team not in (home, away):
+                continue
+            market = game.get("market_spread_home")
+            is_home = team == home
+            spread = None if market is None else (-float(market) if is_home else float(market))
+            return {
+                "opponent": away if is_home else home, "week": int(game["week"]), "season": int(season),
+                "is_home": is_home, "spread": spread, "total": game.get("market_total"),
+            }
+    except Exception:  # noqa: BLE001 - the schedule is only a convenience default
+        return None
+    return None
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _matchup_context(player_id: str, name: str, team: str, position: str, opponent: str, season: int | None,
+                     week: int | None, is_home: bool | None, spread: float | None, total: float | None) -> dict | None:
+    """The upgrade pack's feature context for one player against one opponent (``None`` when it cannot be built)."""
+    try:
+        return nmf.build_game_context(
+            team, opponent, season=season, week=week, is_home=is_home, vegas_spread=spread, vegas_total=total,
+            player={"player_id": player_id, "name": name, "team": team, "position": position},
+        )
+    except Exception:  # noqa: BLE001 - the pack is optional; the unadjusted projection is always available
+        return None
 
 
 def _feed_loaded() -> bool:
@@ -376,10 +419,19 @@ def _hero_html(projection: dict) -> str:
         if status == "HEALTHY"
         else "last season's per-game rate, scaled for his availability flag"
     )
-    foot_parts.append(
-        '<span class="pp-foot-k">What this is</span> The model\'s own estimate for a single game: '
-        f"{rate_text}, not adjusted for the opponent, game script or weather."
-    )
+    if projection.get("pack_applied"):
+        before = projection.get("mean_before_pack")
+        before_text = f" ({_stat(before, unit)} {escape(unit)} before the adjustment)" if before is not None else ""
+        foot_parts.append(
+            '<span class="pp-foot-k">What this is</span> The model\'s own estimate for a single game: '
+            f"{rate_text}, adjusted for this opponent by the matchup upgrade pack{before_text}. "
+            "Weather and role changes are not in the number."
+        )
+    else:
+        foot_parts.append(
+            '<span class="pp-foot-k">What this is</span> The model\'s own estimate for a single game: '
+            f"{rate_text}, not adjusted for the opponent, game script or weather."
+        )
     foot = f'<div class="pp-foot">{"<br>".join(foot_parts)}</div>'
 
     return (
@@ -878,6 +930,47 @@ def _qb_width_notice(projection: dict) -> str:
     )
 
 
+def _render_pack_card(projection: dict, *, opponent: str, enabled: bool, context_found: bool) -> None:
+    """What the matchup upgrade pack did to this projection, or one quiet line saying why it did nothing."""
+    if not enabled:
+        return
+    pack = projection.get("pack")
+    if opponent == "Not set":
+        st.caption("Pick an opponent above to adjust this projection for the matchup.")
+        return
+    if not context_found or not pack:
+        st.caption(
+            f"The matchup features for {opponent} could not be loaded, so the projection is the base model's. "
+            "Nothing was adjusted."
+        )
+        return
+    before, after = projection.get("mean_before_pack"), projection.get("mean")
+    with st.expander(
+        "Matchup signals" + (f": {before:.1f} to {after:.1f}" if projection.get("pack_applied") and before and after is not None else ""),
+        expanded=bool(projection.get("pack_applied")),
+        key="pp_pack_card",
+    ):
+        if projection.get("pack_applied"):
+            change = (after / before - 1.0) * 100.0 if before else 0.0
+            st.markdown(f"**Per-game mean {before:.1f} to {after:.1f} ({change:+.1f}%)** against {opponent}; the line below is priced on the adjusted number.")
+            for sentence in pack.get("explanations", []):
+                st.write(sentence)
+            stages = sorted({a.get("stage", "") for a in pack.get("adjustments", []) if a.get("stage")})
+            if stages:
+                st.caption("Stages applied: " + ", ".join(stage.replace("_", " ") for stage in stages) + ".")
+        else:
+            st.write("The matchup is close to league average, so the pack left this projection unchanged.")
+            for sentence in pack.get("explanations", [])[:2]:
+                st.caption(sentence)
+        for warning in pack.get("warnings", [])[:3]:
+            st.caption(f"Note: {warning}")
+        st.caption(
+            "How to read this: the weights are priors, not fitted to results; pass-block and pass-rush win rates and "
+            "coverage grades are proxies or stay neutral where no free feed exists; and the baseline is the player's "
+            "prior-season per-game rate, so the change is a matchup lean rather than a measurement."
+        )
+
+
 def _render_methodology() -> None:
     cv_low, cv_high = getattr(npa, "CV_LOW", None), getattr(npa, "CV_HIGH", None)
     band = f"{cv_low:.2f} to {cv_high:.2f}" if cv_low is not None and cv_high is not None else "a fixed range"
@@ -1050,9 +1143,49 @@ if not _feed_loaded():
         "QUESTIONABLE flags."
     )
 
+# --- 1b. Opponent and the matchup upgrade pack -----------------------------------
+_game = _upcoming_game(team)
+# Any NFL team can be the opponent: it only supplies a DEFENCE, so it need not have a props-eligible player.
+_opponent_options = ["Not set"] + sorted(code for code in nma.NFL_TEAMS if code != team)
+if st.session_state.get("pp_opponent_for") != team or st.session_state.get("pp_opponent") not in _opponent_options:
+    _default_opponent = (_game or {}).get("opponent")
+    st.session_state["pp_opponent"] = _default_opponent if _default_opponent in _opponent_options else "Not set"
+    st.session_state["pp_opponent_for"] = team
+opponent_col, pack_col = st.columns([1.1, 2.5], vertical_alignment="bottom")
+opponent = opponent_col.selectbox(
+    "Opponent",
+    _opponent_options,
+    format_func=lambda code: code if code == "Not set" else npa.team_label(code),
+    key="pp_opponent",
+    help="Defaults to this team's game in the schedule's current week. The upgrade pack needs an opponent.",
+)
+use_pack = pack_col.toggle(
+    "Use the matchup upgrade pack",
+    value=True,
+    key="pp_use_pack",
+    help=(
+        "Adjusts this player's per-game projection for the opponent: pass-rush / protection collapse risk, "
+        "explosion chance, coverage matchup, red-zone funnel and game script. Priors, not a fitted model; "
+        "a league-average matchup is unchanged."
+    ),
+)
+pack_context = None
+if use_pack and opponent != "Not set":
+    _same_game = bool(_game) and _game.get("opponent") == opponent
+    pack_context = _matchup_context(
+        str(player.get("player_id") or ""), str(player.get("name") or ""), team, _position_of(player), opponent,
+        (_game or {}).get("season") if _same_game else None,
+        (_game or {}).get("week") if _same_game else None,
+        (_game or {}).get("is_home") if _same_game else None,
+        (_game or {}).get("spread") if _same_game else None,
+        (_game or {}).get("total") if _same_game else None,
+    )
+# Passed only when there is one, so the engine is called exactly as before whenever the pack is off or unavailable.
+pack_kwargs = {"pack_context": pack_context} if pack_context else {}
+
 # --- 2. The model's projection --------------------------------------------------
 try:
-    projection = npa.project_stat(player, category)
+    projection = npa.project_stat(player, category, **pack_kwargs)
 except ValueError as error:
     bt.render(bt.empty_card_html("No projection for this player", str(error)))
     _finish()
@@ -1077,7 +1210,7 @@ if st.session_state.get("pp_line_ctx") != _line_context or "pp_line" not in st.s
 # The spread and the p10-p90 range do not depend on the line, so the player card reads them from an
 # evaluation at the suggested line. It is only a source of those two numbers: no verdict is drawn from it.
 try:
-    baseline = npa.evaluate_line(player, category, suggested, stake=100.0)
+    baseline = npa.evaluate_line(player, category, suggested, stake=100.0, **pack_kwargs)
 except Exception:  # noqa: BLE001 - the card then simply shows an em dash for the range
     baseline = None
 
@@ -1098,6 +1231,7 @@ if projection["status"] != "HEALTHY":
     )
 bt.render(bt.stat_grid_html(_hero_tiles(projection, baseline), columns=4))
 bt.render(_qb_width_notice(projection))
+_render_pack_card(projection, opponent=opponent, enabled=use_pack, context_found=pack_context is not None)
 
 # --- 3. The sportsbook line, prices and stake -----------------------------------
 section_header("Price the line", "Paste the number from your sportsbook. Prices and stake are optional.")
@@ -1162,7 +1296,7 @@ if line_valid:
     eval_under = checked["under_price"] if checked["under_price"] is not None else npa.DEFAULT_PRICE
     try:
         evaluation = npa.evaluate_line(
-            player, category, checked["line"], eval_over, eval_under, stake=stake, pool=pool
+            player, category, checked["line"], eval_over, eval_under, stake=stake, pool=pool, **pack_kwargs
         )
     except ValueError as error:
         pricing_failed = True

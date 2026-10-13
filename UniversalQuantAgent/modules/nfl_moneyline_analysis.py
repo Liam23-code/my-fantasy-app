@@ -49,10 +49,38 @@ Sign conventions
 * ``edge_*_vs_market`` and ``value_gap`` are probability points: model minus
   market; positive means the model rates the side likelier than the price.
 
+Matchup upgrade pack (opt-in)
+-----------------------------
+:func:`analyze_game` takes an optional ``pack_contexts={"home": ..., "away":
+...}``: for each side the canonical-feature context of THAT team's offence
+against the opposing defence (what :mod:`modules.nfl_matchup_features` builds;
+this module never does I/O for it).  Each side's expected points are then
+multiplied by the NFL upgrade pack's explosion stage, the brief's only
+team-level formula, ``team_points *= (1 + explosion_probability * 0.30)``,
+re-centred on the league explosion rate so a league-average matchup is an exact
+no-op (see ``docs/nfl_model_upgrade_pack.md``).  It is applied at the one seam
+where expected points are final and nothing downstream has been derived from
+them yet (right after :func:`_project`, before the spread, win probability,
+cover probability and fair price), so every number below stays consistent.  It
+is a points stage ONLY: the quarterback is already priced into the points by
+the quarterback adjustment, so the pack's quarterback-collapse stage (a yards /
+touchdown-rate haircut) is deliberately not turned into points as well.
+``pack_contexts=None`` (the default) returns exactly the analysis this module
+has always returned, key for key.
+
+Known asymmetry: the brief gives no collapse coefficient for team points, so
+points move on the explosion signal alone; collapse risk and game-script shares
+are reported in the ``pack`` block for context and never feed a number.
+
 Honest limits (shown to the user, not hidden)
 ---------------------------------------------
 * Only one player is modelled: the quarterback.  Other injuries, depth-chart
   changes, coaching, travel, and motivation are NOT in the numbers.
+* The upgrade pack's weights are priors, not fitted; several of its inputs are
+  proxies or neutral with no free feed, its baseline is the blended points
+  estimate above (which leans on last season early in the year), and part of
+  the same team / quarterback efficiency is already in the ratings and the
+  quarterback adjustment, so treat its few-tenths-of-a-point moves as a lean.
 * EPA ratings are not opponent-adjusted; early in the season they lean on the
   prior year, which misses roster moves.
 * Pace is the clock time between offensive snaps; it ignores game script.
@@ -87,6 +115,7 @@ from betting.cache_utils import ttl_cache
 from betting.moneyline_model import NFL_MARGIN_STDEV, win_probability_from_spread
 from betting.odds_math import fair_price_from_probability, hold as market_hold
 from betting.team_model import project_game
+from modules import explosion_model, nfl_upgrade_pipeline
 from modules.nfl import NFL_TEAMS, _scrimmage_plays, build_team_season_stats, fetch_play_by_play
 from modules.odds_input import evaluate_price, no_vig_probabilities
 
@@ -194,6 +223,15 @@ QB_UNPROVEN_DELTA_EPA: float = 0.12
 #: A passer rating built on fewer career attempts than this is noise (0 for 0-of-3),
 #: so the page shows the replacement-level rating instead and flags it as an estimate.
 QB_MIN_RATING_ATTEMPTS: int = 30
+
+#: The brief's team-level coefficient of the upgrade pack's explosion stage:
+#: ``team_points *= (1 + explosion_probability * PACK_POINTS_COEFFICIENT)``,
+#: re-centred on the league explosion rate (so a league-average matchup is a
+#: no-op).  Re-exported from the model so the page and the tests quote the one
+#: number the pack applies.
+PACK_POINTS_COEFFICIENT: float = explosion_model.TEAM_POINTS_COEFFICIENT
+#: A team is never projected below this many points (the same floor ``_project`` uses).
+_MIN_TEAM_POINTS: float = 3.0
 
 #: Neutral league values used when no data is available at all.
 _DEFAULT_LEAGUE = {
@@ -1512,9 +1550,227 @@ def _confidence(
     return value, label, {"margin": round(margin, 3), "sample": round(sample, 3), "qb": round(qb, 3), "market": round(market, 3)}
 
 
+# --------------------------------------------------------------------------
+# Matchup upgrade pack (opt-in; see the module docstring)
+# --------------------------------------------------------------------------
+
+#: Said (in the ``pack`` block and the page) wherever the adjustment is shown.
+PACK_BASIS: str = (
+    f"Expected points are multiplied by (1 + explosion probability x {PACK_POINTS_COEFFICIENT:g}), the brief's team-level "
+    f"formula, divided by the same expression at the {explosion_model.BASE_RATE:.1%} league explosion rate so a "
+    "league-average matchup is unchanged. Only the explosion signal moves points: the brief gives no collapse "
+    "coefficient for team points, so collapse risk and game-script shares are shown for context and never feed a number. "
+    "The factor weights are priors, not fitted to results; pass-block and pass-rush win rates and coverage grades are "
+    "proxies or stay neutral where no free feed exists; the starting points are this model's blended estimate, which "
+    "leans on last season early in the year; and some of the same team and quarterback efficiency is already in the "
+    "ratings and the quarterback adjustment, so read the change as a matchup lean, not a measurement."
+)
+
+
+def _evidence(results: Mapping[str, Any], name: str) -> bool:
+    """True when the pack model ``name`` saw at least one real input (coverage above zero).
+
+    A model with no evidence returns its league reference, which must not be
+    presented as something the matchup showed.
+    """
+    result = results.get(name)
+    return isinstance(result, Mapping) and (_num(result.get("coverage")) or 0.0) > 0.0
+
+
+def _new_pack_side(points: float) -> dict[str, Any]:
+    return {
+        "provided": False, "has_signal": False, "applied": False,
+        "points_before": round(points, 2), "points_after": round(points, 2), "points_delta": 0.0, "factor": 1.0,
+        "explosion_probability": None, "reference_probability": None, "explosion_vs_reference": None,
+        "explosion_coverage": 0.0,
+        "collapse_probability": None, "collapse_reference": None,
+        "positive_script_prob": None, "negative_script_prob": None, "neutral_script_prob": None,
+        "drivers": [], "explanations": [], "adjustments": [], "guard": [],
+        "context_warnings": [], "warnings": [],
+    }
+
+
+def _pack_side(context: Any, points: float) -> tuple[float, dict[str, Any]]:
+    """Run the pack's points stage on one team's expected points; ``(new_points, report)``.
+
+    Never raises: any failure inside the pack leaves the points unchanged and
+    is reported in ``report["warnings"]``.  The context is never mutated.
+    """
+    report = _new_pack_side(points)
+    if not isinstance(context, Mapping) or not context:
+        return points, report
+    report["provided"] = True
+    try:
+        warned = context.get("warnings")
+        if isinstance(warned, (list, tuple)):
+            report["context_warnings"] = [str(item) for item in warned if str(item).strip()][:8]
+        signals = nfl_upgrade_pipeline.compute_game_signals(context, position="QB")
+        results = signals.get("results") or {}
+        probabilities = signals.get("probabilities") or {}
+        report["has_signal"] = bool(signals.get("has_signal"))
+        if _evidence(results, "qb_collapse"):
+            report["collapse_probability"] = _num(probabilities.get("collapse_probability"))
+            report["collapse_reference"] = _num((results["qb_collapse"].get("references") or {}).get("collapse_probability"))
+        if _evidence(results, "game_script"):
+            for key in ("positive_script_prob", "negative_script_prob", "neutral_script_prob"):
+                report[key] = _num(probabilities.get(key))
+        if not _evidence(results, "explosion"):
+            report["warnings"].append(
+                "no explosion-model inputs were available (team and opposing-defence efficiency), so expected points are unchanged."
+            )
+            return points, report
+        explosion = results["explosion"]
+        probability = _num(explosion.get("explosion_probability"))
+        reference = _num((explosion.get("references") or {}).get("explosion_probability"))
+        report["explosion_probability"] = probability
+        report["reference_probability"] = reference if reference is not None else explosion_model.BASE_RATE
+        report["explosion_coverage"] = _num(explosion.get("coverage")) or 0.0
+        report["drivers"] = [str(item) for item in (explosion.get("drivers") or [])]
+        if probability is not None:
+            report["explosion_vs_reference"] = round(probability - report["reference_probability"], 4)
+        report["explanations"] = nfl_upgrade_pipeline.explain(signals, position="QB")
+
+        outcome = nfl_upgrade_pipeline.apply_upgrade_pack(
+            {"team_points": points}, signals, position="QB", recenter=True, guard=True, propagate_volume=False,
+        )
+        adjusted = _num((outcome.get("line") or {}).get("team_points"))
+        report["adjustments"] = [dict(a) for a in outcome.get("adjustments") or [] if a.get("field") == "team_points"]
+        report["guard"] = [dict(g) for g in outcome.get("guard") or []]
+        report["warnings"].extend(str(w) for w in outcome.get("warnings") or [])
+        if adjusted is None:
+            return points, report
+        after = round(max(_MIN_TEAM_POINTS, adjusted), 2)
+        report["points_after"] = after
+        report["points_delta"] = round(after - report["points_before"], 2)
+        report["factor"] = round(after / report["points_before"], 4) if report["points_before"] else 1.0
+        report["applied"] = after != report["points_before"]
+        return after, report
+    except Exception as error:  # noqa: BLE001 - the pack is optional: a defect in it must never take the analysis down
+        failed = _new_pack_side(points)
+        failed["provided"] = True
+        failed["warnings"].append(f"the upgrade pack could not be applied ({type(error).__name__}); expected points are unchanged.")
+        return points, failed
+
+
+def apply_matchup_pack(
+    projection: Mapping[str, Any], pack_contexts: Mapping[str, Any] | None, *, home: str, away: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Apply the upgrade pack's points stage to a :func:`_project` result; ``(projection, pack)``.
+
+    ``pack_contexts`` is ``{"home": <HOME offence vs the away defence>, "away":
+    <AWAY offence vs the home defence>}``; either side may be missing, ``None``
+    or empty, and that team's points are then untouched.  The input projection
+    is never mutated: when nothing moved the SAME mapping comes back, otherwise
+    a copy with the two expected-points values, ``model_spread_home`` and
+    ``model_total`` recomputed from the adjusted points and ``adjustments``
+    gaining ``pack_spread`` / ``pack_total`` (the pack's own contribution, so the
+    adjustments still reconcile with the model spread and total).
+
+    ``pack`` is the audit block :func:`analyze_game` returns under ``"pack"``:
+    ``applied`` (some expected points moved), ``has_signal`` (some side had
+    usable features), ``home`` / ``away`` (see :func:`_new_pack_side`: the
+    explosion probability and its league reference, collapse probability, script
+    shares, points before / after, the audit rows and the plain-English
+    sentences), the spread and total before / after, ``warnings`` and ``basis``.
+    Model numbers are reported only when that model saw real inputs.
+    """
+    contexts = pack_contexts if isinstance(pack_contexts, Mapping) else {}
+    warnings: list[str] = []
+    if pack_contexts is not None and not isinstance(pack_contexts, Mapping):
+        warnings.append("The upgrade pack needs a mapping of home / away contexts; nothing was applied.")
+    before = {"home": float(projection["home_expected_points"]), "away": float(projection["away_expected_points"])}
+    after: dict[str, float] = {}
+    sides: dict[str, dict[str, Any]] = {}
+    for side, code in (("home", home), ("away", away)):
+        after[side], sides[side] = _pack_side(contexts.get(side), before[side])
+        if contexts and not sides[side]["provided"]:
+            warnings.append(f"No matchup context was available for {code}, so its expected points are unchanged.")
+        warnings.extend(f"{code}: {text}" for text in sides[side]["warnings"])
+    if not any(info["provided"] for info in sides.values()) and not warnings:
+        warnings.append("No matchup features were available, so the upgrade pack left this analysis unchanged.")
+
+    applied = any(info["applied"] for info in sides.values())
+    spread_before, total_before = round(before["home"] - before["away"], 2), round(before["home"] + before["away"], 2)
+    result = projection
+    spread_after, total_after = spread_before, total_before
+    if applied:
+        spread_after = round(after["home"] - after["away"], 2)
+        total_after = round(after["home"] + after["away"], 2)
+        result = dict(projection)
+        result["home_expected_points"], result["away_expected_points"] = after["home"], after["away"]
+        result["model_spread_home"], result["model_total"] = spread_after, total_after
+        adjustments = dict(projection.get("adjustments") or {})
+        adjustments["pack_spread"] = round(spread_after - spread_before, 2)
+        adjustments["pack_total"] = round(total_after - total_before, 2)
+        result["adjustments"] = adjustments
+    pack = {
+        "applied": applied,
+        "has_signal": any(info["has_signal"] for info in sides.values()),
+        "stage": "explosion",
+        "coefficient": PACK_POINTS_COEFFICIENT,
+        "recentered": True,
+        "reference_probability": explosion_model.BASE_RATE,
+        "spread_before": spread_before, "spread_after": spread_after,
+        "total_before": total_before, "total_after": total_after,
+        "home": sides["home"], "away": sides["away"],
+        "warnings": list(dict.fromkeys(warnings)),
+        "basis": PACK_BASIS,
+    }
+    return result, pack
+
+
+def _pack_reasoning(analysis: Mapping[str, Any], pack: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The reasoning items for an APPLIED pack (two, each citing the numbers behind it)."""
+    home, away = analysis["home_team"], analysis["away_team"]
+    favored_team = analysis["favored_team"]
+    parts: list[str] = []
+    for side, off_code, def_code in (("home", home, away), ("away", away, home)):
+        info = pack[side]
+        probability, reference = info.get("explosion_probability"), info.get("reference_probability")
+        if probability is None or reference is None:
+            parts.append(f"{off_code} has no matchup features, so its points are unchanged")
+            continue
+        parts.append(
+            f"{off_code} offense vs {def_code} defense: explosion chance {probability:.1%} against a league average of "
+            f"{reference:.1%}, expected points {info['points_before']:.1f} to {info['points_after']:.1f} "
+            f"({info['points_delta']:+.1f})"
+        )
+    spread_gain = round(pack["spread_after"] - pack["spread_before"], 2)  # points toward the designated home team
+    total_gain = round(pack["total_after"] - pack["total_before"], 2)
+    beneficiary = home if spread_gain >= 0 else away
+    material = abs(spread_gain) >= 0.3
+    spread_text = (
+        f"the spread moves {abs(spread_gain):.1f} points toward {beneficiary}" if abs(spread_gain) >= 0.05 else "the spread is unchanged"
+    )
+    items = [{
+        "title": f"Matchup explosion favors {beneficiary}" if material else "Matchup explosion adjustment is small",
+        "detail": (
+            "; ".join(parts) + f". Net effect: {spread_text} and the total {total_gain:+.1f}, from the formula "
+            f"team points x (1 + explosion chance x {pack['coefficient']:g}) re-centred on the league rate."
+        ),
+        "tone": _tone(beneficiary, favored_team, spread_gain, 0.3), "team": beneficiary if material else None,
+    }]
+    collapse = [
+        f"{code} quarterback collapse risk {info['collapse_probability']:.1%} (league {info['collapse_reference']:.1%})"
+        for code, info in ((home, pack["home"]), (away, pack["away"]))
+        if info.get("collapse_probability") is not None and info.get("collapse_reference") is not None
+    ]
+    items.append({
+        "title": "Collapse risk is context, not a points input",
+        "detail": (
+            "The brief gives no collapse coefficient for team points, so points move on the explosion signal alone. "
+            + (("For context: " + "; ".join(collapse) + ". ") if collapse else "")
+            + "The weights are priors rather than fitted values and some inputs are proxies or neutral, so this is a "
+            "matchup lean."
+        ),
+        "tone": "neutral", "team": None,
+    })
+    return items
+
+
 def analyze_game(
     game: Mapping[str, Any], ratings: Mapping[str, Any] | None, qb_context: Mapping[str, Any] | None, *,
-    user_spread_home: float | None = None,
+    user_spread_home: float | None = None, pack_contexts: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Full moneyline / spread analysis of one game.
 
@@ -1524,6 +1780,17 @@ def analyze_game(
     may be empty/``None`` -- the analysis then runs on league-average inputs
     and says so in ``warnings``.  ``user_spread_home`` is a spread the user
     typed, in the nflverse convention (positive = home favored).
+
+    ``pack_contexts`` (default ``None``) opts in to the NFL upgrade pack's
+    explosion stage: ``{"home": <context of the HOME offence vs the away
+    defence>, "away": <context of the AWAY offence vs the home defence>}``, each
+    a canonical-feature context (see :mod:`modules.nfl_matchup_features`; either
+    may be missing, and that team is then untouched).  Expected points are
+    adjusted before anything is derived from them (see
+    :func:`apply_matchup_pack`), the result gains a ``pack`` block, and the
+    reasoning gains two lines when something moved.  ``None`` leaves the
+    returned analysis identical to what it was before the pack existed -- no
+    ``pack`` key, no extra reasoning, no extra ``adjustments``.
 
     Returned keys (all numbers finite; ``None`` only where a market value does
     not exist):
@@ -1564,6 +1831,11 @@ def analyze_game(
       against that pick (or is a risk to it), "neutral" otherwise; ``team`` is
       the team the factor benefits (``None`` for game-level context).
     * ``warnings`` -- list of strings.
+    * ``pack`` -- only when ``pack_contexts`` was given: ``applied, has_signal, stage,
+      coefficient, recentered, reference_probability, spread_before, spread_after,
+      total_before, total_after, home {...}, away {...}, warnings, basis`` (see
+      :func:`apply_matchup_pack`).  When it moved the points, ``scoring["adjustments"]``
+      also carries ``pack_spread`` and ``pack_total``.
     """
     home = normalize_team(game.get("home_team"))
     away = normalize_team(game.get("away_team"))
@@ -1620,6 +1892,11 @@ def analyze_game(
         qb_home=qb["home"]["adjustment"], qb_away=qb["away"]["adjustment"],
         rest_spread=situation["rest_spread"], weather_total=situation["weather_total"],
     )
+    # The one seam where expected points are final and nothing has been derived from them yet: the spread, win and
+    # cover probabilities, fair prices, confidence and reasoning below all read the (possibly adjusted) projection.
+    pack: dict[str, Any] | None = None
+    if pack_contexts is not None:
+        projection, pack = apply_matchup_pack(projection, pack_contexts, home=home, away=away)
     spread_home = projection["model_spread_home"]
     home_win = win_probability_from_spread(spread_home, stdev=WIN_PROB_STDEV)
     away_win = round(1.0 - home_win, 4)
@@ -1743,7 +2020,9 @@ def analyze_game(
         "context": {k: situation[k] for k in ("home_rest", "away_rest", "rest_diff", "div_game", "neutral_site", "roof", "wind", "temp")},
         "warnings": [],
     }
-    result["reasoning"] = _build_reasoning(result, rows, qb, situation, ratings, market_spread, market_gap)
+    if pack is not None:
+        result["pack"] = pack
+    result["reasoning"] = _build_reasoning(result, rows, qb, situation, ratings, market_spread, market_gap, pack=pack)
     result["warnings"] = list(dict.fromkeys(warnings))
     return result
 
@@ -1758,8 +2037,13 @@ def _tone(team: str | None, favored_team: str, gain: float, threshold: float) ->
 def _build_reasoning(
     analysis: Mapping[str, Any], rows: Mapping[str, Mapping[str, Any]], qb: Mapping[str, Mapping[str, Any]],
     situation: Mapping[str, Any], ratings: Mapping[str, Any], market_spread: float | None, market_gap: float | None,
+    pack: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Why the model leans the way it does: every item cites the numbers behind it."""
+    """Why the model leans the way it does: every item cites the numbers behind it.
+
+    ``pack`` (the upgrade-pack block) adds its two items right after the pace and total item, but only when the
+    pack actually moved expected points; without it the list is exactly what it has always been.
+    """
     home, away = analysis["home_team"], analysis["away_team"]
     h, a = analysis["teams"]["home"], analysis["teams"]["away"]
     favored_team = analysis["favored_team"]
@@ -1831,6 +2115,10 @@ def _build_reasoning(
         ),
         "tone": "neutral", "team": None,
     })
+
+    # 5b. Matchup upgrade pack (only when it moved the points above).
+    if pack and pack.get("applied"):
+        items.extend(_pack_reasoning(analysis, pack))
 
     # 6. Home field + situation.
     home_field = situation["home_field"]
@@ -1989,11 +2277,14 @@ __all__ = [
     "EFFICIENCY_WEIGHT",
     "HOME_FIELD_POINTS",
     "MARGIN_STDEV",
+    "PACK_BASIS",
+    "PACK_POINTS_COEFFICIENT",
     "WIN_PROB_STDEV",
     "PRIOR_CARRYOVER",
     "SCHEDULE_COLUMNS",
     "ScheduleUnavailable",
     "analyze_game",
+    "apply_matchup_pack",
     "blend_ratings",
     "build_qb_context",
     "clear_caches",

@@ -1,0 +1,14 @@
+# Development / test environment: everything in requirements.txt, plus the test and lint tooling.
+#
+#   .\UniversalQuantAgent\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+#
+# Unlike the deployment requirements.txt (which installs ./fantasy_engine as a plain package, the
+# right choice for a fresh Render image), a developer wants the engine EDITABLE so that edits under
+# fantasy_engine/ take effect in the app and the tests immediately. `[dev]` is the engine's own extra
+# (pytest, pytest-cov, httpx, ruff, mypy -- see fantasy_engine/pyproject.toml).
+
+-r UniversalQuantAgent/requirements.txt
+-e ./fantasy_engine[dev]
+
+# imported directly by UniversalQuantAgent/tests/test_betting_ui.py (it also arrives via rich)
+markdown-it-py>=3.0

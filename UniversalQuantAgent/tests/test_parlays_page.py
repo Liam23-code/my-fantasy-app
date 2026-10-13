@@ -32,11 +32,29 @@ from streamlit.testing.v1 import AppTest
 
 from app import betting_ui as bt
 from fantasy import player_status
+from modules import nfl_matchup_features as nmf
 from modules import nfl_moneyline_analysis as ml
 from modules import nfl_parlay_builder as pb
 from modules import nfl_prop_analysis as pa
 
 PAGE = Path(_PROJECT_ROOT) / "app" / "pages" / "parlays.py"
+
+
+_PACK_PATCH = None
+
+
+def setUpModule():
+    """The page's matchup upgrade pack is ON by default and its context builder does I/O. These tests pin the BASE
+    model, so the builder is made to fail: the page then runs exactly as it did before the pack existed.
+    ``test_nfl_parlays_pack_page.py`` covers the pack path."""
+    global _PACK_PATCH
+    _PACK_PATCH = mock.patch.object(nmf, "build_game_context", side_effect=RuntimeError("pack disabled for base-model tests"))
+    _PACK_PATCH.start()
+
+
+def tearDownModule():
+    if _PACK_PATCH is not None:
+        _PACK_PATCH.stop()
 
 TB_DAL = "2026_05_TB_DAL"
 BUF_KC = "2026_05_BUF_KC"
